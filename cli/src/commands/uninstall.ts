@@ -47,6 +47,7 @@ export default class Uninstall extends Command {
     this.log('  • The database and all sessions, agents, and vault documents')
     this.log('  • Docker volumes: agency_postgres_data, agency_redis_data')
     this.log('  • The ~/.agency/ directory (config, credentials, workspaces)')
+    this.log('  ' + chalk.gray('Ollama models (agency_ollama_data) are kept.'))
     this.log('')
 
     const rl = createInterface({ input: process.stdin, output: process.stdout })
@@ -77,17 +78,20 @@ export default class Uninstall extends Command {
       }
     }
 
-    // Docker compose down --volumes
+    // Stop containers, remove postgres + redis volumes, keep ollama models
     if (repoDir) {
       const composeFile = join(repoDir, 'installation', 'docker-compose.yml')
-      this.log(chalk.gray('Removing Docker containers and volumes...'))
-      const result = spawnSync(
-        'docker', ['compose', '-f', composeFile, 'down', '--volumes'],
-        { stdio: 'inherit' },
-      )
-      if (result.status !== 0) {
-        this.warn('Docker cleanup failed. Remove manually: docker compose down --volumes')
+      this.log(chalk.gray('Stopping Docker containers...'))
+      spawnSync('docker', ['compose', '-f', composeFile, 'down'], { stdio: 'inherit' })
+
+      this.log(chalk.gray('Removing database volumes...'))
+      for (const vol of ['agency_postgres_data', 'agency_redis_data']) {
+        const result = spawnSync('docker', ['volume', 'rm', vol], { stdio: 'pipe' })
+        if (result.status !== 0) {
+          this.warn(`Could not remove volume ${vol} — may not exist or already removed.`)
+        }
       }
+      this.log(chalk.gray('  Ollama model data kept (agency_ollama_data).'))
     } else {
       this.warn('repoDir not in config — skipping Docker cleanup. Run manually if needed.')
     }
