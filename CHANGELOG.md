@@ -42,7 +42,7 @@ Initial GitHub release.
 - Model routing — Anthropic, OpenAI, Ollama
 - Vault sync — Markdown → PostgreSQL + pgvector
 - Dashboard — 10 pages (overview, chat, agents, skills, vault, connectors, logs, approvals, audit, settings)
-- Discord + Slack connectors
+- Discord connector
 - Skills + profiles
 - Audit log + human-in-the-loop approvals
 - CLI — install, start, stop, status, doctor, update, uninstall, agents, chat, vault

@@ -39,7 +39,7 @@ Your agents maintain **persistent memory** across all sessions — stored in Pos
 | 🔀 **Model routing** | Route tasks across Anthropic (Claude), OpenAI (GPT), and Ollama simultaneously. Per-tier routing with automatic fallbacks. |
 | ⚡ **Real-time streaming** | WebSocket chat with live token streaming, tool call cards, and full session history. |
 | 🛠️ **Skills & profiles** | Modular agent capabilities and swappable behavior profiles. Attach different toolsets without reconfiguring everything. |
-| 🔌 **Connectors** | Discord and Slack integrations. Talk to your agents from your existing chat apps. |
+| 🔌 **Connectors** | Discord integration. Talk to your agents from your existing chat apps. |
 | 📬 **Redis queues** | Message queuing and pub/sub via Redis for async agent coordination and background tasks. |
 | 🙋 **Human-in-the-loop** | Agents pause and request approval before executing sensitive operations. Full approval queue in the dashboard. |
 | 📋 **Audit log** | Every agent action, tool call, and API request logged with full context. |
@@ -204,7 +204,7 @@ Open at **[http://localhost:2001](http://localhost:2001)**
 | 🤖 Agents | Agent list, profile switcher, workspace management |
 | 🛠️ Skills | View and manage agent skills |
 | 📚 Vault | Knowledge base status, sync controls, graph view |
-| 🔌 Connectors | Discord/Slack integration management |
+| 🔌 Connectors | Discord integration management |
 | 📋 Logs | Filterable service logs with JSON parsing |
 | 🙋 Approvals | Human-in-the-loop approval queue |
 | 🔍 Audit | Full audit log of all agent and API actions |
@@ -235,7 +235,7 @@ Pre-1.0. Core platform is functional. Active development.
 - [x] 🔀 Model routing (Anthropic / OpenAI / Ollama)
 - [x] 📚 Vault sync (Markdown → PostgreSQL + pgvector)
 - [x] 🌐 Dashboard (10 pages)
-- [x] 🔌 Discord + Slack connectors
+- [x] 🔌 Discord connector
 - [x] 🛠️ Skills + profiles
 - [x] 📋 Audit log + approvals
 - [ ] 📡 OpenTelemetry tracing

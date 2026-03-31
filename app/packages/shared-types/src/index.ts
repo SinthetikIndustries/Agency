@@ -91,7 +91,7 @@ export interface AgentWithProfile {
 export interface Session {
   id: string
   agentId: string
-  client: string           // 'cli' | 'dashboard' | 'discord' | 'slack'
+  client: string           // 'cli' | 'dashboard' | 'discord'
   status: SessionStatus
   name?: string
   pinned?: boolean

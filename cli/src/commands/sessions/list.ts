@@ -31,9 +31,9 @@ export default class SessionsList extends Command {
     }),
     client: Flags.string({
       char: 'c',
-      summary: 'Filter by client type (cli, dashboard, discord, slack, scheduled)',
+      summary: 'Filter by client type (cli, dashboard, discord, scheduled)',
       default: 'cli',
-      options: ['cli', 'dashboard', 'discord', 'slack', 'scheduled', 'all'],
+      options: ['cli', 'dashboard', 'discord', 'scheduled', 'all'],
     }),
   }
 

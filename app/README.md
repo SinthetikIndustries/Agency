@@ -113,7 +113,7 @@ agency approvals reject <id>     # reject an action
 
 ```bash
 agency connectors list           # show connector status
-agency connectors enable <name>  # enable a connector (discord, slack)
+agency connectors enable <name>  # enable a connector (discord)
 agency connectors disable <name> # disable a connector
 ```
 
@@ -189,7 +189,7 @@ Dashboard pages:
 - **Agents** — manage agents and switch profiles
 - **Skills** — install and remove skills
 - **Vault** — sync status and document graph
-- **Connectors** — Discord / Slack
+- **Connectors** — Discord
 - **Messaging** — inter-agent message queues
 - **Logs** — live log stream with filtering
 - **Approvals** — review and approve pending actions
