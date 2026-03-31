@@ -21,10 +21,14 @@ export interface DefaultConfigOptions {
   profile: string
   repoDir: string
   userName: string
+  provider: 'anthropic' | 'openai' | 'ollama'
 }
 
 export function buildDefaultConfig(opts: DefaultConfigOptions): Record<string, unknown> {
   const { profile, repoDir, userName } = opts
+  const ollamaProvider = opts.provider === 'ollama'
+  const openaiProvider = opts.provider === 'openai'
+
   return {
     name: userName,
     profile,
@@ -41,15 +45,19 @@ export function buildDefaultConfig(opts: DefaultConfigOptions): Record<string, u
       rateLimit: { max: 100, timeWindow: '1 minute' },
     },
     modelRouter: {
-      defaultModel: 'claude-sonnet-4-6',
-      tiers: { cheap: 'claude-haiku-4-5', strong: 'claude-sonnet-4-6' },
+      defaultModel: ollamaProvider ? 'qwen3:8b' : openaiProvider ? 'gpt-4.1' : 'claude-sonnet-4-6',
+      tiers: ollamaProvider
+        ? { cheap: 'qwen3:8b', strong: 'qwen3:8b' }
+        : openaiProvider
+          ? { cheap: 'gpt-4.1-mini', strong: 'gpt-4.1' }
+          : { cheap: 'claude-haiku-4-5', strong: 'claude-sonnet-4-6' },
       providers: {
-        anthropic: { enabled: true },
-        openai: { enabled: false },
+        anthropic: { enabled: !ollamaProvider && !openaiProvider },
+        openai: { enabled: openaiProvider },
         ollama: { enabled: true, endpoint: `http://localhost:${PORTS.OLLAMA}` },
       },
-      fallback: { cheap: null, strong: 'claude-sonnet-4-6' },
-      embedding: { provider: 'openai', model: 'text-embedding-3-small' },
+      fallback: { cheap: null, strong: ollamaProvider ? 'qwen3:8b' : openaiProvider ? 'gpt-4.1' : 'claude-sonnet-4-6' },
+      embedding: { provider: ollamaProvider ? 'ollama' : openaiProvider ? 'openai' : 'anthropic', model: ollamaProvider ? 'nomic-embed-text' : openaiProvider ? 'text-embedding-3-small' : 'voyage-3' },
     },
     daemons: {
       orchestrator: { enabled: true },
@@ -255,7 +263,8 @@ export default class Install extends Command {
 
       // Write config + credentials (must happen before starting gateway)
       const apiKey = 'agency-key-' + randomUUID()
-      const config = buildDefaultConfig({ profile: 'basic', repoDir, userName })
+      const provider = useOllama ? 'ollama' : useOpenAI ? 'openai' : 'anthropic'
+      const config = buildDefaultConfig({ profile: 'basic', repoDir, userName, provider })
       await writeConfig(config)
       await writeCredentials({
         gateway: { apiKey },
