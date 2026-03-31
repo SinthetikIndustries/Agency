@@ -169,17 +169,21 @@ export default class Install extends Command {
       this.log('AI provider:')
       this.log('  1) Anthropic (Claude) — recommended')
       this.log('  2) OpenAI (GPT)')
-      const providerChoice = await prompt(rl, chalk.cyan('Provider') + chalk.gray(' [1-2, default: 1]: '))
+      this.log('  3) Ollama (local, no API key required)')
+      const providerChoice = await prompt(rl, chalk.cyan('Provider') + chalk.gray(' [1-3, default: 1]: '))
+      const useOllama = providerChoice === '3'
       const useOpenAI = providerChoice === '2'
-      const aiApiKey = await prompt(
-        rl,
-        useOpenAI
-          ? chalk.cyan('OpenAI API key') + chalk.gray(' (sk-...): ')
-          : chalk.cyan('Anthropic API key') + chalk.gray(' (sk-ant-...): '),
-      )
-
-      if (!aiApiKey) {
-        this.error('API key is required.')
+      let aiApiKey = ''
+      if (!useOllama) {
+        aiApiKey = await prompt(
+          rl,
+          useOpenAI
+            ? chalk.cyan('OpenAI API key') + chalk.gray(' (sk-...): ')
+            : chalk.cyan('Anthropic API key') + chalk.gray(' (sk-ant-...): '),
+        )
+        if (!aiApiKey) {
+          this.error('API key is required.')
+        }
       }
 
       // Repo path
@@ -255,9 +259,11 @@ export default class Install extends Command {
       await writeConfig(config)
       await writeCredentials({
         gateway: { apiKey },
-        ...(useOpenAI
-          ? { openai: { apiKey: aiApiKey } }
-          : { anthropic: { apiKey: aiApiKey } }),
+        ...(useOllama
+          ? {}
+          : useOpenAI
+            ? { openai: { apiKey: aiApiKey } }
+            : { anthropic: { apiKey: aiApiKey } }),
         postgres: { url: `postgresql://agency:agency@localhost:${PORTS.POSTGRES}/agency` },
         redis: { url: `redis://localhost:${PORTS.REDIS}` },
       })
