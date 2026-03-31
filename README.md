@@ -116,6 +116,8 @@ graph TB
 ```bash
 git clone https://github.com/SinthetikIndustries/Agency.git
 cd Agency/cli
+npm install
+npm run build
 npm install -g .
 cd ..
 agency install
