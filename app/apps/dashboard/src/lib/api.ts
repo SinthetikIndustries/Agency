@@ -54,17 +54,22 @@ async function request<T>(path: string, options: RequestInit = {}, retry = true)
     if (key && path !== '/auth/login') {
       _reauthing = true
       try {
-        await fetch(`${GATEWAY_URL}/auth/login`, {
+        const reauth = await fetch(`${GATEWAY_URL}/auth/login`, {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ apiKey: key }),
         })
-      } finally {
+        _reauthing = false
+        if (reauth.ok) return request<T>(path, options, false)
+      } catch {
         _reauthing = false
       }
-      return request<T>(path, options, false)
     }
+    // Re-auth failed or no key — clear stored key and redirect to login
+    setWsToken(null)
+    if (typeof window !== 'undefined') window.location.href = '/login'
+    throw new ApiError('Session expired', 401)
   }
 
   if (!res.ok) {
