@@ -66,9 +66,13 @@ async function request<T>(path: string, options: RequestInit = {}, retry = true)
         _reauthing = false
       }
     }
-    // Re-auth failed or no key — clear stored key and redirect to login
-    setWsToken(null)
-    if (typeof window !== 'undefined') window.location.href = '/login'
+    // Re-auth failed or no key — clear stored key and redirect to login (unless already there)
+    if (path !== '/auth/login') {
+      setWsToken(null)
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login'
+      }
+    }
     throw new ApiError('Session expired', 401)
   }
 
