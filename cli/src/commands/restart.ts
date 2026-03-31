@@ -3,7 +3,8 @@
 
 import { Command } from '@oclif/core'
 import chalk from 'chalk'
-import { stopGateway, startGateway, GatewayNotRunningError } from '../lib/process.js'
+import { join } from 'node:path'
+import { stopGateway, startGateway, stopDashboard, startDashboard, GatewayNotRunningError } from '../lib/process.js'
 import { readConfig } from '../lib/config.js'
 
 export default class Restart extends Command {
@@ -30,24 +31,34 @@ export default class Restart extends Command {
     // Read config and start
     const config = await readConfig()
     const gatewayDir = config.gatewayDir as string | undefined
+    const repoDir = config.repoDir as string | undefined
 
     if (!gatewayDir) {
       this.error('Gateway directory is not configured. Run `agency install` first.')
     }
 
-    process.stdout.write(chalk.gray('  Starting'))
+    await stopDashboard()
 
-    const tickInterval = setInterval(() => {
-      process.stdout.write(chalk.gray('.'))
-    }, 500)
-
+    process.stdout.write(chalk.gray('  Starting gateway'))
+    const gatewayTick = setInterval(() => process.stdout.write(chalk.gray('.')), 500)
     try {
       await startGateway(gatewayDir)
     } finally {
-      clearInterval(tickInterval)
+      clearInterval(gatewayTick)
       process.stdout.write('\n')
     }
 
-    this.log(chalk.green('✓') + ' Gateway restarted successfully')
+    if (repoDir) {
+      process.stdout.write(chalk.gray('  Starting dashboard'))
+      const dashTick = setInterval(() => process.stdout.write(chalk.gray('.')), 500)
+      try {
+        await startDashboard(join(repoDir, 'app'))
+      } finally {
+        clearInterval(dashTick)
+        process.stdout.write('\n')
+      }
+    }
+
+    this.log(chalk.green('✓') + ' Agency restarted successfully')
   }
 }

@@ -3,7 +3,7 @@
 
 import { Command } from '@oclif/core'
 import chalk from 'chalk'
-import { stopGateway, GatewayNotRunningError } from '../lib/process.js'
+import { stopGateway, stopDashboard, GatewayNotRunningError } from '../lib/process.js'
 
 export default class Stop extends Command {
   static summary = 'Stop the Agency Gateway'
@@ -15,13 +15,17 @@ export default class Stop extends Command {
 
     try {
       await stopGateway()
-      this.log(chalk.green('✓') + ' Gateway stopped successfully')
+      this.log(chalk.gray('  Gateway stopped'))
     } catch (err) {
       if (err instanceof GatewayNotRunningError) {
-        this.log(chalk.yellow('⚠') + ' Gateway is not running')
+        this.log(chalk.gray('  Gateway was not running'))
       } else {
         throw err
       }
     }
+
+    await stopDashboard()
+    this.log(chalk.gray('  Dashboard stopped'))
+    this.log(chalk.green('✓') + ' Agency stopped')
   }
 }

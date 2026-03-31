@@ -9,6 +9,7 @@ import { readConfig } from './config.js'
 import { PORTS } from './ports.js'
 
 export const pidFile = join(homedir(), '.agency', 'gateway.pid')
+export const dashboardPidFile = join(homedir(), '.agency', 'dashboard.pid')
 
 export class GatewayNotRunningError extends Error {
   constructor(message = 'Gateway is not running') {
@@ -193,6 +194,56 @@ export async function stopGateway(): Promise<void> {
   } catch {
     // ignore if already gone
   }
+}
+
+export async function getDashboardPid(): Promise<number | null> {
+  try {
+    const raw = await readFile(dashboardPidFile, 'utf8')
+    const pid = parseInt(raw.trim(), 10)
+    if (isNaN(pid)) return null
+    if (!isProcessRunning(pid)) {
+      try { await unlink(dashboardPidFile) } catch { /* ignore */ }
+      return null
+    }
+    return pid
+  } catch {
+    return null
+  }
+}
+
+export async function startDashboard(appDir: string): Promise<void> {
+  const child = spawn('pnpm', ['--filter', '@agency/dashboard', 'start'], {
+    cwd: appDir,
+    detached: true,
+    stdio: 'ignore',
+    env: { ...process.env },
+  })
+  child.unref()
+  const pid = child.pid
+  if (pid === undefined) throw new Error('Failed to spawn Dashboard process')
+  await writeFile(dashboardPidFile, String(pid), 'utf8')
+  await pollHealth(`http://127.0.0.1:2001`, 30_000)
+}
+
+export async function stopDashboard(): Promise<void> {
+  let raw: string
+  try {
+    raw = await readFile(dashboardPidFile, 'utf8')
+  } catch {
+    return
+  }
+  const pid = parseInt(raw.trim(), 10)
+  if (isNaN(pid) || !isProcessRunning(pid)) {
+    try { await unlink(dashboardPidFile) } catch { /* ignore */ }
+    return
+  }
+  try { process.kill(pid, 'SIGTERM') } catch { /* ignore */ }
+  const deadline = Date.now() + 10_000
+  while (Date.now() < deadline) {
+    await sleep(300)
+    if (!isProcessRunning(pid)) break
+  }
+  try { await unlink(dashboardPidFile) } catch { /* ignore */ }
 }
 
 export async function getGatewayStatus(): Promise<GatewayStatus> {
