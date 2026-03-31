@@ -7,6 +7,11 @@ import type { NextRequest } from 'next/server'
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Redirect root to dashboard
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
   // Only bypass auth for specific API routes that genuinely need no authentication
   const PUBLIC_API_ROUTES = ['/api/auth/logout']
   if (PUBLIC_API_ROUTES.includes(pathname)) return NextResponse.next()
@@ -25,5 +30,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/api/:path*'],
+  matcher: ['/', '/dashboard/:path*', '/login', '/api/:path*'],
 }
