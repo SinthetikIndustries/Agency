@@ -1,0 +1,14 @@
+{
+  "name": "example-skill",
+  "version": "1.0.0",
+  "description": "Template skill demonstrating all fields. Copy and modify.",
+  "type": "prompt",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "tools": [],
+  "prompts": ["example_prompt"],
+  "workflows": [],
+  "permissions": [],
+  "agents": []
+}

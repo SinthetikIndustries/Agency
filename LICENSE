@@ -1,0 +1,178 @@
+Agency Source License 1.0 (ASL-1.0)
+
+Copyright (c) 2026 Sinthetix, LLC. All rights reserved.
+https://www.sinthetix.com
+
+TERMS AND CONDITIONS
+
+1. Definitions
+
+   "Licensor" means Sinthetix, LLC, a limited liability company established
+   in the Commonwealth of Virginia, United States.
+
+   "Software" means Agency and all associated source code, documentation,
+   configuration, and scripts made available under this license. The Software
+   does not include third-party software that the Software depends on or
+   installs, such as Ollama, PostgreSQL, Redis, Docker, or Node.js. Those
+   components are separate products distributed under their own respective
+   licenses, which are not affected by this license. Sinthetix, LLC makes no
+   claim of ownership over any third-party software and is not selling,
+   licensing, or commercially exploiting any third-party components.
+
+   "You" means the individual or entity agreeing to these terms.
+
+   "Commercial Use" means any use of the Software intended for or resulting
+   in commercial advantage or monetary compensation, including but not limited
+   to: selling the Software or derivative works, offering the Software as a
+   hosted or managed service, embedding the Software in a paid product, or
+   using the Software to provide services to third parties for compensation.
+
+   "Non-Commercial Use" means personal, educational, research, or hobbyist
+   use where no commercial advantage or monetary compensation is involved,
+   directly or indirectly.
+
+   "Contribution" means any code, documentation, or other material submitted
+   to the Licensor for inclusion in the Software.
+
+2. Grant of Rights
+
+   Subject to the terms of this license, the Licensor grants You a
+   worldwide, non-exclusive, non-transferable, royalty-free license to:
+
+   a. Use, copy, and run the Software for Non-Commercial Use only.
+   b. Modify the Software for Non-Commercial Use only.
+   c. Distribute copies of the Software, unmodified or modified, provided
+      that You include this license in full with all copies and that the
+      use remains Non-Commercial.
+
+3. Restrictions
+
+   You may not, without a separate written commercial license from the
+   Licensor:
+
+   a. Use the Software for any Commercial Use.
+   b. Provide the Software, in whole or in part, as a hosted, managed, or
+      cloud service to any third party.
+   c. Sell, sublicense, or otherwise transfer commercial rights to the
+      Software or any derivative work.
+   d. Remove or alter any proprietary notices, license headers, or
+      attributions in the Software.
+
+   All commercial rights are exclusively reserved by the Licensor.
+   To inquire about a commercial license, contact: sales@sinthetix.com
+
+4. Contributions
+
+   By submitting a Contribution to this project, You grant the Licensor
+   a perpetual, irrevocable, worldwide, royalty-free license to use,
+   copy, modify, distribute, and sublicense Your Contribution under any
+   terms, including commercial terms, without restriction or additional
+   compensation to You.
+
+   You represent that You have the right to grant this license and that
+   Your Contribution does not violate the rights of any third party.
+
+5. Third-Party Components
+
+   The Software installs and coordinates third-party software components
+   (including but not limited to Ollama, PostgreSQL, Redis, and Docker) as
+   part of its setup and operation. These components are not part of the
+   Software as defined by this license and remain subject solely to their
+   own respective licenses.
+
+   Sinthetix, LLC is not selling, sublicensing, or commercially exploiting
+   any third-party software. Any commercial license granted by Sinthetix, LLC
+   is solely for the Agency platform itself — the orchestration layer,
+   dashboard, gateway, CLI, and associated Agency source code.
+
+   Users are responsible for reviewing and complying with the licenses of
+   any third-party components they use in conjunction with this Software.
+
+6. No Warranty
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+   NON-INFRINGEMENT. IN NO EVENT SHALL THE LICENSOR BE LIABLE FOR ANY
+   CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+   TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
+   SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+7. Termination
+
+   Your rights under this license terminate automatically if You breach
+   any of its terms. Upon termination, You must cease all use and
+   distribution of the Software and destroy all copies in Your possession.
+
+8. Governing Law
+
+   This license is governed by the laws of the Commonwealth of Virginia,
+   United States, without regard to conflict of law principles.
+
+---
+
+Developed by Sinthetix, LLC — https://www.sinthetix.com
+Commercial licensing inquiries: sales@sinthetix.com
+
+---
+
+THIRD-PARTY ATTRIBUTIONS
+
+This software installs, depends on, or interfaces with the following
+third-party components. Each is the property of its respective owner
+and is distributed under its own license. Sinthetix, LLC makes no
+claim of ownership over any of these components.
+
+  Ollama
+  Copyright (c) Ollama, Inc.
+  License: MIT
+  https://github.com/ollama/ollama
+
+  PostgreSQL
+  Copyright (c) 1996-2025 The PostgreSQL Global Development Group
+  Copyright (c) 1994 The Regents of the University of California
+  License: PostgreSQL License (similar to BSD/MIT)
+  https://www.postgresql.org
+
+  pgvector
+  Copyright (c) Andrew Kane
+  License: MIT
+  https://github.com/pgvector/pgvector
+
+  Redis
+  Copyright (c) Redis Ltd.
+  License: RSALv2 / SSPLv1 (Redis 7.4+)
+  https://redis.io
+
+  Docker
+  Copyright (c) Docker, Inc.
+  License: Apache License 2.0
+  https://www.docker.com
+
+  Node.js
+  Copyright (c) Node.js contributors
+  License: MIT
+  https://nodejs.org
+
+  Next.js
+  Copyright (c) Vercel, Inc.
+  License: MIT
+  https://nextjs.org
+
+  Fastify
+  Copyright (c) Fastify contributors
+  License: MIT
+  https://fastify.dev
+
+  Obsidian (optional, not bundled)
+  Copyright (c) Obsidian, Inc.
+  License: Proprietary (free for personal use)
+  https://obsidian.md
+
+  pnpm
+  Copyright (c) pnpm contributors
+  License: MIT
+  https://pnpm.io
+
+A full list of npm package dependencies and their licenses can be found
+by running: npx license-checker --summary

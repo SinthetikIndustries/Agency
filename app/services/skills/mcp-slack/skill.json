@@ -1,0 +1,21 @@
+{
+  "name": "mcp-slack",
+  "version": "1.0.0",
+  "description": "Slack workspace integration: read channels, send messages, search conversations, and manage threads. Requires SLACK_BOT_TOKEN and SLACK_TEAM_ID.",
+  "type": "tool",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["researcher", "executive"],
+  "tools": [],
+  "prompts": [],
+  "workflows": [],
+  "permissions": ["http:external"],
+  "mcpServer": {
+    "transport": "stdio",
+    "package": "@modelcontextprotocol/server-slack",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-slack"],
+    "requiredEnv": ["SLACK_BOT_TOKEN", "SLACK_TEAM_ID"]
+  }
+}

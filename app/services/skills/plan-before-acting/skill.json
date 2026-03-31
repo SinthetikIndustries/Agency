@@ -1,0 +1,14 @@
+{
+  "name": "plan-before-acting",
+  "version": "1.0.0",
+  "description": "Requires agents to write an explicit plan in scratch.md before implementing anything non-trivial. Prevents rushed implementations and ensures the approach is sound before work begins.",
+  "type": "prompt",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": ["file_write"],
+  "agents": ["developer", "researcher", "analyst"],
+  "tools": [],
+  "prompts": ["planning_guide"],
+  "workflows": [],
+  "permissions": ["filesystem:workspace"]
+}

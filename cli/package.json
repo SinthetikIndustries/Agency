@@ -1,0 +1,41 @@
+{
+  "name": "agencycli",
+  "version": "0.1.1",
+  "description": "The command-line interface for the Agency platform",
+  "type": "module",
+  "bin": {
+    "agencycli": "./bin/run.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "node --import tsx/esm bin/dev.js",
+    "test": "vitest run",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@oclif/core": "^4",
+    "chalk": "^5",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@oclif/test": "^4",
+    "@types/node": "^22",
+    "@types/ws": "^8.5.0",
+    "tsx": "^4",
+    "typescript": "^5",
+    "vitest": "^2"
+  },
+  "oclif": {
+    "bin": "agencycli",
+    "dirname": "agencycli",
+    "topicSeparator": " ",
+    "commands": {
+      "strategy": "pattern",
+      "target": "dist/commands",
+      "glob": {
+        "pattern": "dist/commands/**/*.js",
+        "ignore": []
+      }
+    }
+  }
+}

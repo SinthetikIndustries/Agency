@@ -1,0 +1,14 @@
+{
+  "name": "skill-creator",
+  "version": "1.0.0",
+  "description": "Guides an agent to author new Agency skills from scratch or update existing ones.",
+  "type": "prompt",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "tools": [],
+  "prompts": ["skill_creator"],
+  "workflows": [],
+  "permissions": [],
+  "agents": []
+}

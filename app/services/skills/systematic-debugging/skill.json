@@ -1,0 +1,14 @@
+{
+  "name": "systematic-debugging",
+  "version": "1.0.0",
+  "description": "Enforces root cause investigation before any fix attempt. Prevents random changes and ensures agents diagnose errors methodically through evidence gathering, pattern analysis, and hypothesis testing.",
+  "type": "prompt",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["developer", "researcher"],
+  "tools": [],
+  "prompts": ["debugging_methodology"],
+  "workflows": [],
+  "permissions": []
+}

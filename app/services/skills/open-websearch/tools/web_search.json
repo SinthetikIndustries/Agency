@@ -1,0 +1,12 @@
+{
+  "name": "web_search",
+  "description": "Search the web using multiple search engines simultaneously. No API key required.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "query": { "type": "string", "description": "Search query" },
+      "count": { "type": "number", "description": "Number of results, default 10" }
+    },
+    "required": ["query"]
+  }
+}

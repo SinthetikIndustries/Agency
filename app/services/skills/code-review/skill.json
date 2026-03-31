@@ -1,0 +1,14 @@
+{
+  "name": "code-review",
+  "version": "1.0.0",
+  "description": "Systematic code review methodology for developer agents. Reviews for bugs, logic errors, security issues, and code quality using a confidence-based filtering approach.",
+  "type": "prompt",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["developer"],
+  "tools": [],
+  "prompts": ["code_review"],
+  "workflows": [],
+  "permissions": []
+}

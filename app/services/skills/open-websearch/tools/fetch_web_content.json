@@ -1,0 +1,11 @@
+{
+  "name": "fetch_web_content",
+  "description": "Fetch the full text content of a public web page or document at a URL.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "url": { "type": "string", "description": "Public HTTP/HTTPS URL to fetch" }
+    },
+    "required": ["url"]
+  }
+}

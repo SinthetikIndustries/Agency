@@ -1,0 +1,13 @@
+{
+  "name": "open-websearch",
+  "version": "1.0.0",
+  "description": "Web search and page fetching powered by open-webSearch. Searches Bing, DuckDuckGo, Brave, and others simultaneously with no API key required. Includes a guide on effective web search usage.",
+  "type": "composite",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "prompts": ["web_search_guide"],
+  "tools": [],
+  "requiredTools": ["web_search", "fetch_web_content"],
+  "permissions": ["http:external"],
+  "agents": []
+}

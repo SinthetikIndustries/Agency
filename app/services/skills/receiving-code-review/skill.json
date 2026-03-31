@@ -1,0 +1,14 @@
+{
+  "name": "receiving-code-review",
+  "version": "1.0.0",
+  "description": "Guides agents to handle code review feedback with technical rigor. Requires verification before implementing suggestions and pushback when feedback is technically incorrect.",
+  "type": "prompt",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["developer"],
+  "tools": [],
+  "prompts": ["receiving_code_review"],
+  "workflows": [],
+  "permissions": []
+}

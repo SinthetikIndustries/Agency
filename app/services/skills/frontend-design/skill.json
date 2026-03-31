@@ -1,0 +1,14 @@
+{
+  "name": "frontend-design",
+  "version": "1.0.0",
+  "description": "Creates distinctive, production-grade frontend interfaces with high design quality. Avoids generic AI aesthetics. Use when building web components, pages, or applications.",
+  "type": "prompt",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["developer"],
+  "tools": [],
+  "prompts": ["frontend_design"],
+  "workflows": [],
+  "permissions": []
+}

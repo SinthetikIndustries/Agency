@@ -1,0 +1,26 @@
+{
+  "name": "@agency/shared-worker",
+  "version": "0.2.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@agency/shared-types": "workspace:*",
+    "@agency/config": "workspace:*",
+    "bullmq": "^5.8.0",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

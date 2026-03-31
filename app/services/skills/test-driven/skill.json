@@ -1,0 +1,14 @@
+{
+  "name": "test-driven",
+  "version": "1.0.0",
+  "description": "Enforces Test-Driven Development: write a failing test first, watch it fail, write minimal code to pass, refactor. Prevents production code without test coverage.",
+  "type": "prompt",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["developer"],
+  "tools": [],
+  "prompts": ["tdd_methodology"],
+  "workflows": [],
+  "permissions": []
+}

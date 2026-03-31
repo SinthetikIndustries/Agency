@@ -1,0 +1,20 @@
+{
+  "name": "mcp-fetch",
+  "version": "1.0.0",
+  "description": "Fetch web pages and HTTP resources. Returns clean text content from URLs, handles redirects and common content types.",
+  "type": "tool",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["researcher", "developer"],
+  "tools": [],
+  "prompts": [],
+  "workflows": [],
+  "permissions": ["http:external"],
+  "mcpServer": {
+    "transport": "stdio",
+    "package": "mcp-fetch",
+    "command": "npx",
+    "args": ["-y", "mcp-fetch"]
+  }
+}

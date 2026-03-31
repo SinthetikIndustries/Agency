@@ -1,0 +1,20 @@
+{
+  "name": "mcp-filesystem",
+  "version": "1.0.0",
+  "description": "File system operations within allowed paths: read, write, move, copy, delete files and directories. Powered by @modelcontextprotocol/server-filesystem.",
+  "type": "tool",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["developer", "researcher", "analyst"],
+  "tools": [],
+  "prompts": [],
+  "workflows": [],
+  "permissions": ["filesystem:workspace"],
+  "mcpServer": {
+    "transport": "stdio",
+    "package": "@modelcontextprotocol/server-filesystem",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-filesystem"]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "agency",
+  "version": "0.2.1",
+  "private": true,
+  "description": "Agency platform monorepo",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm --filter @agency/gateway dev",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

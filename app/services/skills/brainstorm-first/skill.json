@@ -1,0 +1,14 @@
+{
+  "name": "brainstorm-first",
+  "version": "1.0.0",
+  "description": "Requires agents to explore intent and consider multiple approaches before implementing. Prevents the first-idea trap and produces better solutions through deliberate design thinking.",
+  "type": "prompt",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": [],
+  "tools": [],
+  "prompts": ["brainstorming_guide"],
+  "workflows": [],
+  "permissions": []
+}

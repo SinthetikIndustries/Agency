@@ -1,0 +1,14 @@
+{
+  "name": "requesting-code-review",
+  "version": "1.0.0",
+  "description": "Guides agents to verify work meets requirements before marking tasks complete or submitting for review. Review early and often to catch issues before they compound.",
+  "type": "prompt",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["developer"],
+  "tools": [],
+  "prompts": ["requesting_code_review"],
+  "workflows": [],
+  "permissions": []
+}

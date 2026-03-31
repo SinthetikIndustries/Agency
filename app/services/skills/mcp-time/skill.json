@@ -1,0 +1,20 @@
+{
+  "name": "mcp-time",
+  "version": "1.0.0",
+  "description": "Get current time and convert between timezones using IANA timezone names.",
+  "type": "tool",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": [],
+  "tools": [],
+  "prompts": [],
+  "workflows": [],
+  "permissions": [],
+  "mcpServer": {
+    "transport": "stdio",
+    "package": "@modelcontextprotocol/server-time",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-time"]
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@agency/tool-registry",
+  "version": "0.2.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agency/shared-types": "workspace:*",
+    "@agency/shared-worker": "workspace:*",
+    "@agency/config": "workspace:*",
+    "@agency/memory": "workspace:*",
+    "@agency/messaging": "workspace:*",
+    "execa": "^9.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}

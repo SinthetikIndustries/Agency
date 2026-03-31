@@ -1,0 +1,21 @@
+{
+  "name": "mcp-sqlite",
+  "version": "1.0.0",
+  "description": "SQLite database access: read and write a local SQLite database file. Useful for structured local data storage without a server.",
+  "type": "tool",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["developer", "analyst"],
+  "tools": [],
+  "prompts": [],
+  "workflows": [],
+  "permissions": ["filesystem:workspace"],
+  "mcpServer": {
+    "transport": "stdio",
+    "package": "@modelcontextprotocol/server-sqlite",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-sqlite", "{SQLITE_DB_PATH}"],
+    "requiredEnv": []
+  }
+}

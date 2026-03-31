@@ -1,0 +1,14 @@
+{
+  "name": "verification-before-completion",
+  "version": "1.0.0",
+  "description": "Requires agents to run verification commands and confirm output before claiming work is done. Prevents false completion claims. Evidence before assertions, always.",
+  "type": "prompt",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["developer", "researcher", "analyst"],
+  "tools": [],
+  "prompts": ["verification_before_completion"],
+  "workflows": [],
+  "permissions": []
+}

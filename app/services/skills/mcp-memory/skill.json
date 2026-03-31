@@ -1,0 +1,20 @@
+{
+  "name": "mcp-memory",
+  "version": "1.0.0",
+  "description": "Persistent key-value memory store using a knowledge graph. Agents can store and retrieve facts, relationships, and observations that persist across sessions. Powered by @modelcontextprotocol/server-memory.",
+  "type": "tool",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": [],
+  "tools": [],
+  "prompts": [],
+  "workflows": [],
+  "permissions": [],
+  "mcpServer": {
+    "transport": "stdio",
+    "package": "@modelcontextprotocol/server-memory",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-memory"]
+  }
+}

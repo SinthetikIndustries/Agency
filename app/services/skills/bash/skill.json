@@ -1,0 +1,13 @@
+{
+  "name": "bash",
+  "version": "2.0.0",
+  "description": "Run shell commands and scripts within the agent workspace. Works with any model provider.",
+  "type": "composite",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "prompts": [],
+  "tools": [],
+  "requiredTools": ["shell_run"],
+  "permissions": ["shell:workspace"],
+  "agents": []
+}

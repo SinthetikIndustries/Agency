@@ -1,0 +1,14 @@
+{
+  "name": "feature-dev",
+  "version": "1.0.0",
+  "description": "Guided feature development: understand the codebase, clarify requirements, design architecture, implement, and review. Prevents jumping straight to implementation without understanding context.",
+  "type": "prompt",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["developer"],
+  "tools": [],
+  "prompts": ["feature_development"],
+  "workflows": [],
+  "permissions": []
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@agency/browser-worker",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@agency/shared-worker": "workspace:*",
+    "@agency/config": "workspace:*",
+    "bullmq": "^5.8.0",
+    "playwright": "^1.44.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

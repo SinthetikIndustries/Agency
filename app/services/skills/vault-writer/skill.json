@@ -1,0 +1,11 @@
+{
+  "name": "vault-writer",
+  "version": "1.0.0",
+  "description": "Teaches agents correct Obsidian vault conventions: wikilink syntax, frontmatter structure, the proposals→canon workflow, and cross-linking strategy. Prevents context bloat and broken graph links.",
+  "requiredTools": ["vault_search", "vault_related", "vault_propose"],
+  "agents": [],
+  "tools": [],
+  "prompts": ["vault_writing_guide"],
+  "workflows": [],
+  "permissions": ["vault:read", "vault:write"]
+}

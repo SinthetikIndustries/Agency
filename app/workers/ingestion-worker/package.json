@@ -1,0 +1,22 @@
+{
+  "name": "@agency/ingestion-worker",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@agency/shared-worker": "workspace:*",
+    "@agency/config": "workspace:*",
+    "bullmq": "^5.8.0",
+    "gray-matter": "^4.0.3",
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.5.0"
+  }
+}

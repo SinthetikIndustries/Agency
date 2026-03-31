@@ -1,0 +1,21 @@
+{
+  "name": "mcp-github",
+  "version": "1.0.0",
+  "description": "GitHub API access: search repositories, read files, manage issues and pull requests, create branches and commits. Requires GITHUB_PERSONAL_ACCESS_TOKEN.",
+  "type": "tool",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["developer"],
+  "tools": [],
+  "prompts": [],
+  "workflows": [],
+  "permissions": ["http:external"],
+  "mcpServer": {
+    "transport": "stdio",
+    "package": "@github/github-mcp-server",
+    "command": "npx",
+    "args": ["-y", "@github/github-mcp-server"],
+    "requiredEnv": ["GITHUB_PERSONAL_ACCESS_TOKEN"]
+  }
+}

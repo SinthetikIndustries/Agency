@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: agency-postgres
+    volumes:
+      - agency_postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-agency}
+      - POSTGRES_USER=${POSTGRES_USER:-agency}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-agency}
+    ports:
+      - "2003:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agency"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: agency-redis
+    volumes:
+      - agency_redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "2004:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama
+    container_name: agency-ollama
+    volumes:
+      - agency_ollama_data:/root/.ollama
+    ports:
+      - "2005:11434"
+    restart: unless-stopped
+
+volumes:
+  agency_postgres_data:
+  agency_redis_data:
+  agency_ollama_data:

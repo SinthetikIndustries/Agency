@@ -1,0 +1,21 @@
+{
+  "name": "mcp-gitlab",
+  "version": "1.0.0",
+  "description": "GitLab API access: search repositories, read files, manage issues and merge requests, create branches and commits. Requires GITLAB_PERSONAL_ACCESS_TOKEN.",
+  "type": "tool",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["developer"],
+  "tools": [],
+  "prompts": [],
+  "workflows": [],
+  "permissions": ["http:external"],
+  "mcpServer": {
+    "transport": "stdio",
+    "package": "@modelcontextprotocol/server-gitlab",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-gitlab"],
+    "requiredEnv": ["GITLAB_PERSONAL_ACCESS_TOKEN"]
+  }
+}

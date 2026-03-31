@@ -1,0 +1,21 @@
+{
+  "name": "mcp-postgres",
+  "version": "1.0.0",
+  "description": "Read-only PostgreSQL query access. Run SELECT queries and inspect schema. Requires POSTGRES_CONNECTION_STRING. Powered by @modelcontextprotocol/server-postgres.",
+  "type": "tool",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["analyst", "developer"],
+  "tools": [],
+  "prompts": [],
+  "workflows": [],
+  "permissions": [],
+  "mcpServer": {
+    "transport": "stdio",
+    "package": "@modelcontextprotocol/server-postgres",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-postgres"],
+    "requiredEnv": ["POSTGRES_CONNECTION_STRING"]
+  }
+}

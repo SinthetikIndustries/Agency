@@ -1,0 +1,14 @@
+{
+  "name": "agent-spawning",
+  "version": "1.0.0",
+  "description": "Guides effective use of Agency's agent_create and messaging tools. Teaches when to spawn sub-agents, how to scope their work, and how to coordinate results through the messaging system.",
+  "type": "prompt",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": ["agent_message_send", "agent_message_check"],
+  "agents": ["developer", "researcher", "executive"],
+  "tools": [],
+  "prompts": ["agent_spawning_guide"],
+  "workflows": [],
+  "permissions": []
+}

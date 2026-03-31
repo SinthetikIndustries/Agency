@@ -1,0 +1,21 @@
+{
+  "name": "mcp-puppeteer",
+  "version": "1.0.0",
+  "description": "Browser automation via Puppeteer: navigate pages, take screenshots, fill forms, click elements, and scrape content from the web.",
+  "type": "tool",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["researcher", "developer"],
+  "tools": [],
+  "prompts": [],
+  "workflows": [],
+  "permissions": ["http:external"],
+  "mcpServer": {
+    "transport": "stdio",
+    "package": "@modelcontextprotocol/server-puppeteer",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+    "requiredEnv": []
+  }
+}

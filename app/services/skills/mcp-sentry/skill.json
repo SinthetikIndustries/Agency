@@ -1,0 +1,21 @@
+{
+  "name": "mcp-sentry",
+  "version": "1.0.0",
+  "description": "Sentry error tracking: retrieve issues, inspect stack traces, and query error events from a Sentry organization. Requires SENTRY_AUTH_TOKEN.",
+  "type": "tool",
+  "anthropicBuiltinType": null,
+  "anthropicBetaHeader": null,
+  "requiredTools": [],
+  "agents": ["developer"],
+  "tools": [],
+  "prompts": [],
+  "workflows": [],
+  "permissions": ["http:external"],
+  "mcpServer": {
+    "transport": "stdio",
+    "package": "@modelcontextprotocol/server-sentry",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-sentry"],
+    "requiredEnv": ["SENTRY_AUTH_TOKEN"]
+  }
+}
