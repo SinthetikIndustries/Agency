@@ -82,6 +82,12 @@ graph TB
     VaultSync --> Postgres
 ```
 
+### Visual Overview
+
+<p align="center">
+  <img src="assets/architecture.png" alt="Agency Architecture" width="600" />
+</p>
+
 ### 📡 Services
 
 | Port | Component | Role |
