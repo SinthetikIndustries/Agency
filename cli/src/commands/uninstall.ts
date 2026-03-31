@@ -9,7 +9,7 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { agencyDir, readConfig } from '../lib/config.js'
-import { stopGateway, GatewayNotRunningError } from '../lib/process.js'
+import { stopGateway, stopDashboard, GatewayNotRunningError } from '../lib/process.js'
 
 async function prompt(rl: ReturnType<typeof createInterface>, question: string): Promise<string> {
   return new Promise((resolve) => {
@@ -65,8 +65,9 @@ export default class Uninstall extends Command {
       rl.close()
     }
 
-    // Stop gateway (best-effort — continue even if stop fails)
-    this.log(chalk.gray('Stopping gateway...'))
+    // Stop services (best-effort — continue even if stop fails)
+    this.log(chalk.gray('Stopping services...'))
+    await stopDashboard().catch(() => { /* ignore */ })
     try {
       await stopGateway()
     } catch (err) {

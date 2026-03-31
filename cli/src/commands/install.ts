@@ -11,7 +11,7 @@ import { homedir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { writeConfig, writeCredentials, agencyDir } from '../lib/config.js'
 import { findRepoRoot } from '../lib/repo.js'
-import { startGateway, stopGateway, GatewayNotRunningError } from '../lib/process.js'
+import { startGateway, stopGateway, startDashboard, GatewayNotRunningError } from '../lib/process.js'
 import { gatewayFetch } from '../lib/gateway.js'
 import { PORTS } from '../lib/ports.js'
 
@@ -278,7 +278,7 @@ export default class Install extends Command {
       })
 
       // Start gateway (runs DB migrations on startup, creates main agent)
-      process.stdout.write(chalk.gray('  Starting gateway for setup... '))
+      process.stdout.write(chalk.gray('  Starting gateway... '))
       const gatewayDir = join(repoDir, 'app', 'apps', 'gateway')
       await startGateway(gatewayDir)
       this.log(chalk.green('done'))
@@ -288,15 +288,6 @@ export default class Install extends Command {
       await seedAgents(agentName)
       this.log(chalk.green('done'))
 
-      // Stop setup gateway
-      process.stdout.write(chalk.gray('  Stopping setup gateway... '))
-      try {
-        await stopGateway()
-      } catch (err) {
-        if (!(err instanceof GatewayNotRunningError)) throw err
-      }
-      this.log(chalk.green('done'))
-
       // Obsidian vault
       const vaultPath = join(homedir(), '.agency', 'vault')
       const obsidianConfigPath = join(homedir(), '.config', 'obsidian', 'obsidian.json')
@@ -304,18 +295,24 @@ export default class Install extends Command {
       await setupObsidianVault(vaultPath, obsidianConfigPath)
       this.log(chalk.green('done'))
 
+      // Start dashboard
+      process.stdout.write(chalk.gray('  Starting dashboard... '))
+      await startDashboard(join(repoDir, 'app'))
+      this.log(chalk.green('done'))
+
       // Print success
       this.log('')
-      this.log(chalk.green('✓') + ' Agency installed successfully!')
+      this.log(chalk.green('✓') + ' Agency is ready!')
       this.log('')
-      this.log(chalk.bold('Next steps:'))
-      this.log('  ' + chalk.cyan('agency start') + chalk.gray('   — start the gateway'))
-      this.log('  ' + chalk.cyan('agency status') + chalk.gray('  — check service health'))
+      this.log(chalk.bold('  Open the dashboard and log in with your API key:'))
       this.log('')
-      this.log(chalk.gray('Gateway:     ') + chalk.cyan(`http://localhost:${PORTS.GATEWAY}`))
-      this.log(chalk.gray('Dashboard:   ') + chalk.cyan(`http://localhost:${PORTS.DASHBOARD}`))
-      this.log(chalk.gray('API key:     ') + chalk.yellow(apiKey))
-      this.log(chalk.gray('Vault:       ') + vaultPath)
+      this.log(chalk.gray('  Dashboard:   ') + chalk.cyan(`http://localhost:${PORTS.DASHBOARD}`))
+      this.log(chalk.gray('  API key:     ') + chalk.yellow(apiKey))
+      this.log(chalk.gray('  Vault:       ') + vaultPath)
+      this.log('')
+      this.log(chalk.gray('  agency stop     — stop all services'))
+      this.log(chalk.gray('  agency start    — start all services'))
+      this.log(chalk.gray('  agency status   — check service health'))
     } finally {
       rl.close()
     }
