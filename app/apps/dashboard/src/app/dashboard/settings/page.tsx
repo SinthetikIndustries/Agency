@@ -352,6 +352,7 @@ const CLI_SECTIONS = [
       { cmd: 'agency stop',             desc: 'Stop all Agency services'                 },
       { cmd: 'agency restart',          desc: 'Restart all Agency services'              },
       { cmd: 'agency status',           desc: 'Show service status and health'           },
+      { cmd: 'agency key',              desc: 'Display the dashboard login API key'      },
       { cmd: 'agency doctor',           desc: 'Diagnose configuration and connectivity'  },
       { cmd: 'agency repair',           desc: 'Re-run failed install steps'              },
       { cmd: 'agency update',           desc: 'Update Agency to the latest version'      },
