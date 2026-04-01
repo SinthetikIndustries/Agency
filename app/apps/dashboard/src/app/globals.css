@@ -839,3 +839,45 @@ body {
 /* Labels */
 .section-label { font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-secondary); }
 .mono { font-family: var(--font-mono); font-size: 14px; }
+
+[data-theme="sinthetix"] {
+  --bg-base:      #060B14;
+  --bg-surface:   #0a1221;
+  --bg-elevated:  #0f1a2e;
+  --bg-overlay:   #14223a;
+  --border:       #1a2d4a;
+  --border-dim:   #0f1a2e;
+  --border-accent: #06D6C830;
+  --text-primary:   #e8f4ff;
+  --text-secondary: #7ab0d4;
+  --text-muted:     #3a5a78;
+  --text-accent:    #06D6C8;
+  --accent:        #06D6C8;
+  --accent-dim:    #06D6C818;
+  --accent-glow:   #06D6C840;
+  --green:   #22c55e;
+  --red:     #ef4444;
+  --amber:   #f59e0b;
+  --blue:    #2563EB;
+}
+
+[data-theme="sinthetix"] {
+  --bg-base:      #060B14;
+  --bg-surface:   #0a1221;
+  --bg-elevated:  #0f1a2e;
+  --bg-overlay:   #14223a;
+  --border:       #1a2d4a;
+  --border-dim:   #0f1a2e;
+  --border-accent: #06D6C830;
+  --text-primary:   #e8f4ff;
+  --text-secondary: #7ab0d4;
+  --text-muted:     #3a5a78;
+  --text-accent:    #06D6C8;
+  --accent:        #06D6C8;
+  --accent-dim:    #06D6C818;
+  --accent-glow:   #06D6C840;
+  --green:   #22c55e;
+  --red:     #ef4444;
+  --amber:   #f59e0b;
+  --blue:    #2563EB;
+}

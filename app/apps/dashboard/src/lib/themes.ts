@@ -19,6 +19,7 @@ export type ThemeKey =
   | 'gruvbox-dark' | 'gruvbox-light'
   | 'dracula'
   | 'nord'
+  | 'sinthetix'
 
 export interface ThemeMeta {
   key: ThemeKey
@@ -79,6 +80,8 @@ export const THEMES: ThemeMeta[] = [
   { key: 'dracula',       label: 'Dracula',     group: 'Dracula',      mode: 'dark',  preview: { bg: '#282a36', surface: '#21222c', accent: '#bd93f9' } },
   // Nord
   { key: 'nord',          label: 'Nord',        group: 'Nord',         mode: 'dark',  preview: { bg: '#2e3440', surface: '#3b4252', accent: '#88c0d0' } },
+  // Sinthetix
+  { key: 'sinthetix',     label: 'Sinthetix',   group: 'Sinthetix',    mode: 'dark',  preview: { bg: '#060B14', surface: '#0a1221', accent: '#06D6C8' } },
 ]
 
 export const DEFAULT_THEME: ThemeKey = 'dark'
@@ -97,6 +100,7 @@ const FLIP_MAP: Partial<Record<ThemeKey, ThemeKey>> = {
   'catppuccin-latte': 'catppuccin-mocha',
   'dracula':          'dracula',
   'nord':             'nord',
+  'sinthetix':        'sinthetix',
 }
 
 /** Return the opposite-mode variant of the current theme key */

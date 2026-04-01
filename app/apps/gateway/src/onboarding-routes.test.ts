@@ -23,7 +23,7 @@ const VALID_BODY = {
   goals: 'Build things faster with AI',
 }
 
-async function buildApp(createSessionFn: () => Promise<{ id: string }> = async () => ({ id: 'sess-123' })) {
+async function buildApp() {
   const app = Fastify()
   app.addHook('preHandler', (req: any, _reply, done) => {
     req.user = { id: 'test' }
@@ -34,7 +34,7 @@ async function buildApp(createSessionFn: () => Promise<{ id: string }> = async (
     '/tmp/test-agency-onboard/config.json',
     JSON.stringify({ firstRun: true })
   )
-  registerOnboardingRoutes(app, { createSession: createSessionFn })
+  registerOnboardingRoutes(app)
   return app
 }
 
@@ -43,7 +43,7 @@ describe('POST /onboarding', () => {
     const app = await buildApp()
     const res = await app.inject({ method: 'POST', url: '/onboarding', payload: VALID_BODY })
     expect(res.statusCode).toBe(200)
-    expect(res.json()).toMatchObject({ ok: true, sessionId: 'sess-123' })
+    expect(res.json()).toMatchObject({ ok: true })
   })
 
   it('writes name and sets firstRun=false in config', async () => {

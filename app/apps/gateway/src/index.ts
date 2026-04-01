@@ -717,14 +717,7 @@ export async function createGateway(): Promise<void> {
   registerMeRoutes(app)
 
   // Onboarding route
-  registerOnboardingRoutes(app, {
-    createSession: async (agentSlug: string, source: string) => {
-      const agent = orchestrator.getAgent(agentSlug)
-      if (!agent) throw new Error(`Agent not found: ${agentSlug}`)
-      const session = await createSession(db, agent.identity.id, source)
-      return { id: session.id }
-    }
-  })
+  registerOnboardingRoutes(app)
 
   // Routing profiles routes
   registerRoutingProfileRoutes(app, db, routingProfilesMap)

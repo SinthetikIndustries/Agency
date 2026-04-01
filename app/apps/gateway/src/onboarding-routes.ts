@@ -12,12 +12,9 @@ const AUTONOMY_MAP: Record<string, string> = {
   autonomous: 'none',
 }
 
-interface OnboardingServices {
-  createSession: (agentSlug: string, source: string) => Promise<{ id: string }>
-}
-
 interface OnboardingBody {
   name: string
+  nickname?: string
   sex: string
   timezone: string
   country: string
@@ -28,7 +25,7 @@ interface OnboardingBody {
   goals: string
 }
 
-export function registerOnboardingRoutes(app: FastifyInstance, services: OnboardingServices) {
+export function registerOnboardingRoutes(app: FastifyInstance) {
   const VALID_AUTONOMY = ['supervised', 'balanced', 'autonomous']
 
   app.post<{ Body: OnboardingBody }>('/onboarding', {
@@ -38,6 +35,7 @@ export function registerOnboardingRoutes(app: FastifyInstance, services: Onboard
         required: ['name', 'sex', 'timezone', 'country', 'state', 'city', 'role', 'autonomy', 'goals'],
         properties: {
           name:     { type: 'string' },
+          nickname: { type: 'string' },
           sex:      { type: 'string' },
           timezone: { type: 'string' },
           country:  { type: 'string' },
@@ -50,7 +48,7 @@ export function registerOnboardingRoutes(app: FastifyInstance, services: Onboard
       }
     }
   }, async (request, reply) => {
-    const { name, sex, timezone, country, state, city, role, autonomy, goals } = request.body
+    const { name, nickname, sex, timezone, country, state, city, role, autonomy, goals } = request.body
 
     if (!name?.trim()) {
       return reply.status(400).send({ error: 'name is required' })
@@ -68,7 +66,7 @@ export function registerOnboardingRoutes(app: FastifyInstance, services: Onboard
 
     config.name = name.trim()
     config.firstRun = false
-    config.onboarding = { sex, timezone, country, state, city, role, autonomy, goals }
+    config.onboarding = { nickname: nickname?.trim() ?? '', sex, timezone, country, state, city, role, autonomy, goals }
 
     // Map autonomy to approvalMode on main agent config if present
     const approvalMode = AUTONOMY_MAP[autonomy.toLowerCase()] ?? 'auto'
@@ -79,7 +77,6 @@ export function registerOnboardingRoutes(app: FastifyInstance, services: Onboard
 
     await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf8')
 
-    const session = await services.createSession('main', 'onboarding')
-    return { ok: true, sessionId: session.id }
+    return { ok: true }
   })
 }

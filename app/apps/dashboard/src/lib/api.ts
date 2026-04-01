@@ -668,9 +668,9 @@ export const queue = {
 
 export const onboarding = {
   submit: (body: {
-    name: string; sex: string; timezone: string; country: string
+    name: string; nickname: string; sex: string; timezone: string; country: string
     state: string; city: string; role: string; autonomy: string; goals: string
-  }): Promise<{ ok: boolean; sessionId: string }> =>
+  }): Promise<{ ok: boolean }> =>
     request('/onboarding', { method: 'POST', body: JSON.stringify(body) }),
 }
 

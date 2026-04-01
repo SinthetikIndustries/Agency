@@ -3,8 +3,8 @@
 
 'use client'
 
-import { useState, useMemo } from 'react'
-import { onboarding } from '@/lib/api'
+import { useState, useMemo, useEffect } from 'react'
+import { onboarding, me } from '@/lib/api'
 
 // A minimal list of countries for the dropdown.
 const COUNTRIES = [
@@ -37,7 +37,7 @@ const AUTONOMY_OPTIONS = [
 ]
 
 interface OnboardingFormData {
-  name: string; sex: string; timezone: string
+  name: string; nickname: string; sex: string; timezone: string
   country: string; state: string; city: string
   role: string; autonomy: string; goals: string
 }
@@ -82,16 +82,23 @@ function Select({ value, onChange, children }: { value: string; onChange: (v: st
   )
 }
 
-export function OnboardingFlow({ onComplete }: { onComplete: (sessionId: string) => void }) {
+export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
   const timezoneOptions = useMemo(() => Intl.supportedValuesOf('timeZone'), [])
   const [step, setStep] = useState(0) // 0=welcome, 1-4=form steps
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [data, setData] = useState<OnboardingFormData>({
-    name: '', sex: '', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    name: '', nickname: '', sex: '', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     country: 'US', state: '', city: '',
     role: '', autonomy: 'balanced', goals: '',
   })
+
+  // Pre-fill name from what the CLI install already saved
+  useEffect(() => {
+    me.get().then(res => {
+      if (res.name) setData(d => ({ ...d, name: res.name }))
+    }).catch(() => {})
+  }, [])
 
   function set(field: keyof OnboardingFormData) {
     return (value: string) => setData(prev => ({ ...prev, [field]: value }))
@@ -108,9 +115,9 @@ export function OnboardingFlow({ onComplete }: { onComplete: (sessionId: string)
     setSubmitting(true)
     setError('')
     try {
-      const result = await onboarding.submit(data)
+      await onboarding.submit(data)
       setSubmitting(false)
-      onComplete(result.sessionId)
+      onComplete()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Setup failed. Please try again.')
       setSubmitting(false)
@@ -155,6 +162,10 @@ export function OnboardingFlow({ onComplete }: { onComplete: (sessionId: string)
             <div>
               <Label>Name</Label>
               <Input value={data.name} onChange={set('name')} placeholder="Your name" />
+            </div>
+            <div>
+              <Label>Nickname <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span></Label>
+              <Input value={data.nickname} onChange={set('nickname')} placeholder="What your agent calls you day-to-day" />
             </div>
             <div>
               <Label>Sex</Label>

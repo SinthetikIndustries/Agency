@@ -666,9 +666,9 @@ export function ChatPanel() {
   if (meData && !meData.onboarded) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <OnboardingFlow onComplete={(sid) => {
-          void resumeSession(sid)
+        <OnboardingFlow onComplete={() => {
           me.get().then(setMeData).catch(() => {})
+          window.dispatchEvent(new CustomEvent('agency:new-conversation'))
         }} />
       </div>
     )
