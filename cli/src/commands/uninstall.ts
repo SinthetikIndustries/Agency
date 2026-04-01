@@ -5,7 +5,7 @@ import { Command } from '@oclif/core'
 import chalk from 'chalk'
 import { rm, readFile, writeFile, access } from 'node:fs/promises'
 import { createInterface } from 'node:readline'
-import { join } from 'node:path'
+import { join, basename } from 'node:path'
 import { homedir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { agencyDir, readConfig } from '../lib/config.js'
@@ -80,18 +80,21 @@ export default class Uninstall extends Command {
 
     // Stop containers, remove postgres + redis volumes, keep ollama models
     if (repoDir) {
-      const composeFile = join(repoDir, 'installation', 'docker-compose.yml')
+      const composeDir = join(repoDir, 'installation')
+      const composeFile = join(composeDir, 'docker-compose.yml')
+      // Docker Compose prefixes volume names with the project name (compose directory basename)
+      const projectName = basename(composeDir).toLowerCase()
       this.log(chalk.gray('Stopping Docker containers...'))
       spawnSync('docker', ['compose', '-f', composeFile, 'down'], { stdio: 'inherit' })
 
       this.log(chalk.gray('Removing database volumes...'))
-      for (const vol of ['agency_postgres_data', 'agency_redis_data']) {
+      for (const vol of [`${projectName}_agency_postgres_data`, `${projectName}_agency_redis_data`]) {
         const result = spawnSync('docker', ['volume', 'rm', vol], { stdio: 'pipe' })
         if (result.status !== 0) {
           this.warn(`Could not remove volume ${vol} — may not exist or already removed.`)
         }
       }
-      this.log(chalk.gray('  Ollama model data kept (agency_ollama_data).'))
+      this.log(chalk.gray(`  Ollama model data kept (${projectName}_agency_ollama_data).`))
     } else {
       this.warn('repoDir not in config — skipping Docker cleanup. Run manually if needed.')
     }
