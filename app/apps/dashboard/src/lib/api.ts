@@ -66,11 +66,16 @@ async function request<T>(path: string, options: RequestInit = {}, retry = true)
         _reauthing = false
       }
     }
-    // Re-auth failed or no key — clear stored key and redirect to login (unless already there)
+    // Re-auth failed or no key — clear stored key and hit /api/auth/logout, which
+    // clears the agency_session cookie server-side before redirecting to /login.
+    // Going directly to /login doesn't work: the middleware sees the stale cookie
+    // and immediately bounces back to /dashboard, creating an infinite reload loop.
     if (path !== '/auth/login') {
       setWsToken(null)
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login'
+        void fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+          .then(() => { window.location.href = '/login' })
+          .catch(() => { window.location.href = '/login' })
       }
     }
     throw new ApiError('Session expired', 401)
