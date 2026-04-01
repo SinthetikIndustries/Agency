@@ -157,7 +157,7 @@ export default function LoginPage() {
           fontFamily: 'var(--font-mono)',
           fontSize: '12px',
           letterSpacing: '0.18em',
-          color: 'rgba(255,255,255,0.3)',
+          color: 'rgba(255,255,255,0.5)',
           textTransform: 'uppercase',
         }}>YOUR AUTONOMOUS AI WORKFORCE</p>
 
@@ -210,7 +210,7 @@ export default function LoginPage() {
             fontSize: '12px',
             fontWeight: 600,
             letterSpacing: '0.12em',
-            color: 'rgba(255,255,255,0.4)',
+            color: 'rgba(255,255,255,0.6)',
             textTransform: 'uppercase',
             marginBottom: '8px',
           }}>
@@ -294,11 +294,11 @@ export default function LoginPage() {
             marginTop: '18px',
             fontFamily: 'var(--font-mono)',
             fontSize: '13px',
-            color: 'rgba(255,255,255,0.2)',
+            color: 'rgba(255,255,255,0.4)',
             textAlign: 'center',
             whiteSpace: 'nowrap',
           }}>
-            Run <code style={{ color: 'rgba(6,214,200,0.6)' }}>agency key</code> in your terminal to retrieve your key
+            Run <code style={{ color: 'rgba(6,214,200,0.85)' }}>agency key</code> in your terminal to retrieve your key
           </p>
         </form>
       </div>
@@ -308,7 +308,7 @@ export default function LoginPage() {
           from { transform: rotate(0deg); }
           to   { transform: rotate(360deg); }
         }
-        ::placeholder { color: rgba(255,255,255,0.2) !important; }
+        ::placeholder { color: rgba(255,255,255,0.35) !important; }
       `}</style>
     </div>
   )
