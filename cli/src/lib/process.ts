@@ -153,50 +153,31 @@ export async function stopGateway(): Promise<void> {
     return
   }
 
-  // Node process path
-  let raw: string
+  // Node process path — kill tracked PID
+  let trackedRunning = false
   try {
-    raw = await readFile(pidFile, 'utf8')
-  } catch {
-    throw new GatewayNotRunningError()
-  }
-
-  const pid = parseInt(raw.trim(), 10)
-  if (isNaN(pid)) {
-    throw new GatewayNotRunningError()
-  }
-
-  if (!isProcessRunning(pid)) {
-    // Process already gone, just clean up
-    try {
-      await unlink(pidFile)
-    } catch {
-      // ignore
+    const raw = await readFile(pidFile, 'utf8')
+    const pid = parseInt(raw.trim(), 10)
+    if (!isNaN(pid) && isProcessRunning(pid)) {
+      trackedRunning = true
+      try { process.kill(pid, 'SIGTERM') } catch { /* ignore */ }
+      const deadline = Date.now() + 5_000
+      while (Date.now() < deadline) {
+        await sleep(300)
+        if (!isProcessRunning(pid)) break
+      }
     }
+  } catch { /* pid file missing */ }
+
+  // Also kill any orphaned gateway process on the port
+  const gatewayPort = ((config.gateway ?? {}) as Record<string, unknown>).port as number | undefined ?? PORTS.GATEWAY
+  killOnPort(gatewayPort)
+  await sleep(500)
+
+  try { await unlink(pidFile) } catch { /* ignore */ }
+
+  if (!trackedRunning) {
     throw new GatewayNotRunningError()
-  }
-
-  // Send SIGTERM
-  try {
-    process.kill(pid, 'SIGTERM')
-  } catch {
-    throw new GatewayNotRunningError()
-  }
-
-  // Wait up to 10s for process to exit
-  const deadline = Date.now() + 10_000
-  while (Date.now() < deadline) {
-    await sleep(300)
-    if (!isProcessRunning(pid)) {
-      break
-    }
-  }
-
-  // Clean up PID file
-  try {
-    await unlink(pidFile)
-  } catch {
-    // ignore if already gone
   }
 }
 
