@@ -116,7 +116,7 @@ export default function LoginPage() {
       <div style={{
         position: 'relative', zIndex: 1,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
-        width: '100%', maxWidth: '420px',
+        width: '100%', maxWidth: '520px',
         padding: '0 24px',
       }}>
 
@@ -144,7 +144,7 @@ export default function LoginPage() {
         {/* Wordmark */}
         <h1 style={{
           margin: '0 0 4px',
-          fontSize: '32px',
+          fontSize: '40px',
           fontWeight: 700,
           letterSpacing: '-0.03em',
           background: 'linear-gradient(135deg, #06D6C8 0%, #2563EB 50%, #9333EA 100%)',
@@ -155,7 +155,7 @@ export default function LoginPage() {
         <p style={{
           margin: '0 0 36px',
           fontFamily: 'var(--font-mono)',
-          fontSize: '10px',
+          fontSize: '12px',
           letterSpacing: '0.18em',
           color: 'rgba(255,255,255,0.3)',
           textTransform: 'uppercase',
@@ -207,7 +207,7 @@ export default function LoginPage() {
           <label style={{
             display: 'block',
             fontFamily: 'var(--font-mono)',
-            fontSize: '10px',
+            fontSize: '12px',
             fontWeight: 600,
             letterSpacing: '0.12em',
             color: 'rgba(255,255,255,0.4)',
@@ -230,7 +230,7 @@ export default function LoginPage() {
               border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: '8px',
               color: '#fff',
-              fontSize: '14px',
+              fontSize: '15px',
               fontFamily: 'var(--font-mono)',
               outline: 'none',
               marginBottom: error ? '12px' : '20px',
@@ -274,7 +274,7 @@ export default function LoginPage() {
                 ? 'linear-gradient(135deg, #06D6C8 0%, #2563EB 55%, #9333EA 100%)'
                 : 'rgba(255,255,255,0.07)',
               color: apiKey && !loading ? '#fff' : 'rgba(255,255,255,0.3)',
-              fontSize: '14px',
+              fontSize: '15px',
               fontWeight: 600,
               fontFamily: 'var(--font-sans)',
               cursor: apiKey && !loading ? 'pointer' : 'not-allowed',
@@ -293,9 +293,10 @@ export default function LoginPage() {
           <p style={{
             marginTop: '18px',
             fontFamily: 'var(--font-mono)',
-            fontSize: '11px',
+            fontSize: '13px',
             color: 'rgba(255,255,255,0.2)',
             textAlign: 'center',
+            whiteSpace: 'nowrap',
           }}>
             Run <code style={{ color: 'rgba(6,214,200,0.6)' }}>agency key</code> in your terminal to retrieve your key
           </p>
