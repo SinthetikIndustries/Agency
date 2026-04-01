@@ -178,20 +178,19 @@ export default function LoginPage() {
         )}
 
         {/* ── Login card ─────────────────────────────────────────── */}
+        <div className="card-border-wrapper" style={{ display: loading ? 'none' : 'block', width: '100%' }}>
         <form
           onSubmit={handleSubmit}
+          className="card-inner"
           style={{
-            display: loading ? 'none' : 'flex',
+            display: 'flex',
             flexDirection: 'column',
             width: '100%',
-            /* glass card */
-            background: 'rgba(255,255,255,0.04)',
+            background: 'rgba(6,9,20,0.75)',
             backdropFilter: 'blur(12px)',
-            /* gradient border via box-shadow + border trick */
-            border: '1px solid rgba(6,214,200,0.18)',
             borderRadius: '16px',
             padding: '32px',
-            boxShadow: '0 0 0 1px rgba(147,51,234,0.1), 0 24px 64px rgba(0,0,0,0.5)',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
           }}
         >
           {/* Thin gradient rule at top of card */}
@@ -301,12 +300,41 @@ export default function LoginPage() {
             Run <code style={{ color: 'rgba(6,214,200,0.85)' }}>agency key</code> in your terminal to retrieve your key
           </p>
         </form>
+        </div>
       </div>
 
       <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }
           to   { transform: rotate(360deg); }
+        }
+        @keyframes borderRotate {
+          to { transform: rotate(360deg); }
+        }
+        .card-border-wrapper {
+          position: relative;
+          border-radius: 17px;
+          padding: 1px;
+          overflow: hidden;
+        }
+        .card-border-wrapper::before {
+          content: '';
+          position: absolute;
+          inset: -150%;
+          background: conic-gradient(
+            from 0deg,
+            transparent 0deg,
+            rgba(6,214,200,0.55) 60deg,
+            rgba(37,99,235,0.45) 130deg,
+            rgba(147,51,234,0.55) 200deg,
+            transparent 260deg
+          );
+          animation: borderRotate 8s linear infinite;
+        }
+        .card-inner {
+          position: relative;
+          z-index: 1;
+          border-radius: 16px;
         }
         ::placeholder { color: rgba(255,255,255,0.35) !important; }
       `}</style>
