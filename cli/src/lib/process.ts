@@ -89,6 +89,10 @@ async function startGatewayNode(gatewayDir: string, config: Record<string, unkno
   const host = (gateway.host as string | undefined) ?? '127.0.0.1'
   const port = (gateway.port as number | undefined) ?? PORTS.GATEWAY
 
+  // Kill any stale process on the gateway port before starting
+  killOnPort(port)
+  await sleep(500)
+
   const entryPoint = join(gatewayDir, 'dist', 'index.js')
 
   const child = spawn('node', [entryPoint], {
@@ -212,6 +216,9 @@ export async function getDashboardPid(): Promise<number | null> {
 }
 
 export async function startDashboard(appDir: string): Promise<void> {
+  // Ensure any stale dashboard processes are gone before starting
+  await stopDashboard()
+
   const child = spawn('pnpm', ['--filter', '@agency/dashboard', 'start'], {
     cwd: appDir,
     detached: true,
@@ -222,27 +229,37 @@ export async function startDashboard(appDir: string): Promise<void> {
   const pid = child.pid
   if (pid === undefined) throw new Error('Failed to spawn Dashboard process')
   await writeFile(dashboardPidFile, String(pid), 'utf8')
-  await pollHealth(`http://127.0.0.1:2001`, 30_000)
+  await pollHealth(`http://127.0.0.1:${PORTS.DASHBOARD}`, 30_000)
+}
+
+function killOnPort(port: number): void {
+  // Use fuser to find and kill any process listening on the given TCP port
+  try {
+    spawnSync('fuser', ['-k', '-TERM', `${port}/tcp`], { stdio: 'pipe' })
+  } catch {
+    // fuser not available or no process on port — ignore
+  }
 }
 
 export async function stopDashboard(): Promise<void> {
-  let raw: string
+  // Kill tracked PID (the pnpm wrapper process)
   try {
-    raw = await readFile(dashboardPidFile, 'utf8')
-  } catch {
-    return
-  }
-  const pid = parseInt(raw.trim(), 10)
-  if (isNaN(pid) || !isProcessRunning(pid)) {
-    try { await unlink(dashboardPidFile) } catch { /* ignore */ }
-    return
-  }
-  try { process.kill(pid, 'SIGTERM') } catch { /* ignore */ }
-  const deadline = Date.now() + 10_000
-  while (Date.now() < deadline) {
-    await sleep(300)
-    if (!isProcessRunning(pid)) break
-  }
+    const raw = await readFile(dashboardPidFile, 'utf8')
+    const pid = parseInt(raw.trim(), 10)
+    if (!isNaN(pid) && isProcessRunning(pid)) {
+      try { process.kill(pid, 'SIGTERM') } catch { /* ignore */ }
+      const deadline = Date.now() + 5_000
+      while (Date.now() < deadline) {
+        await sleep(300)
+        if (!isProcessRunning(pid)) break
+      }
+    }
+  } catch { /* pid file missing — fine */ }
+
+  // Also kill anything still listening on the dashboard port (catches orphaned next-server)
+  killOnPort(PORTS.DASHBOARD)
+  await sleep(500)
+
   try { await unlink(dashboardPidFile) } catch { /* ignore */ }
 }
 
