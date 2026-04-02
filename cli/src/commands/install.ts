@@ -45,9 +45,9 @@ export function buildDefaultConfig(opts: DefaultConfigOptions): Record<string, u
       rateLimit: { max: 100, timeWindow: '1 minute' },
     },
     modelRouter: {
-      defaultModel: ollamaProvider ? 'qwen3:8b' : openaiProvider ? 'gpt-4.1' : 'claude-sonnet-4-6',
+      defaultModel: ollamaProvider ? 'qwen3:1.7b' : openaiProvider ? 'gpt-4.1' : 'claude-sonnet-4-6',
       tiers: ollamaProvider
-        ? { cheap: 'qwen3:8b', strong: 'qwen3:8b' }
+        ? { cheap: 'qwen3:1.7b', strong: 'qwen3:1.7b' }
         : openaiProvider
           ? { cheap: 'gpt-4.1-mini', strong: 'gpt-4.1' }
           : { cheap: 'claude-haiku-4-5', strong: 'claude-sonnet-4-6' },
@@ -56,7 +56,7 @@ export function buildDefaultConfig(opts: DefaultConfigOptions): Record<string, u
         openai: { enabled: openaiProvider },
         ollama: { enabled: true, endpoint: `http://localhost:${PORTS.OLLAMA}` },
       },
-      fallback: { cheap: null, strong: ollamaProvider ? 'qwen3:8b' : openaiProvider ? 'gpt-4.1' : 'claude-sonnet-4-6' },
+      fallback: { cheap: null, strong: ollamaProvider ? 'qwen3:1.7b' : openaiProvider ? 'gpt-4.1' : 'claude-sonnet-4-6' },
       embedding: { provider: ollamaProvider ? 'ollama' : openaiProvider ? 'openai' : 'anthropic', model: ollamaProvider ? 'nomic-embed-text' : openaiProvider ? 'text-embedding-3-small' : 'voyage-3' },
     },
     daemons: {
@@ -228,7 +228,7 @@ export default class Install extends Command {
         spawnSync('sleep', ['1'])
       }
       if (!ollamaReady) {
-        this.warn('Ollama daemon did not start in time — run `docker exec agency-ollama ollama pull qwen3:8b` manually after install.')
+        this.warn('Ollama daemon did not start in time — run `docker exec agency-ollama ollama pull qwen3:1.7b` manually after install.')
       } else {
         this.log(chalk.green(' ready'))
         // Check if model already exists before pulling
@@ -237,16 +237,16 @@ export default class Install extends Command {
           { stdio: 'pipe' }
         )
         const modelList = modelCheck.stdout?.toString() ?? ''
-        if (modelList.includes('qwen3:8b')) {
-          this.log(chalk.gray('  Ollama model qwen3:8b already present, skipping download.'))
+        if (modelList.includes('qwen3:1.7b')) {
+          this.log(chalk.gray('  Ollama model qwen3:1.7b already present, skipping download.'))
         } else {
-          this.log(chalk.gray('  Pulling Ollama model qwen3:8b (this may take a few minutes)...'))
+          this.log(chalk.gray('  Pulling Ollama model qwen3:1.7b (this may take a moment)...'))
           const ollamaPullResult = spawnSync(
-            'docker', ['exec', 'agency-ollama', 'ollama', 'pull', 'qwen3:8b'],
+            'docker', ['exec', 'agency-ollama', 'ollama', 'pull', 'qwen3:1.7b'],
             { stdio: 'inherit' }
           )
           if (ollamaPullResult.status !== 0) {
-            this.warn('Ollama model pull failed — run `docker exec agency-ollama ollama pull qwen3:8b` manually after install.')
+            this.warn('Ollama model pull failed — run `docker exec agency-ollama ollama pull qwen3:1.7b` manually after install.')
           } else {
             this.log(chalk.green('  Ollama model ready.'))
           }

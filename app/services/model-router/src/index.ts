@@ -433,6 +433,7 @@ export class OllamaAdapter implements ModelAdapter {
       model: request.model,
       messages: toOllamaMessages(request.messages, request.system),
       stream: false,
+      think: false,
     }
     if (request.maxTokens !== undefined) body['max_tokens'] = request.maxTokens
     if (request.temperature !== undefined) body['temperature'] = request.temperature
@@ -489,6 +490,7 @@ export class OllamaAdapter implements ModelAdapter {
       messages: toOllamaMessages(request.messages, request.system),
       stream: true,
       stream_options: { include_usage: true },
+      think: false,
     }
     if (request.maxTokens !== undefined) body['max_tokens'] = request.maxTokens
     if (request.temperature !== undefined) body['temperature'] = request.temperature

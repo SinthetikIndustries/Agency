@@ -1,10 +1,11 @@
 // Copyright (c) 2026 Sinthetix, LLC. All rights reserved.
 // https://www.sinthetix.com
 
-import { readFile, writeFile, unlink, access } from 'node:fs/promises'
+import { readFile, writeFile, unlink, access, open } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { spawn, spawnSync } from 'node:child_process'
+import { tmpdir } from 'node:os'
 import { readConfig } from './config.js'
 import { PORTS } from './ports.js'
 
@@ -94,12 +95,15 @@ async function startGatewayNode(gatewayDir: string, config: Record<string, unkno
   await sleep(500)
 
   const entryPoint = join(gatewayDir, 'dist', 'index.js')
+  const logPath = join(tmpdir(), 'agency-gateway.log')
+  const logFd = await open(logPath, 'a')
 
   const child = spawn('node', [entryPoint], {
     detached: true,
-    stdio: 'ignore',
+    stdio: ['ignore', logFd.fd, logFd.fd],
     env: { ...process.env },
   })
+  await logFd.close()
 
   child.unref()
 
