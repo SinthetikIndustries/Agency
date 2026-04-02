@@ -179,7 +179,7 @@ Reviewed and approved by you. This is authoritative truth your agent can rely on
 
 1. Agent drafts in \`proposals/\`
 2. You review and approve
-3. Move to the appropriate \`canon/\` subfolder
+3. Move to the appropriate \`canon/\` subfolder and update \`status: canon\`
 
 ## Frontmatter standard
 
@@ -187,12 +187,14 @@ Reviewed and approved by you. This is authoritative truth your agent can rely on
 ---
 title: "Document Title"
 date: YYYY-MM-DD
-type: sop
+type: <person|decision|sop|project|research|reference>
 status: canon
 reviewed-by: ${userName}
 reviewed-at: YYYY-MM-DD
 ---
 \`\`\`
+
+Documents are authoritative once here. If something becomes outdated, set \`status: archived\` rather than deleting. Major revisions should go back through \`proposals/\`.
 `,
 
     'proposals/README.md': `---
@@ -247,6 +249,7 @@ Document starters. Always begin from a template for consistent structure.
 | Template | Use for |
 |----------|---------|
 | \`person.md\` | Person profiles |
+| \`company.md\` | Company and organization profiles |
 | \`decision.md\` | Decision records |
 | \`meeting.md\` | Meeting notes |
 | \`project.md\` | Project tracking |
@@ -254,7 +257,7 @@ Document starters. Always begin from a template for consistent structure.
 | \`research.md\` | Research reports |
 | \`proposal.md\` | General proposals |
 | \`sop.md\` | Standard operating procedures |
-| \`relationship.md\` | Relationship health |
+| \`relationship.md\` | Relationship health tracking |
 `,
   }
 
@@ -262,7 +265,7 @@ Document starters. Always begin from a template for consistent structure.
   const templates: Record<string, string> = {
     'templates/person.md': `---
 title: "{{Full Name}}"
-date: ${today}
+date: {{YYYY-MM-DD}}
 type: person
 status: active
 author: {{agent}}
@@ -283,11 +286,11 @@ related: []
 
 ## Background
 
-Brief background summary.
+Brief background or career summary.
 
-## Relationship
+## How We're Connected
 
-How we connected. What they care about.
+How we met. What our working or personal relationship is.
 
 ## Communication Style
 
@@ -305,9 +308,48 @@ How we connected. What they care about.
 *Last updated by [[{{agent}}]] on {{date}}*
 `,
 
+    'templates/company.md': `---
+title: "{{Company Name}}"
+date: {{YYYY-MM-DD}}
+type: company
+status: active
+author: {{agent}}
+tags: [company]
+related: []
+---
+
+# {{Company Name}}
+
+## Overview
+
+| Field | Value |
+|-------|-------|
+| Industry | |
+| Website | |
+| Size | |
+| Location | |
+
+## What They Do
+
+Brief description.
+
+## Our Relationship
+
+How we interact with this company. Client, vendor, partner, competitor, employer, etc.
+
+## Key Contacts
+
+- [[people/{{name}}]]
+
+## Notes
+
+---
+*Last updated by [[{{agent}}]] on {{date}}*
+`,
+
     'templates/decision.md': `---
 title: "Decision: {{title}}"
-date: ${today}
+date: {{YYYY-MM-DD}}
 type: decision
 status: active
 author: {{agent}}
@@ -340,7 +382,7 @@ _To be updated after implementation._
 
     'templates/meeting.md': `---
 title: "Meeting: {{topic}} — {{YYYY-MM-DD}}"
-date: ${today}
+date: {{YYYY-MM-DD}}
 type: meeting
 status: active
 author: {{agent}}
@@ -375,7 +417,7 @@ related: []
 
     'templates/project.md': `---
 title: "{{Project Name}}"
-date: ${today}
+date: {{YYYY-MM-DD}}
 type: project
 status: active
 author: {{agent}}
@@ -387,7 +429,7 @@ related: []
 
 **Status:** active / paused / complete
 **Started:** {{YYYY-MM-DD}}
-**Target:**
+**Target:** {{YYYY-MM-DD}}
 
 ## Goal
 
@@ -407,7 +449,7 @@ What does success look like?
 
     'templates/learning.md': `---
 title: "Learning: {{title}}"
-date: ${today}
+date: {{YYYY-MM-DD}}
 type: learning
 status: active
 author: {{agent}}
@@ -431,7 +473,7 @@ related: []
 
     'templates/research.md': `---
 title: "Research: {{title}}"
-date: ${today}
+date: {{YYYY-MM-DD}}
 type: research
 status: draft
 author: {{agent}}
@@ -441,9 +483,9 @@ related: []
 
 # {{Title}}
 
-## Question / Goal
+## Research Question
 
-What are we trying to understand?
+What is this research trying to answer?
 
 ## Findings
 
@@ -461,7 +503,7 @@ What are we trying to understand?
 
     'templates/proposal.md': `---
 title: "Proposal: {{title}}"
-date: ${today}
+date: {{YYYY-MM-DD}}
 type: proposal
 status: draft
 author: {{agent}}
@@ -487,7 +529,7 @@ Context that motivates this proposal.
 
 ## Questions for Review
 
-_Specific questions or decisions needed._
+_Specific decisions or approvals needed._
 
 ---
 *Proposed by [[{{agent}}]] on {{date}}*
@@ -495,7 +537,7 @@ _Specific questions or decisions needed._
 
     'templates/sop.md': `---
 title: "SOP: {{Process Name}}"
-date: ${today}
+date: {{YYYY-MM-DD}}
 type: sop
 status: draft
 author: {{agent}}
@@ -506,7 +548,7 @@ related: []
 # {{Process Name}}
 
 **Applies to:**
-**Trigger:** When does this process start?
+**Trigger:** When or why does this process run?
 
 ## Steps
 
@@ -522,7 +564,7 @@ related: []
 
     'templates/relationship.md': `---
 title: "Relationship: {{Name}}"
-date: ${today}
+date: {{YYYY-MM-DD}}
 type: relationship
 status: active
 author: {{agent}}
@@ -534,7 +576,7 @@ related: []
 
 **Type:** colleague / friend / partner / client / vendor
 **Health:** strong / neutral / at-risk
-**Primary contact:** [[people/...]]
+**Contact:** [[people/{{name}}]]
 
 ## Summary
 
