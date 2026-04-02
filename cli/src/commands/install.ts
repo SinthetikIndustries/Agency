@@ -297,20 +297,49 @@ export default class Install extends Command {
       await seedAgents(agentName)
       this.log(chalk.green('done'))
 
-      // Write initial context files for main agent
+      // Write initial context files for all agents
       process.stdout.write(chalk.gray('  Writing agent context... '))
-      const mainConfigDir = join(homedir(), '.agency', 'agents', 'main', 'config')
-      await mkdir(mainConfigDir, { recursive: true })
-      await writeFile(
-        join(mainConfigDir, 'user.md'),
-        `# User\n\nName: ${userName}\n`,
-        'utf8'
-      )
-      await writeFile(
-        join(mainConfigDir, 'identity.md'),
-        `# Identity\n\nYou are ${agentName}, a personal AI agent.\n`,
-        'utf8'
-      )
+      const agentsBaseDir = join(homedir(), '.agency', 'agents')
+
+      const agentDefs = [
+        {
+          slug: 'main',
+          identity: `# Identity\n\nYou are ${agentName}, a personal AI agent.\n`,
+          soul: `# Soul\n\nYou are helpful, direct, and thoughtful. You adapt to the user's needs and communicate clearly without unnecessary filler.\n`,
+          capabilities: `# Capabilities\n\nYou can read and write files, browse the web via HTTP, manage other agents, search the vault, and send messages between agents.\n`,
+        },
+        {
+          slug: 'researcher',
+          identity: `# Identity\n\nYou are Researcher, a specialist agent focused on finding, analyzing, and summarizing information.\n`,
+          soul: `# Soul\n\nYou are thorough, precise, and objective. You dig deep into topics, evaluate sources critically, and present findings clearly.\n`,
+          capabilities: `# Capabilities\n\nYou can search the web via HTTP requests, read files, write research notes to the vault, and summarize complex topics.\n`,
+        },
+        {
+          slug: 'coder',
+          identity: `# Identity\n\nYou are Coder, a specialist agent focused on writing, reviewing, and debugging code.\n`,
+          soul: `# Soul\n\nYou are precise, pragmatic, and detail-oriented. You write clean, efficient code and explain your reasoning clearly.\n`,
+          capabilities: `# Capabilities\n\nYou can read and write files, run shell commands (when permitted), review code, and produce working solutions across languages and frameworks.\n`,
+        },
+        {
+          slug: 'writer',
+          identity: `# Identity\n\nYou are Writer, a specialist agent focused on crafting clear and compelling written content.\n`,
+          soul: `# Soul\n\nYou are creative, adaptable, and clear. You match tone and style to the task — from technical documentation to persuasive copy.\n`,
+          capabilities: `# Capabilities\n\nYou can read and write files, draft and edit documents, and save finished work to the vault.\n`,
+        },
+      ]
+
+      const userCtx = `# User\n\nName: ${userName}\n`
+
+      for (const def of agentDefs) {
+        const configDir = join(agentsBaseDir, def.slug, 'config')
+        await mkdir(configDir, { recursive: true })
+        await writeFile(join(configDir, 'identity.md'), def.identity, 'utf8')
+        await writeFile(join(configDir, 'soul.md'), def.soul, 'utf8')
+        await writeFile(join(configDir, 'user.md'), userCtx, 'utf8')
+        await writeFile(join(configDir, 'capabilities.md'), def.capabilities, 'utf8')
+        await writeFile(join(configDir, 'heartbeat.md'), '', 'utf8')
+        await writeFile(join(configDir, 'scratch.md'), '', 'utf8')
+      }
       this.log(chalk.green('done'))
 
       // Obsidian vault
