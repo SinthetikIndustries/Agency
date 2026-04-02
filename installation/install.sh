@@ -10,7 +10,20 @@ C_RED='\033[0;31m'
 C_CYAN='\033[0;36m'
 
 echo ""
-echo -e "${C_CYAN}Agency — Prerequisites Check${C_RESET}"
+echo -e "${C_CYAN}Agency — Install${C_RESET}"
+echo ""
+
+# ─── Step 0: Clone repo to ~/agency if not already there ─────────────────────
+
+AGENCY_DIR="$HOME/agency"
+
+if [ ! -d "$AGENCY_DIR" ]; then
+  echo -e "  Cloning Agency into ${C_CYAN}~/agency${C_RESET}..."
+  git clone https://github.com/SinthetikIndustries/Agency.git "$AGENCY_DIR"
+  echo ""
+fi
+
+echo -e "${C_CYAN}Prerequisites Check${C_RESET}"
 echo ""
 
 FAILED=0
@@ -66,7 +79,7 @@ fi
 
 echo -e "${C_GREEN}All prerequisites met.${C_RESET} Next steps:"
 echo ""
-echo -e "  cd cli"
+echo -e "  cd ${C_CYAN}~/agency/cli${C_RESET}"
 echo -e "  npm install"
 echo -e "  npm run build"
 echo -e "  npm install -g ."

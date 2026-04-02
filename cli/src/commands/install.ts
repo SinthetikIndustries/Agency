@@ -196,14 +196,12 @@ export default class Install extends Command {
 
       // Repo path
       const detected = await findRepoRoot(process.cwd())
+      const defaultRepoDir = detected ?? join(homedir(), 'agency')
       const repoDirInput = await prompt(
         rl,
-        chalk.cyan('Repo path') + chalk.gray(` [${detected ?? 'enter path'}]: `),
+        chalk.cyan('Repo path') + chalk.gray(` [${defaultRepoDir}]: `),
       )
-      const repoDir = repoDirInput || detected
-      if (!repoDir) {
-        this.error('Repo path required. Run from inside the cloned Agency repo.')
-      }
+      const repoDir = repoDirInput || defaultRepoDir
 
       this.log('')
 
