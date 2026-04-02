@@ -76,14 +76,505 @@ export function buildDefaultConfig(opts: DefaultConfigOptions): Record<string, u
   }
 }
 
+export async function seedVault(vaultPath: string, userName: string): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10)
+
+  // Directory skeleton
+  const dirs = [
+    'brain/people', 'brain/companies', 'brain/relationships',
+    'brain/decisions', 'brain/projects', 'brain/meetings',
+    'brain/learnings', 'brain/context', 'brain/inbox',
+    'canon/personal', 'canon/work', 'canon/projects', 'canon/reference',
+    'proposals/personal', 'proposals/work', 'proposals/projects', 'proposals/reference',
+    'notes', 'templates',
+  ]
+  for (const d of dirs) {
+    await mkdir(join(vaultPath, d), { recursive: true })
+  }
+
+  // README files
+  const readmes: Record<string, string> = {
+    'README.md': `---
+title: Agency Vault
+type: readme
+status: active
+---
+
+# Agency Vault
+
+Your personal knowledge base. Everything that matters lives here.
+
+## Structure
+
+- \`brain/\` — Agent-maintained living knowledge. Written via \`vault_remember\`.
+- \`proposals/\` — Agent drafts awaiting your review. Written via \`vault_propose\`.
+- \`canon/\` — Your approved authoritative knowledge. Promoted from proposals/.
+- \`templates/\` — Document starters for every type.
+- \`notes/\` — Free-form scratch. Synced and searchable.
+
+## Lifecycle
+
+\`\`\`
+brain/ → proposals/ → canon/
+\`\`\`
+
+## Frontmatter Required Fields
+
+Every document must include:
+- \`title:\` — human-readable title
+- \`date:\` — ISO date (YYYY-MM-DD)
+- \`type:\` — document type (person, decision, meeting, project, learning, etc.)
+- \`status:\` — draft | active | archived | canon
+`,
+
+    'brain/README.md': `---
+title: Brain — Agent Working Memory
+type: readme
+status: active
+---
+
+# Brain
+
+Agent-maintained living knowledge. Written and updated in real time as your agent learns, observes, and helps you decide.
+
+## Subdirectories
+
+| Folder | Contents |
+|--------|---------|
+| \`people/\` | People you know — contacts, colleagues, friends |
+| \`companies/\` | Companies and organizations |
+| \`relationships/\` | Relationship health, interaction history, open items |
+| \`decisions/\` | Decisions made with reasoning and outcomes |
+| \`projects/\` | Active projects, status, milestones |
+| \`meetings/\` | Meeting notes and summaries |
+| \`learnings/\` | Insights, patterns, lessons learned |
+| \`context/\` | Stable facts about you — preferences, background, goals |
+| \`inbox/\` | Unprocessed observations. Reviewed and routed regularly. |
+
+## How to write here
+
+Search before creating — update existing docs rather than duplicating.
+`,
+
+    'canon/README.md': `---
+title: Canon — Approved Knowledge
+type: readme
+status: active
+---
+
+# Canon
+
+Reviewed and approved by you. This is authoritative truth your agent can rely on.
+
+## Structure
+
+| Folder | Contents |
+|--------|---------|
+| \`personal/\` | Personal context — values, habits, goals, preferences |
+| \`work/\` | Work-related approved documents |
+| \`projects/\` | Approved project records |
+| \`reference/\` | SOPs, how-tos, reference material |
+
+## How documents get here
+
+1. Agent drafts in \`proposals/\`
+2. You review and approve
+3. Move to the appropriate \`canon/\` subfolder
+
+## Frontmatter standard
+
+\`\`\`yaml
+---
+title: "Document Title"
+date: YYYY-MM-DD
+type: sop
+status: canon
+reviewed-by: ${userName}
+reviewed-at: YYYY-MM-DD
+---
+\`\`\`
+`,
+
+    'proposals/README.md': `---
+title: Proposals — Drafts Awaiting Review
+type: readme
+status: active
+---
+
+# Proposals
+
+Your agent writes drafts here for you to review. The best ones get promoted to \`canon/\`.
+
+## Structure
+
+| Folder | Contents |
+|--------|---------|
+| \`personal/\` | Personal context drafts |
+| \`work/\` | Work-related proposals |
+| \`projects/\` | Project proposals |
+| \`reference/\` | Reference document drafts |
+
+## Lifecycle
+
+\`\`\`
+proposals/ → you review → canon/
+\`\`\`
+`,
+
+    'notes/README.md': `---
+title: Notes — Free-form Scratch
+type: readme
+status: active
+---
+
+# Notes
+
+Free-form scratch space. Rough thinking, quick captures, ideas, links.
+
+When a note evolves into something worth keeping, move it to \`brain/\` or \`proposals/\`.
+`,
+
+    'templates/README.md': `---
+title: Templates
+type: readme
+status: active
+---
+
+# Templates
+
+Document starters. Always begin from a template for consistent structure.
+
+| Template | Use for |
+|----------|---------|
+| \`person.md\` | Person profiles |
+| \`decision.md\` | Decision records |
+| \`meeting.md\` | Meeting notes |
+| \`project.md\` | Project tracking |
+| \`learning.md\` | Insights and lessons |
+| \`research.md\` | Research reports |
+| \`proposal.md\` | General proposals |
+| \`sop.md\` | Standard operating procedures |
+| \`relationship.md\` | Relationship health |
+`,
+  }
+
+  // Template files
+  const templates: Record<string, string> = {
+    'templates/person.md': `---
+title: "{{Full Name}}"
+date: ${today}
+type: person
+status: active
+author: {{agent}}
+tags: [person]
+related: []
+---
+
+# {{Full Name}}
+
+## Identity
+
+| Field | Value |
+|-------|-------|
+| Role | |
+| Company | |
+| Location | |
+| Email | |
+
+## Background
+
+Brief background summary.
+
+## Relationship
+
+How we connected. What they care about.
+
+## Communication Style
+
+- How they prefer to communicate
+- What works well
+- What to avoid
+
+## Key Priorities
+
+-
+
+## Notes
+
+---
+*Last updated by [[{{agent}}]] on {{date}}*
+`,
+
+    'templates/decision.md': `---
+title: "Decision: {{title}}"
+date: ${today}
+type: decision
+status: active
+author: {{agent}}
+tags: [decision]
+related: []
+---
+
+# {{Title}}
+
+## Context
+
+What situation prompted this decision?
+
+## Options Considered
+
+1. **Option A** — pros/cons
+2. **Option B** — pros/cons
+
+## Decision
+
+What was decided and why?
+
+## Outcome
+
+_To be updated after implementation._
+
+---
+*Recorded by [[{{agent}}]] on {{date}}*
+`,
+
+    'templates/meeting.md': `---
+title: "Meeting: {{topic}} — {{YYYY-MM-DD}}"
+date: ${today}
+type: meeting
+status: active
+author: {{agent}}
+tags: [meeting]
+related: []
+---
+
+# {{Topic}}
+
+**Date:** {{YYYY-MM-DD}}
+**Attendees:**
+
+## Agenda
+
+-
+
+## Notes
+
+## Decisions Made
+
+-
+
+## Action Items
+
+| Item | Owner | Due |
+|------|-------|-----|
+| | | |
+
+---
+*Notes by [[{{agent}}]]*
+`,
+
+    'templates/project.md': `---
+title: "{{Project Name}}"
+date: ${today}
+type: project
+status: active
+author: {{agent}}
+tags: [project]
+related: []
+---
+
+# {{Project Name}}
+
+**Status:** active / paused / complete
+**Started:** {{YYYY-MM-DD}}
+**Target:**
+
+## Goal
+
+What does success look like?
+
+## Milestones
+
+| Milestone | Status | Date |
+|-----------|--------|------|
+| | | |
+
+## Notes
+
+---
+*Last updated by [[{{agent}}]] on {{date}}*
+`,
+
+    'templates/learning.md': `---
+title: "Learning: {{title}}"
+date: ${today}
+type: learning
+status: active
+author: {{agent}}
+tags: [learning]
+related: []
+---
+
+# {{Title}}
+
+## What Happened
+
+## What I Learned
+
+## Why It Matters
+
+## How to Apply This
+
+---
+*Recorded by [[{{agent}}]] on {{date}}*
+`,
+
+    'templates/research.md': `---
+title: "Research: {{title}}"
+date: ${today}
+type: research
+status: draft
+author: {{agent}}
+tags: [research]
+related: []
+---
+
+# {{Title}}
+
+## Question / Goal
+
+What are we trying to understand?
+
+## Findings
+
+## Sources
+
+-
+
+## Conclusions
+
+## Recommended Actions
+
+---
+*Research by [[{{agent}}]] on {{date}}*
+`,
+
+    'templates/proposal.md': `---
+title: "Proposal: {{title}}"
+date: ${today}
+type: proposal
+status: draft
+author: {{agent}}
+tags: [proposal]
+related: []
+---
+
+# {{Title}}
+
+## Summary
+
+What is being proposed and why.
+
+## Background
+
+Context that motivates this proposal.
+
+## Proposed Approach
+
+## Expected Outcomes
+
+## Risks & Mitigations
+
+## Questions for Review
+
+_Specific questions or decisions needed._
+
+---
+*Proposed by [[{{agent}}]] on {{date}}*
+`,
+
+    'templates/sop.md': `---
+title: "SOP: {{Process Name}}"
+date: ${today}
+type: sop
+status: draft
+author: {{agent}}
+tags: [sop]
+related: []
+---
+
+# {{Process Name}}
+
+**Applies to:**
+**Trigger:** When does this process start?
+
+## Steps
+
+1.
+2.
+3.
+
+## Notes & Exceptions
+
+---
+*Drafted by [[{{agent}}]] on {{date}}*
+`,
+
+    'templates/relationship.md': `---
+title: "Relationship: {{Name}}"
+date: ${today}
+type: relationship
+status: active
+author: {{agent}}
+tags: [relationship]
+related: []
+---
+
+# {{Name}}
+
+**Type:** colleague / friend / partner / client / vendor
+**Health:** strong / neutral / at-risk
+**Primary contact:** [[people/...]]
+
+## Summary
+
+## Recent Interactions
+
+| Date | Type | Notes |
+|------|------|-------|
+| | | |
+
+## Open Items
+
+-
+
+---
+*Last updated by [[{{agent}}]] on {{date}}*
+`,
+  }
+
+  // Write all README files
+  for (const [relPath, content] of Object.entries(readmes)) {
+    await writeFile(join(vaultPath, relPath), content, 'utf8')
+  }
+
+  // Write templates (only if not already present)
+  for (const [relPath, content] of Object.entries(templates)) {
+    const fullPath = join(vaultPath, relPath)
+    try {
+      await access(fullPath)
+      // already exists — skip
+    } catch {
+      await writeFile(fullPath, content, 'utf8')
+    }
+  }
+}
+
 export async function setupObsidianVault(
   vaultPath: string,
   obsidianConfigPath: string,
 ): Promise<void> {
-  // Create vault directory structure
-  for (const sub of ['canon', 'proposals', 'notes', 'templates']) {
-    await mkdir(join(vaultPath, sub), { recursive: true })
-  }
+  // Directories are already created by seedVault — just register with Obsidian
 
   // Read existing Obsidian config or start fresh
   let obsidianConfig: { vaults: Record<string, { path: string; ts: number; open: boolean }> }
@@ -340,10 +831,11 @@ export default class Install extends Command {
       }
       this.log(chalk.green('done'))
 
-      // Obsidian vault
+      // Vault scaffold + Obsidian registration
       const vaultPath = join(homedir(), '.agency', 'vault')
       const obsidianConfigPath = join(homedir(), '.config', 'obsidian', 'obsidian.json')
-      process.stdout.write(chalk.gray('  Setting up Obsidian vault... '))
+      process.stdout.write(chalk.gray('  Setting up vault... '))
+      await seedVault(vaultPath, userName)
       await setupObsidianVault(vaultPath, obsidianConfigPath)
       this.log(chalk.green('done'))
 
