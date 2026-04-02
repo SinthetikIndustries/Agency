@@ -3,7 +3,8 @@
 
 import { mkdir, readFile, readdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { join, resolve as resolvePath } from 'node:path'
+import { join, resolve as resolvePath, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { PostgresClient } from '@agency/orchestrator/db'
@@ -91,7 +92,9 @@ export class SkillsManager {
       ? { skillsDir: skillsDirOrOptions }
       : skillsDirOrOptions
     this.skillsDir = options.skillsDir ?? join(homedir(), '.agency', 'skills')
-    this.bundledSkillsDir = options.bundledSkillsDir ?? join(process.cwd(), 'services', 'skills')
+    // Navigate from app/apps/gateway/src (or dist) up to app/, then into services/skills
+    const gatewayDir = dirname(dirname(fileURLToPath(import.meta.url)))
+    this.bundledSkillsDir = options.bundledSkillsDir ?? join(gatewayDir, '..', '..', 'services', 'skills')
   }
 
   // ─── Initialization ────────────────────────────────────────────────────────
