@@ -80,8 +80,8 @@ export const THEMES: ThemeMeta[] = [
   // Nord
   { key: 'nord',          label: 'Nord',        group: 'Nord',         mode: 'dark',  preview: { bg: '#2e3440', surface: '#3b4252', accent: '#88c0d0' } },
   // Classic
-  { key: 'dark',          label: 'Classic Dark',  group: 'Classic', mode: 'dark',  preview: { bg: '#060a0f', surface: '#0c1118', accent: '#00c9a7' } },
-  { key: 'light',         label: 'Classic Light', group: 'Classic', mode: 'light', preview: { bg: '#eaecf2', surface: '#f0f3f8', accent: '#0891b2' } },
+  { key: 'dark',          label: 'Agency Dark',  group: 'Agency', mode: 'dark',  preview: { bg: '#060a0f', surface: '#0c1118', accent: '#00c9a7' } },
+  { key: 'light',         label: 'Agency Light', group: 'Agency', mode: 'light', preview: { bg: '#eaecf2', surface: '#f0f3f8', accent: '#0891b2' } },
 ]
 
 export const DEFAULT_THEME: ThemeKey = 'sinthetix'

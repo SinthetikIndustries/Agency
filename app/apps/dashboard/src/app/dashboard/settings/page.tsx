@@ -20,10 +20,9 @@ interface ModelInfo {
 // ─── Theme Selector ───────────────────────────────────────────────────────────
 
 const GROUPS = [
-  'Sinthetix', 'Ocean', 'Forest', 'Dusk', 'Ember', 'Rose',
+  'Agency', 'Ocean', 'Forest', 'Dusk', 'Ember', 'Rose',
   'Arctic', 'Noir', 'Slate', 'Copper', 'Neon',
-  'Tokyo Night', 'Solarized', 'Catppuccin', 'Gruvbox', 'Dracula', 'Nord',
-  'Classic',
+  'Tokyo Night', 'Solarized', 'Catppuccin', 'Gruvbox', 'Sinthetix', 'Dracula', 'Nord',
 ]
 
 function ThemeCard({ themeKey, current, onClick }: {
