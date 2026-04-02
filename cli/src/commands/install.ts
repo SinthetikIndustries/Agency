@@ -297,6 +297,22 @@ export default class Install extends Command {
       await seedAgents(agentName)
       this.log(chalk.green('done'))
 
+      // Write initial context files for main agent
+      process.stdout.write(chalk.gray('  Writing agent context... '))
+      const mainConfigDir = join(homedir(), '.agency', 'agents', 'main', 'config')
+      await mkdir(mainConfigDir, { recursive: true })
+      await writeFile(
+        join(mainConfigDir, 'user.md'),
+        `# User\n\nName: ${userName}\n`,
+        'utf8'
+      )
+      await writeFile(
+        join(mainConfigDir, 'identity.md'),
+        `# Identity\n\nYou are ${agentName}, a personal AI agent.\n`,
+        'utf8'
+      )
+      this.log(chalk.green('done'))
+
       // Obsidian vault
       const vaultPath = join(homedir(), '.agency', 'vault')
       const obsidianConfigPath = join(homedir(), '.config', 'obsidian', 'obsidian.json')

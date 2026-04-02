@@ -1330,6 +1330,12 @@ const CONTEXT_WINDOW_RULES: Array<{ prefix: string; tokens: number }> = [
   { prefix: 'gpt-4o',         tokens: 128000 },
   { prefix: 'gpt-4-turbo',    tokens: 128000 },
   { prefix: 'gpt-3.5-turbo',  tokens: 16000 },
+  { prefix: 'qwen3',          tokens: 32000 },
+  { prefix: 'qwen2.5',        tokens: 32000 },
+  { prefix: 'llama3',         tokens: 128000 },
+  { prefix: 'llama2',         tokens: 4096 },
+  { prefix: 'mistral',        tokens: 32000 },
+  { prefix: 'gemma',          tokens: 8192 },
 ]
 
 function resolveContextWindow(model: string): number {
