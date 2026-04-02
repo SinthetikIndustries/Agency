@@ -1073,6 +1073,11 @@ export async function createGateway(): Promise<void> {
 
     socket.on('error', (err) => console.error('[WS] socket error:', err))
 
+    // Buffer messages that arrive before async setup completes
+    const earlyMessages: unknown[] = []
+    const earlyListener = (raw: unknown) => earlyMessages.push(raw)
+    socket.on('message', earlyListener)
+
     let session: Session | null = null
     try {
       session = await getSession(db, id)
@@ -1090,9 +1095,11 @@ export async function createGateway(): Promise<void> {
     }
 
     console.log('[WS] session found, waiting for messages')
+    // Switch from early-buffer listener to real handler
+    socket.off('message', earlyListener)
     // Serialize message handling per session to prevent race conditions
     let messageQueue = Promise.resolve()
-    socket.on('message', (raw: any) => {
+    const handleMessage = (raw: any) => {
       messageQueue = messageQueue.then(async () => {
         let data: { content: string; model?: string }
         try {
@@ -1186,7 +1193,10 @@ export async function createGateway(): Promise<void> {
         console.error('[WS] Unhandled message handler error:', err)
         socket.send(JSON.stringify({ type: 'error', error: 'Internal error' }))
       })
-    })
+    }
+    socket.on('message', handleMessage)
+    // Replay any messages that arrived during async setup
+    for (const msg of earlyMessages) handleMessage(msg)
   })
 
   // Agents
