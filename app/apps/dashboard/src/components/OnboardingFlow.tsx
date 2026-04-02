@@ -56,7 +56,7 @@ function ProgressBar({ step, total }: { step: number; total: number }) {
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 500 }}>{children}</label>
+  return <label style={{ fontSize: '13px', color: 'var(--text-primary)', display: 'block', marginBottom: '6px', fontWeight: 500 }}>{children}</label>
 }
 
 function Input({ value, onChange, placeholder, type = 'text' }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
@@ -141,7 +141,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 24px' }}>
         <div style={cardStyle}>
-          <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px' }}>Welcome to Agency</h1>
+          <h1 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px' }}>Welcome to Agency</h1>
           <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '28px' }}>
             Let's take a moment to set things up so your agent can get to know you. This takes about a minute.
           </p>
@@ -158,13 +158,13 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
 
         {step === 1 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>About you</h2>
+            <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>About you</h2>
             <div>
               <Label>Name</Label>
               <Input value={data.name} onChange={set('name')} placeholder="Your name" />
             </div>
             <div>
-              <Label>Nickname <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span></Label>
+              <Label>Nickname <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>(optional)</span></Label>
               <Input value={data.nickname} onChange={set('nickname')} placeholder="What your agent calls you day-to-day" />
             </div>
             <div>
@@ -173,7 +173,6 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
                 <option value="">Select…</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
-                <option value="non-binary">Non-binary</option>
                 <option value="prefer-not-to-say">Prefer not to say</option>
               </Select>
             </div>
@@ -182,7 +181,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
 
         {step === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Location</h2>
+            <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>Location</h2>
             <div>
               <Label>Country</Label>
               <Select value={data.country} onChange={v => setData(d => ({ ...d, country: v, state: '' }))}>
@@ -223,7 +222,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
 
         {step === 3 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Role & Autonomy</h2>
+            <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>Role & Autonomy</h2>
             <div>
               <Label>Primary role</Label>
               <Input value={data.role} onChange={set('role')} placeholder="e.g. Software Engineer, Founder, Designer…" />
@@ -253,7 +252,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
 
         {step === 4 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Goals</h2>
+            <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>Goals</h2>
             <div>
               <Label>What do you hope to accomplish with Agency?</Label>
               <textarea
