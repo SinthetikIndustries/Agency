@@ -133,6 +133,18 @@ The installer will:
 6. 🤖 Create default agents: main + Researcher, Coder, Writer
 7. 📁 Set up an [Obsidian](https://obsidian.md) vault at `~/.agency/vault/` — open it in Obsidian to browse your agent's knowledge base, proposals, and canon notes visually
 
+### Uninstall
+
+```bash
+agency uninstall
+```
+
+Type `uninstall` to confirm — removes all data and Docker volumes. Then remove the CLI:
+
+```bash
+npm uninstall -g agencycli
+```
+
 ---
 
 ## 💻 Usage
