@@ -67,6 +67,8 @@ fi
 echo -e "${C_GREEN}All prerequisites met.${C_RESET} Next steps:"
 echo ""
 echo -e "  cd cli"
+echo -e "  npm install"
+echo -e "  npm run build"
 echo -e "  npm install -g ."
 echo -e "  agency install"
 echo ""
