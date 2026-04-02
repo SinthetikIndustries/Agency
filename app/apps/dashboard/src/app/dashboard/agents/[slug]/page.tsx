@@ -111,7 +111,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ slug: st
         <>
           {tab === 'overview' && agent && <OverviewTab agent={agent} slug={slug} onReload={reload} />}
           {tab === 'model'    && agent && <ModelTab slug={slug} agent={agent} />}
-          {tab === 'files'    && <FilesTab slug={slug} />}
+          {tab === 'files'    && <FilesTab slug={slug} agent={agent} />}
           {tab === 'tools'    && <ToolsTab />}
           {tab === 'skills'   && <SkillsTab slug={slug} />}
           {tab === 'mcp'      && <McpTab slug={slug} />}
@@ -591,27 +591,126 @@ function ModelTab({ slug, agent }: { slug: string; agent: Agent }) {
 
 // ─── Files Tab ────────────────────────────────────────────────────────────────
 
-function FilesTab({ slug }: { slug: string }) {
-  const [files, setFiles] = useState<WorkspaceFile[]>([])
-  const [workspacePath, setWorkspacePath] = useState('')
-  const [activeFile, setActiveFile] = useState<string | null>(null)
+interface TreeNode {
+  name: string
+  type: 'file' | 'dir'
+  path: string       // relative to root
+  root: string       // absolute workspace root path (primary or additional)
+  children?: TreeNode[]
+  expanded: boolean
+  loading: boolean
+}
+
+const FILE_ICONS: Record<string, string> = {
+  md: '📝', ts: '📘', tsx: '📘', js: '📙', jsx: '📙',
+  json: '📋', py: '🐍', sh: '⚙️', yml: '📄', yaml: '📄',
+  html: '🌐', css: '🎨', txt: '📄', env: '🔒',
+}
+function fileIcon(name: string): string {
+  const ext = name.split('.').pop()?.toLowerCase() ?? ''
+  return FILE_ICONS[ext] ?? '📄'
+}
+
+function FilesTab({ slug, agent }: { slug: string; agent: Agent | null }) {
+  const [roots, setRoots] = useState<TreeNode[]>([])
+  const [activeFile, setActiveFile] = useState<{ path: string; root: string } | null>(null)
   const [fileContent, setFileContent] = useState('')
   const [editContent, setEditContent] = useState('')
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
   const [err, setErr] = useState('')
+  const isDirty = editing && editContent !== fileContent
 
+  // Build one root TreeNode per workspace and load its children
   useEffect(() => {
-    workspace.list(slug)
-      .then(r => { setFiles(r.files); setWorkspacePath(r.workspacePath) })
-      .catch(e => setErr(e instanceof Error ? e.message : 'Failed to load workspace'))
-  }, [slug])
+    if (!agent) return
+    const allRoots: Array<{ label: string; root: string }> = [
+      { label: agent.identity.workspacePath.split('/').pop() ?? 'workspace', root: agent.identity.workspacePath },
+      ...(agent.identity.additionalWorkspacePaths ?? []).map(p => ({
+        label: p.split('/').pop() ?? p,
+        root: p,
+      })),
+    ]
+    const initial: TreeNode[] = allRoots.map(r => ({
+      name: r.label,
+      type: 'dir',
+      path: '',
+      root: r.root,
+      children: undefined,
+      expanded: false,
+      loading: false,
+    }))
+    setRoots(initial)
+    // Auto-expand the primary workspace root
+    loadDir(initial[0]!, setRoots)
+  }, [agent, slug])
 
-  async function openFile(name: string) {
-    setActiveFile(name); setEditing(false); setSaveMsg(''); setErr('')
+  function loadDir(node: TreeNode, setter: React.Dispatch<React.SetStateAction<TreeNode[]>>) {
+    const isAdditional = agent && node.root !== agent.identity.workspacePath
+    const rootParam = isAdditional ? node.root : undefined
+    workspace.list(slug, node.path || undefined, rootParam)
+      .then(r => {
+        const children: TreeNode[] = r.files
+          .sort((a, b) => {
+            if (a.type !== b.type) return a.type === 'dir' ? -1 : 1
+            return a.name.localeCompare(b.name)
+          })
+          .map(f => ({
+            name: f.name,
+            type: f.type as 'file' | 'dir',
+            path: node.path ? `${node.path}/${f.name}` : f.name,
+            root: node.root,
+            children: undefined,
+            expanded: false,
+            loading: false,
+          }))
+        setter(prev => updateNode(prev, node.root, node.path, n => ({ ...n, children, expanded: true, loading: false })))
+      })
+      .catch(() => {
+        setter(prev => updateNode(prev, node.root, node.path, n => ({ ...n, loading: false })))
+      })
+  }
+
+  function updateNode(
+    nodes: TreeNode[],
+    root: string,
+    path: string,
+    fn: (n: TreeNode) => TreeNode,
+  ): TreeNode[] {
+    return nodes.map(n => {
+      if (n.root === root && n.path === path) return fn(n)
+      if (n.children) return { ...n, children: updateNode(n.children, root, path, fn) }
+      return n
+    })
+  }
+
+  function toggleDir(node: TreeNode) {
+    if (node.expanded) {
+      setRoots(prev => updateNode(prev, node.root, node.path, n => ({ ...n, expanded: false })))
+    } else if (node.children) {
+      setRoots(prev => updateNode(prev, node.root, node.path, n => ({ ...n, expanded: true })))
+    } else {
+      setRoots(prev => updateNode(prev, node.root, node.path, n => ({ ...n, loading: true })))
+      loadDir(node, setRoots)
+    }
+  }
+
+  async function openFile(node: TreeNode) {
+    if (isDirty) {
+      const action = window.confirm('You have unsaved changes. Save before switching files?')
+      if (action) {
+        await saveFile()
+      } else {
+        // discard
+        setEditing(false)
+      }
+    }
+    setActiveFile({ path: node.path, root: node.root })
+    setEditing(false); setSaveMsg(''); setErr('')
+    const isAdditional = agent && node.root !== agent.identity.workspacePath
     try {
-      const res = await workspace.readFile(slug, name)
+      const res = await workspace.readFile(slug, node.path, isAdditional ? node.root : undefined)
       setFileContent(res.content); setEditContent(res.content)
     } catch (e) { setErr(e instanceof Error ? e.message : 'Failed to read file') }
   }
@@ -619,64 +718,83 @@ function FilesTab({ slug }: { slug: string }) {
   async function saveFile() {
     if (!activeFile) return
     setSaving(true); setErr('')
+    const isAdditional = agent && activeFile.root !== agent.identity.workspacePath
     try {
-      await workspace.writeFile(slug, activeFile, editContent)
+      await workspace.writeFile(slug, activeFile.path, editContent, isAdditional ? activeFile.root : undefined)
       setFileContent(editContent); setEditing(false)
       setSaveMsg('Saved'); setTimeout(() => setSaveMsg(''), 2000)
     } catch (e) { setErr(e instanceof Error ? e.message : 'Failed to save') }
     finally { setSaving(false) }
   }
 
-  // capabilities.md is platform-managed (read-only)
-  const isEditable = activeFile ? (CONTEXT_FILES.includes(activeFile) && activeFile !== 'config/capabilities.md') : false
+  const isEditable = activeFile
+    ? (CONTEXT_FILES.includes(activeFile.path) && activeFile.path !== 'config/capabilities.md') ||
+      !CONTEXT_FILES.includes(activeFile.path)
+    : false
+  const isReadOnly = activeFile?.path === 'config/capabilities.md'
+
+  function renderNode(node: TreeNode, depth: number): React.ReactNode {
+    const indent = depth * 14
+    const isActive = activeFile?.path === node.path && activeFile?.root === node.root
+    if (node.type === 'dir') {
+      return (
+        <div key={`${node.root}:${node.path}`}>
+          <button
+            onClick={() => toggleDir(node)}
+            style={{ paddingLeft: 8 + indent }}
+            className="w-full flex items-center gap-1.5 py-[3px] pr-2 text-left hover:bg-white/5 rounded text-xs text-gray-400 hover:text-gray-200 transition-colors"
+          >
+            <span className="shrink-0 text-gray-600 w-3 text-center">{node.loading ? '…' : node.expanded ? '▾' : '▸'}</span>
+            <span className="shrink-0">📁</span>
+            <span className="truncate">{node.name}</span>
+          </button>
+          {node.expanded && node.children && (
+            <div>{node.children.map(c => renderNode(c, depth + 1))}</div>
+          )}
+        </div>
+      )
+    }
+    return (
+      <button
+        key={`${node.root}:${node.path}`}
+        onClick={() => void openFile(node)}
+        style={{ paddingLeft: 8 + indent }}
+        className={`w-full flex items-center gap-1.5 py-[3px] pr-2 text-left rounded text-xs transition-colors ${
+          isActive
+            ? 'bg-[var(--accent-dim)] text-[var(--accent)]'
+            : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+        }`}
+      >
+        <span className="shrink-0 w-3" />
+        <span className="shrink-0">{fileIcon(node.name)}</span>
+        <span className="truncate font-mono">{node.name}</span>
+      </button>
+    )
+  }
 
   return (
-    <div className="grid grid-cols-3 gap-6 h-[calc(100vh-16rem)]">
-      <div className="space-y-4 overflow-y-auto">
-        {err && <p className="text-sm text-red-400">{err}</p>}
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-          <h3 className="text-xs text-gray-500 uppercase tracking-wider mb-3">Context Files</h3>
-          <div className="space-y-1">
-            {CONTEXT_FILES.map(name => (
-              <button
-                key={name}
-                onClick={() => void openFile(name)}
-                className={`w-full text-left px-2 py-1.5 rounded text-xs font-mono transition-colors ${
-                  activeFile === name
-                    ? 'bg-blue-600/20 text-blue-300 border border-blue-600/40'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-                }`}
-              >
-                <span>{name.replace('config/', '')}</span>
-                {name === 'config/capabilities.md' && <span className="ml-2 text-gray-600 text-[10px]">read-only</span>}
-              </button>
-            ))}
-          </div>
+    <div className="flex h-[calc(100vh-14rem)] gap-0 border border-gray-800 rounded-lg overflow-hidden">
+      {/* Tree panel */}
+      <div className="w-64 shrink-0 border-r border-gray-800 flex flex-col bg-gray-900 overflow-y-auto">
+        <div className="px-3 py-2 border-b border-gray-800 shrink-0">
+          <span className="text-xs text-gray-600 uppercase tracking-wider font-semibold">Files</span>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-          <h3 className="text-xs text-gray-500 uppercase tracking-wider mb-2">Workspace</h3>
-          <p className="text-xs text-gray-700 font-mono mb-3 break-all">{workspacePath}</p>
-          <div className="space-y-0.5">
-            {files.map(f => (
-              <div key={f.name} className={`flex items-center gap-2 px-2 py-1 rounded text-xs ${f.type === 'dir' ? 'text-gray-600' : 'text-gray-400'}`}>
-                <span className="shrink-0">{f.type === 'dir' ? '📁' : '📄'}</span>
-                <span className="font-mono truncate flex-1">{f.name}</span>
-                {f.size !== null && <span className="text-gray-700 shrink-0">{formatSize(f.size)}</span>}
-              </div>
-            ))}
-            {files.length === 0 && <p className="text-xs text-gray-700">Empty workspace</p>}
-          </div>
+        <div className="flex-1 overflow-y-auto py-1 px-1">
+          {roots.map(r => renderNode(r, 0))}
         </div>
       </div>
 
-      <div className="col-span-2 flex flex-col bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+      {/* Viewer / editor panel */}
+      <div className="flex-1 flex flex-col bg-gray-950 overflow-hidden">
         {activeFile ? (
           <>
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800 shrink-0">
-              <span className="font-mono text-sm text-gray-300">{activeFile.replace('config/', '')}</span>
+            <div className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-800 shrink-0 bg-gray-900">
+              <span className="font-mono text-xs text-gray-400 truncate">{activeFile.path}</span>
+              {isReadOnly && <span className="text-[10px] text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded">read-only</span>}
               {saveMsg && <span className="text-xs text-green-400">{saveMsg}</span>}
-              <div className="ml-auto flex gap-2">
-                {isEditable && !editing && (
+              {err && <span className="text-xs text-red-400 truncate">{err}</span>}
+              <div className="ml-auto flex gap-2 shrink-0">
+                {isEditable && !isReadOnly && !editing && (
                   <button onClick={() => setEditing(true)} className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1 rounded transition-colors">Edit</button>
                 )}
                 {editing && (
@@ -691,11 +809,11 @@ function FilesTab({ slug }: { slug: string }) {
             </div>
             {editing
               ? <textarea value={editContent} onChange={e => setEditContent(e.target.value)} className="flex-1 bg-gray-950 text-gray-200 font-mono text-xs p-4 resize-none focus:outline-none" spellCheck={false} />
-              : <pre className="flex-1 overflow-auto p-4 text-xs font-mono text-gray-300 whitespace-pre-wrap">{fileContent || <span className="text-gray-700">(empty file)</span>}</pre>
+              : <pre className="flex-1 overflow-auto p-4 text-xs font-mono text-gray-300 whitespace-pre-wrap leading-relaxed">{fileContent || <span className="text-gray-700">(empty file)</span>}</pre>
             }
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-700 text-sm">Select a file to view or edit</div>
+          <div className="flex-1 flex items-center justify-center text-gray-700 text-sm">Select a file to view</div>
         )}
       </div>
     </div>

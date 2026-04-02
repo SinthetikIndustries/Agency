@@ -330,21 +330,32 @@ export interface WorkspaceFile {
 }
 
 export const workspace = {
-  list: (agentSlug: string, path?: string) =>
-    request<{ workspacePath: string; files: WorkspaceFile[] }>(
-      `/agents/${agentSlug}/workspace${path ? `?path=${encodeURIComponent(path)}` : ''}`
-    ),
+  list: (agentSlug: string, path?: string, root?: string) => {
+    const params = new URLSearchParams()
+    if (path) params.set('path', path)
+    if (root) params.set('root', root)
+    const qs = params.toString()
+    return request<{ workspacePath: string; files: WorkspaceFile[] }>(
+      `/agents/${agentSlug}/workspace${qs ? `?${qs}` : ''}`
+    )
+  },
 
-  readFile: (agentSlug: string, path: string) =>
-    request<{ path: string; content: string }>(
-      `/agents/${agentSlug}/workspace/file?path=${encodeURIComponent(path)}`
-    ),
+  readFile: (agentSlug: string, path: string, root?: string) => {
+    const params = new URLSearchParams({ path })
+    if (root) params.set('root', root)
+    return request<{ path: string; content: string }>(
+      `/agents/${agentSlug}/workspace/file?${params.toString()}`
+    )
+  },
 
-  writeFile: (agentSlug: string, path: string, content: string) =>
-    request<{ ok: boolean }>(`/agents/${agentSlug}/workspace/file?path=${encodeURIComponent(path)}`, {
+  writeFile: (agentSlug: string, path: string, content: string, root?: string) => {
+    const params = new URLSearchParams({ path })
+    if (root) params.set('root', root)
+    return request<{ ok: boolean }>(`/agents/${agentSlug}/workspace/file?${params.toString()}`, {
       method: 'PUT',
       body: JSON.stringify({ content }),
-    }),
+    })
+  },
 }
 
 // ─── Profiles ─────────────────────────────────────────────────────────────────

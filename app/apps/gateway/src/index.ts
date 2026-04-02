@@ -1319,12 +1319,23 @@ export async function createGateway(): Promise<void> {
   // Agent workspace browser
   app.get('/agents/:slug/workspace', async (request, reply) => {
     const { slug } = request.params as { slug: string }
-    const query = request.query as { path?: string }
+    const query = request.query as { path?: string; root?: string }
     const agent = orchestrator.getAgent(slug)
     if (!agent) return reply.status(404).send({ error: 'Agent not found' })
     const { readdir, stat } = await import('node:fs/promises')
     const { join, resolve, normalize } = await import('node:path')
-    const ws = agent.identity.workspacePath
+
+    // Resolve which workspace root to use
+    const primaryWs = agent.identity.workspacePath
+    let ws = primaryWs
+    if (query.root) {
+      const additionalPaths = agent.identity.additionalWorkspacePaths ?? []
+      if (!additionalPaths.includes(query.root)) {
+        return reply.status(403).send({ error: 'Root path is not a configured workspace' })
+      }
+      ws = query.root
+    }
+
     const subPath = query.path ? normalize(query.path) : ''
     const targetDir = subPath ? resolve(join(ws, subPath)) : ws
     if (!isInsideWorkspace(ws, targetDir)) return reply.status(403).send({ error: 'Path is outside workspace' })
@@ -1349,14 +1360,24 @@ export async function createGateway(): Promise<void> {
 
   app.get('/agents/:slug/workspace/file', async (request, reply) => {
     const { slug } = request.params as { slug: string }
-    const query = request.query as { path?: string }
+    const query = request.query as { path?: string; root?: string }
     const filePath = query.path
     if (!filePath) return reply.status(400).send({ error: 'path is required' })
     const agent = orchestrator.getAgent(slug)
     if (!agent) return reply.status(404).send({ error: 'Agent not found' })
     const { readFile } = await import('node:fs/promises')
     const { join, resolve, normalize } = await import('node:path')
-    const ws = agent.identity.workspacePath
+
+    const primaryWs = agent.identity.workspacePath
+    let ws = primaryWs
+    if (query.root) {
+      const additionalPaths = agent.identity.additionalWorkspacePaths ?? []
+      if (!additionalPaths.includes(query.root)) {
+        return reply.status(403).send({ error: 'Root path is not a configured workspace' })
+      }
+      ws = query.root
+    }
+
     const abs = resolve(join(ws, normalize(filePath)))
     if (!isInsideWorkspace(ws, abs)) return reply.status(403).send({ error: 'Path is outside workspace' })
     try {
