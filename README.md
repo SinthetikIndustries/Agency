@@ -266,6 +266,16 @@ Want to contribute? See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ---
 
+## ☕ Support
+
+If Agency is useful to you, consider buying me a coffee — or, you know, an Nvidia DGX Spark.
+
+**CashApp: [$Sinthetix](https://cash.app/$Sinthetix)**
+
+No pressure. Stars are free and also appreciated. ⭐
+
+---
+
 ## 🏢 About
 
 Agency is developed and maintained by **[Sinthetix, LLC](https://www.sinthetix.com)**.
