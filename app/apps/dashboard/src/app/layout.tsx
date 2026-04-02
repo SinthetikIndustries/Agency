@@ -36,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning>
+    <html lang="en" data-theme="sinthetix" suppressHydrationWarning>
       <head>
         {/* Prevent flash of unstyled theme — runs before React hydration */}
         <script

@@ -30,9 +30,8 @@ export interface ThemeMeta {
 }
 
 export const THEMES: ThemeMeta[] = [
-  // Base
-  { key: 'dark',         label: 'Dark',          group: 'Base',   mode: 'dark',  preview: { bg: '#060a0f', surface: '#0c1118', accent: '#00c9a7' } },
-  { key: 'light',        label: 'Light',         group: 'Base',   mode: 'light', preview: { bg: '#eaecf2', surface: '#f0f3f8', accent: '#0891b2' } },
+  // Sinthetix
+  { key: 'sinthetix',     label: 'Sinthetix',   group: 'Sinthetix',    mode: 'dark',  preview: { bg: '#060B14', surface: '#0a1221', accent: '#06D6C8' } },
   // Ocean
   { key: 'ocean-dark',   label: 'Ocean',         group: 'Ocean',  mode: 'dark',  preview: { bg: '#030b14', surface: '#071525', accent: '#38bdf8' } },
   { key: 'ocean-light',  label: 'Ocean',         group: 'Ocean',  mode: 'light', preview: { bg: '#d8eefa', surface: '#e4f4ff', accent: '#0284c7' } },
@@ -80,11 +79,12 @@ export const THEMES: ThemeMeta[] = [
   { key: 'dracula',       label: 'Dracula',     group: 'Dracula',      mode: 'dark',  preview: { bg: '#282a36', surface: '#21222c', accent: '#bd93f9' } },
   // Nord
   { key: 'nord',          label: 'Nord',        group: 'Nord',         mode: 'dark',  preview: { bg: '#2e3440', surface: '#3b4252', accent: '#88c0d0' } },
-  // Sinthetix
-  { key: 'sinthetix',     label: 'Sinthetix',   group: 'Sinthetix',    mode: 'dark',  preview: { bg: '#060B14', surface: '#0a1221', accent: '#06D6C8' } },
+  // Classic
+  { key: 'dark',          label: 'Classic Dark',  group: 'Classic', mode: 'dark',  preview: { bg: '#060a0f', surface: '#0c1118', accent: '#00c9a7' } },
+  { key: 'light',         label: 'Classic Light', group: 'Classic', mode: 'light', preview: { bg: '#eaecf2', surface: '#f0f3f8', accent: '#0891b2' } },
 ]
 
-export const DEFAULT_THEME: ThemeKey = 'dark'
+export const DEFAULT_THEME: ThemeKey = 'sinthetix'
 export const STORAGE_KEY = 'agency-theme'
 
 export function getThemeMeta(key: ThemeKey): ThemeMeta {
