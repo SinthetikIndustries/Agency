@@ -47,6 +47,7 @@ import { rankSessionsByRelevance } from './session-search.js'
 import { generatePromptSuggestions } from './prompt-suggestions.js'
 import { getCoordinatorInjection } from './coordinator-session.js'
 import { buildVerificationPrompt, parseVerdict } from '@agency/orchestrator'
+import { ProactiveLoop, buildProactiveSystemPrompt } from './proactive-mode.js'
 
 // ─── First-Run Bootstrap ──────────────────────────────────────────────────────
 
@@ -1155,10 +1156,14 @@ export async function createGateway(): Promise<void> {
     return { ok: true }
   })
 
+  // Focus state tracking — true when socket is open, false when closed
+  const focusMap = new Map<string, boolean>()
+
   // WebSocket streaming session
   app.get('/sessions/:id', { websocket: true }, async (socket, request) => {
     const { id } = request.params as { id: string }
     console.log('[WS] connection opened for session', id, 'readyState:', socket.readyState)
+    focusMap.set(id, true)
 
     socket.on('error', (err) => console.error('[WS] socket error:', err))
 
@@ -1322,6 +1327,44 @@ export async function createGateway(): Promise<void> {
       })
     }
     socket.on('message', handleMessage)
+
+    // Proactive loop — start for agents with proactive:true
+    const agentSlugForProactive = session.agentId === 'main' ? 'main' : session.agentId
+    const agentForProactive = orchestrator.getAgent(agentSlugForProactive)
+    if (agentForProactive?.profile.behaviorSettings.proactive === true) {
+      const intervalMs = (agentForProactive.profile.behaviorSettings.proactiveIntervalSeconds ?? 60) * 1000
+      const loop = new ProactiveLoop({
+        agentSlug: agentSlugForProactive,
+        sessionId: id,
+        tickIntervalMs: intervalMs,
+        isFocused: () => focusMap.get(id) ?? false,
+        onTick: async (tickMessage) => {
+          const tickMessages = await db.query<{ role: string; content: string; id: string; session_id: string; created_at: string }>(
+            'SELECT * FROM messages WHERE session_id = $1 ORDER BY created_at ASC',
+            [id]
+          )
+          for await (const chunk of orchestrator.run(
+            session,
+            tickMessage,
+            tickMessages as never,
+            undefined,
+            { systemInjection: buildProactiveSystemPrompt() }
+          )) {
+            if (socket.readyState === socket.OPEN) {
+              socket.send(JSON.stringify(chunk))
+            }
+          }
+        },
+      })
+      loop.start()
+      socket.on('close', () => {
+        focusMap.set(id, false)
+        loop.stop()
+      })
+    } else {
+      socket.on('close', () => focusMap.set(id, false))
+    }
+
     // Replay any messages that arrived during async setup
     for (const msg of earlyMessages) handleMessage(msg)
   })

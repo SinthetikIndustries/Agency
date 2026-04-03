@@ -63,6 +63,7 @@ export interface AgentBehaviorSettings {
   tone: BehaviorTone
   verbosity: BehaviorVerbosity
   proactive: boolean
+  proactiveIntervalSeconds?: number  // default 60
 }
 
 export interface AgentProfile {
