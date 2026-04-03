@@ -4,7 +4,6 @@
 import { FastifyInstance } from 'fastify'
 import { promises as fs } from 'fs'
 import { join } from 'path'
-import { userInfo } from 'os'
 import { agencyDir } from '@agency/config'
 
 const NAME_PLACEHOLDER = '[Unknown — update this as I learn]'
@@ -31,9 +30,8 @@ export function registerMeRoutes(app: FastifyInstance) {
     }
     const configName = (config.name as string | null | undefined)?.trim() ?? ''
     const agentName = configName ? '' : await getAgentUserMdName()
-    const fallbackName = userInfo().username ?? ''
     return {
-      name: configName || agentName || fallbackName,
+      name: configName || agentName,
       onboarded: config.firstRun === false,
     }
   })

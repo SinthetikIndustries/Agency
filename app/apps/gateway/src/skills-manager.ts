@@ -350,13 +350,19 @@ export class SkillsManager {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// Lenient schema for reading manifest blobs from DB — name/version live in DB columns
+const DbManifestSchema = SkillManifestSchema.extend({
+  name: z.string().min(1).optional(),
+  version: z.string().regex(/^\d+\.\d+\.\d+$/).optional(),
+})
+
 function rowToSkill(row: DbSkillRow): InstalledSkill {
   // Postgres JSONB columns come back as objects; test mocks may pass JSON strings
   const rawManifest = typeof row.manifest === 'string'
-    ? (() => { try { return JSON.parse(row.manifest as string) } catch { return row.manifest } })()
+    ? (() => { try { return JSON.parse(row.manifest as string) } catch { return {} } })()
     : row.manifest
-  // Validate manifest from DB rather than blindly casting
-  const parseResult = SkillManifestSchema.safeParse(rawManifest)
+  // Use lenient schema: name/version are stored in dedicated DB columns, not required in blob
+  const parseResult = DbManifestSchema.safeParse(rawManifest ?? {})
   if (!parseResult.success) {
     throw new Error(`Corrupted manifest for skill "${row.id}": ${parseResult.error.message}`)
   }
@@ -368,7 +374,7 @@ function rowToSkill(row: DbSkillRow): InstalledSkill {
     type: row.type ?? parseResult.data.type,
     anthropicBuiltinType: row.anthropic_builtin_type ?? parseResult.data.anthropicBuiltinType,
     anthropicBetaHeader: row.anthropic_beta_header ?? parseResult.data.anthropicBetaHeader,
-    manifest: parseResult.data,
+    manifest: { ...parseResult.data, name: row.name, version: row.version },
     installedAt: new Date(row.installed_at),
     updatedAt: new Date(row.updated_at),
   }
