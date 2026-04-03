@@ -458,7 +458,7 @@ export async function createGateway(): Promise<void> {
   }
 
   console.log('[Gateway] Initializing Orchestrator...')
-  const orchestrator = new Orchestrator(db, modelRouter, toolRegistry, hooksManager.fire.bind(hooksManager), memoryStore ?? undefined)
+  const orchestrator = new Orchestrator(db, modelRouter, toolRegistry, hooksManager.fire.bind(hooksManager), memoryStore ?? undefined, classifyToolInvocation)
   await orchestrator.initialize()
 
   console.log('[Gateway] Initializing SkillsManager...')

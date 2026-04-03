@@ -32,6 +32,8 @@ export type { VerificationRequest, Verdict } from './verification-agent.js'
 
 export type HookFireFn = (event: string, context?: Record<string, unknown>) => Promise<{ blocked: boolean; reason?: string }>
 
+export type ClassifyToolFn = (request: { toolName: string; toolInput: unknown; recentToolUses: Array<{ name: string; input: unknown }> }) => Promise<{ shouldBlock: boolean; riskLevel: string; reason: string; explanation: string }>
+
 // ─── Built-in Profiles ────────────────────────────────────────────────────────
 
 const BUILT_IN_PROFILES: AgentProfile[] = [
@@ -160,6 +162,7 @@ export class Orchestrator {
     private readonly toolRegistry: ToolRegistry,
     private readonly hookFire?: HookFireFn,
     private readonly memoryStore?: MemoryStore,
+    private readonly classifyTool?: ClassifyToolFn,
   ) {
     this.agencyDir = join(homedir(), '.agency')
     this.agentsDir = join(this.agencyDir, 'agents')
@@ -1209,14 +1212,25 @@ export class Orchestrator {
         // ── Inline approval flow ────────────────────────────────────────────
         const resultOut = result.output as Record<string, unknown> | null
         if (result.success && resultOut?.['approval_required'] === true) {
+          // Run permission classifier before creating approval record
+          const classification = this.classifyTool
+            ? await this.classifyTool({ toolName: tc.name, toolInput: input, recentToolUses: [] })
+            : { shouldBlock: false, riskLevel: 'MEDIUM', explanation: '', reason: '' }
+          if (classification.shouldBlock) {
+            result = { success: false, output: null, error: `Blocked by classifier: ${classification.reason}` }
+            toolResults.push({ type: 'tool_result', tool_use_id: tc.id, content: JSON.stringify({ error: result.error }), is_error: true } as ContentBlock)
+            continue
+          }
+
           const approvalId = `approval-${randomUUID()}`
           const command = resultOut['command'] as string ?? ''
           const reason  = resultOut['reason']  as string ?? ''
           const message = resultOut['message'] as string ?? `Approve ${tc.name}?`
           await this.db.execute(
-            `INSERT INTO approvals (id, agent_id, session_id, prompt, tool_name, tool_input, status)
-             VALUES ($1, $2, $3, $4, $5, $6, 'pending')`,
-            [approvalId, context.agentId, context.sessionId, message, tc.name, JSON.stringify(input)]
+            `INSERT INTO approvals (id, agent_id, session_id, prompt, tool_name, tool_input, status, risk_level, explanation)
+             VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)`,
+            [approvalId, context.agentId, context.sessionId, message, tc.name, JSON.stringify(input),
+             classification.riskLevel, classification.explanation]
           )
           yield { type: 'approval_pending', approvalId, toolName: tc.name, command, reason }
 
