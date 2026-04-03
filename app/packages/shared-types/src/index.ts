@@ -278,6 +278,43 @@ export interface ToolJob {
   maxAttempts: number
 }
 
+// ─── Task Notifications ───────────────────────────────────────────────────────
+
+export interface TaskNotification {
+  taskId: string
+  status: 'completed' | 'failed' | 'killed'
+  summary: string
+  result?: string
+  usage?: {
+    totalTokens: number
+    toolUses: number
+    durationMs: number
+  }
+}
+
+export function formatTaskNotification(n: TaskNotification): string {
+  return [
+    `<task-notification>`,
+    `<task-id>${n.taskId}</task-id>`,
+    `<status>${n.status}</status>`,
+    `<summary>${n.summary}</summary>`,
+    n.result ? `<result>${n.result}</result>` : '',
+    n.usage ? `<usage><total_tokens>${n.usage.totalTokens}</total_tokens><tool_uses>${n.usage.toolUses}</tool_uses><duration_ms>${n.usage.durationMs}</duration_ms></usage>` : '',
+    `</task-notification>`,
+  ].filter(Boolean).join('\n')
+}
+
+export function parseTaskNotification(text: string): TaskNotification | null {
+  const taskId = text.match(/<task-id>(.*?)<\/task-id>/)?.[1]
+  const status = text.match(/<status>(.*?)<\/status>/)?.[1] as TaskNotification['status'] | undefined
+  const summary = text.match(/<summary>([\s\S]*?)<\/summary>/)?.[1]
+  const result = text.match(/<result>([\s\S]*?)<\/result>/)?.[1]
+  if (!taskId || !status || !summary) return null
+  const notification: TaskNotification = { taskId, status, summary }
+  if (result !== undefined) notification.result = result
+  return notification
+}
+
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 export interface RunContext {
