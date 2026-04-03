@@ -43,6 +43,8 @@ import { SchedulerService } from './scheduler.js'
 import { registerSchedulerRoutes } from './scheduler-routes.js'
 import { McpManager } from './mcp-manager.js'
 import { isInsideWorkspace } from './path-utils.js'
+import { rankSessionsByRelevance } from './session-search.js'
+import { generatePromptSuggestions } from './prompt-suggestions.js'
 
 // ─── First-Run Bootstrap ──────────────────────────────────────────────────────
 
@@ -938,6 +940,45 @@ export async function createGateway(): Promise<void> {
     return { messages }
   })
 
+  app.get('/sessions/search', async (request, reply) => {
+    const query = (request.query as { q?: string }).q
+    if (!query || query.trim().length < 2) return reply.send({ sessions: [] })
+
+    const rows = await db.query<{
+      id: string; name: string | null; agent_id: string; created_at: string; first_msg: string | null
+    }>(`
+      SELECT s.id, s.name, s.agent_id, s.created_at::text,
+             (SELECT content FROM messages WHERE session_id = s.id AND role = 'user' ORDER BY created_at LIMIT 1) AS first_msg
+      FROM sessions s
+      ORDER BY s.created_at DESC
+      LIMIT 100
+    `)
+
+    const candidates = rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      agentId: r.agent_id,
+      createdAt: r.created_at,
+      firstMessage: r.first_msg,
+      excerpt: null,
+    }))
+
+    const rankedIds = await rankSessionsByRelevance(query.trim(), candidates, modelRouter).catch(() => [])
+    const rankedSessions = rankedIds.map(id => candidates.find(c => c.id === id)).filter(Boolean)
+    return reply.send({ sessions: rankedSessions })
+  })
+
+  app.get('/sessions/:id/suggestions', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const rows = await db.query<{ role: string; content: string }>(
+      `SELECT role, content FROM messages WHERE session_id = $1 ORDER BY created_at DESC LIMIT 6`,
+      [id]
+    )
+    const messages = rows.reverse()
+    const suggestions = await generatePromptSuggestions(messages, modelRouter).catch(() => [])
+    return reply.send({ suggestions })
+  })
+
   // Check for first-run onboarding (reads disk only once)
   let firstRunHandled = false
 
@@ -1095,6 +1136,35 @@ export async function createGateway(): Promise<void> {
     }
 
     console.log('[WS] session found, waiting for messages')
+
+    // Away summary: if session has been idle 30+ minutes, send a brief recap
+    const AWAY_THRESHOLD_MS = 30 * 60 * 1000
+    const lastActivity = new Date((session as unknown as { updated_at?: string; created_at: string }).updated_at ?? (session as unknown as { created_at: string }).created_at).getTime()
+    if (Date.now() - lastActivity > AWAY_THRESHOLD_MS) {
+      const recentMsgs = await db.query<{ role: string; content: string }>(
+        `SELECT role, content FROM messages WHERE session_id = $1 ORDER BY created_at DESC LIMIT 10`,
+        [session.id]
+      ).catch(() => [])
+      if (recentMsgs.length > 0) {
+        const transcript = recentMsgs.reverse().map(m => `${m.role}: ${m.content.slice(0, 200)}`).join('\n')
+        modelRouter.complete({
+          model: modelRouter.resolveModel('cheap'),
+          messages: [{
+            role: 'user',
+            content: `Write 1-2 sentences recapping this session for a returning user. Start with "Last session:". Be specific about what was worked on.\n\n${transcript}`,
+          }],
+          maxTokens: 100,
+        }).then(response => {
+          const recap = typeof response.content === 'string'
+            ? response.content
+            : (response.content as Array<{ type: string; text?: string }>).map(b => b.text ?? '').join('')
+          if (socket.readyState === socket.OPEN) {
+            socket.send(JSON.stringify({ type: 'away_summary', text: recap.trim() }))
+          }
+        }).catch(() => { /* non-fatal */ })
+      }
+    }
+
     // Switch from early-buffer listener to real handler
     socket.off('message', earlyListener)
     // Serialize message handling per session to prevent race conditions

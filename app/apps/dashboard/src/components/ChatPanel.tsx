@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { sessions, agents, approvals as approvalsApi, getWsToken, me, type Agent, type SessionSummary } from '@/lib/api'
+
 import { PORTS } from '@/lib/ports'
 import { TokenBar } from '@/components/TokenBar'
 import { WorkspacePanel } from '@/components/WorkspacePanel'
@@ -261,6 +262,8 @@ export function ChatPanel() {
   const [panel, setPanel] = useState<PanelState>({ mode: null, openTabs: [] })
   const [shellLines, setShellLines] = useState<string[]>([])
   const [planSteps, setPlanSteps] = useState<PlanStep[]>([])
+  const [awaySummary, setAwaySummary] = useState<string | null>(null)
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const artifactReceivedRef = useRef(false)
 
   function upsertArtifact(data: { artifactId: string; mimeType: string; title: string; content: string }) {
@@ -360,6 +363,8 @@ export function ChatPanel() {
     setSending(false)
     setArtifacts(new Map())
     setPanel({ mode: null, openTabs: [] })
+    setAwaySummary(null)
+    setSuggestions([])
 
     try {
       const res = await sessions.create(selectedAgent, 'dashboard')
@@ -424,6 +429,11 @@ export function ChatPanel() {
         reason?: string
       }
       try { chunk = JSON.parse(e.data as string) as typeof chunk } catch { return }
+
+      if (chunk.type === 'away_summary') {
+        setAwaySummary(chunk.text ?? null)
+        return
+      }
 
       // Handle token_usage outside setMessages — it's independent state
       if (chunk.type === 'token_usage') {
@@ -519,6 +529,10 @@ export function ChatPanel() {
             detectFencedBlocks(fullText)
           }
           artifactReceivedRef.current = false
+          // Fetch prompt suggestions async after response completes
+          if (sid) {
+            sessions.suggestions(sid).then(data => setSuggestions(data.suggestions ?? [])).catch(() => {})
+          }
         } else if (chunk.type === 'error') {
           updated.done = true
           updated.parts.push({ kind: 'text', text: `\n[Error: ${chunk.error}]` })
@@ -552,6 +566,7 @@ export function ChatPanel() {
     setInput('')
     setError('')
     setSending(true)
+    setSuggestions([])
 
     // /clear clears local message history too (gateway will handle server-side reset)
     if (content === '/clear') {
@@ -762,9 +777,34 @@ export function ChatPanel() {
           />
         )}
 
+        {/* Away summary banner */}
+        {awaySummary && (
+          <div style={{ padding: '8px 20px', background: 'var(--bg-elevated)', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-secondary)', flex: 1 }}>{awaySummary}</span>
+            <button onClick={() => setAwaySummary(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '16px', lineHeight: 1 }}>×</button>
+          </div>
+        )}
+
         {/* Input — only shown when a session is active */}
         {sessionId && (
-          <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border)', background: 'var(--bg-surface)', flexShrink: 0 }}>
+          <div style={{ padding: '14px 20px', borderTop: awaySummary ? 'none' : '1px solid var(--border)', background: 'var(--bg-surface)', flexShrink: 0 }}>
+            {/* Suggestion chips */}
+            {suggestions.length > 0 && (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setInput(s); setSuggestions([]) }}
+                    style={{
+                      background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '16px',
+                      padding: '4px 12px', fontSize: '13px', color: 'var(--text-secondary)', cursor: 'pointer',
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '10px' }}>
               <textarea
                 value={input}

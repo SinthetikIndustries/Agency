@@ -192,6 +192,14 @@ export const sessions = {
     request<{ messages: Array<{ id: string; role: string; content: string; created_at: string }> }>(
       `/sessions/${sessionId}/messages`
     ),
+
+  search: (query: string) =>
+    request<{ sessions: Array<{ id: string; name: string | null; agentId: string; createdAt: string; firstMessage: string | null }> }>(
+      `/sessions/search?q=${encodeURIComponent(query)}`
+    ),
+
+  suggestions: (sessionId: string) =>
+    request<{ suggestions: string[] }>(`/sessions/${sessionId}/suggestions`),
 }
 
 // ─── Agents ───────────────────────────────────────────────────────────────────
