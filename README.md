@@ -32,16 +32,18 @@ Your agents maintain **persistent memory** across all sessions — stored in Pos
 
 | Feature | Description |
 |---------|-------------|
-| 🤝 **Multi-agent orchestration** | Main agent + specialized workers (Researcher, Coder, Writer). Coordinates on complex tasks with human-in-the-loop approvals. |
+| 🤝 **Multi-agent orchestration** | Main agent + specialized workers (Researcher, Coder, Writer). Coordinator mode breaks complex tasks into Research → Synthesis → Implementation phases with worker delegation. |
 | 💾 **Persistent memory** | Conversations and knowledge stored in PostgreSQL with pgvector for semantic vector search. Context retrieved automatically across sessions. |
 | 📚 **Structured knowledge base** | An [Obsidian](https://obsidian.md) vault at `~/.agency/vault/` synced in real-time to PostgreSQL. Open it in Obsidian to visually browse your agent's default brain, explore agent-drafted proposals, and review canon notes you've approved. Obsidian is free and optional — the vault is plain Markdown files that work in any editor. |
 | 🦙 **Local model support** | Ollama runs in Docker. `qwen3:8b` pulled automatically on install. No cloud required. |
-| 🔀 **Model routing** | Route tasks across Anthropic (Claude), OpenAI (GPT), and Ollama simultaneously. Per-tier routing with automatic fallbacks. |
-| ⚡ **Real-time streaming** | WebSocket chat with live token streaming, tool call cards, and full session history. |
+| 🔀 **Model routing** | Route tasks across Anthropic (Claude), OpenAI (GPT), and Ollama simultaneously. Per-tier routing with automatic fallbacks. Prompt caching reduces API costs on repeated context. |
+| ⚡ **Real-time streaming** | WebSocket chat with live token streaming, tool call cards, and full session history. Session search, prompt suggestions, and away-summary recaps when you return to an idle session. |
 | 🛠️ **Skills & profiles** | Modular agent capabilities and swappable behavior profiles. Attach different toolsets without reconfiguring everything. |
 | 🔌 **Connectors** | Discord integration. Talk to your agents from your existing chat apps. |
 | 📬 **Redis queues** | Message queuing and pub/sub via Redis for async agent coordination and background tasks. |
-| 🙋 **Human-in-the-loop** | Agents pause and request approval before executing sensitive operations. Full approval queue in the dashboard. |
+| 🙋 **Smart approvals** | Agents pause before sensitive operations. A 2-stage permission classifier (heuristic + LLM) auto-blocks dangerous invocations and labels each approval LOW / MEDIUM / HIGH risk with an explanation. |
+| 🔍 **Adversarial verification** | Run an independent verification pass on completed work. The verifier tries to break the implementation — runs builds, tests, and adversarial probes — and returns a PASS / FAIL / PARTIAL verdict. |
+| 🤖 **Proactive / autonomous mode** | Agents can run on a heartbeat loop, waking periodically to act on their own initiative. Focus-aware: collaborative when you're in the dashboard, fully autonomous when you're away. |
 | 📋 **Audit log** | Every agent action, tool call, and API request logged with full context. |
 
 ---
@@ -251,13 +253,16 @@ The model router handles **per-tier routing**: configure a `cheap` model for lig
 Pre-1.0. Core platform is functional. Active development.
 
 - [x] ⚙️ Gateway + WebSocket streaming
-- [x] 🤝 Multi-agent orchestration
-- [x] 🔀 Model routing (Anthropic / OpenAI / Ollama)
+- [x] 🤝 Multi-agent orchestration + coordinator mode
+- [x] 🔀 Model routing (Anthropic / OpenAI / Ollama) + prompt caching
 - [x] 📚 Vault sync (Markdown → PostgreSQL + pgvector)
 - [x] 🌐 Dashboard (10 pages)
 - [x] 🔌 Discord connector
 - [x] 🛠️ Skills + profiles
-- [x] 📋 Audit log + approvals
+- [x] 📋 Audit log + smart approvals with risk classification
+- [x] 💬 Session search, prompt suggestions, away summaries
+- [x] 🔍 Adversarial verification gate
+- [x] 🤖 Proactive / autonomous mode
 - [ ] 📡 OpenTelemetry tracing
 - [ ] 🔒 Full RBAC
 - [ ] 🎉 1.0 release
