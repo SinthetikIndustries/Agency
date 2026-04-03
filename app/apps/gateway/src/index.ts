@@ -46,6 +46,7 @@ import { isInsideWorkspace } from './path-utils.js'
 import { rankSessionsByRelevance } from './session-search.js'
 import { generatePromptSuggestions } from './prompt-suggestions.js'
 import { getCoordinatorInjection } from './coordinator-session.js'
+import { buildVerificationPrompt, parseVerdict } from '@agency/orchestrator'
 
 // ─── First-Run Bootstrap ──────────────────────────────────────────────────────
 
@@ -1099,6 +1100,49 @@ export async function createGateway(): Promise<void> {
     }
 
     return { response: fullResponse }
+  })
+
+  app.post('/sessions/:id/verify', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const body = request.body as { taskDescription: string; filesChanged: string[]; approach?: string }
+
+    if (!body.taskDescription || !body.filesChanged?.length) {
+      return reply.status(400).send({ error: 'taskDescription and filesChanged are required' })
+    }
+
+    const session = await db.queryOne<{ agent_id: string }>(
+      'SELECT agent_id FROM sessions WHERE id = $1',
+      [id]
+    )
+    if (!session) return reply.status(404).send({ error: 'Session not found' })
+
+    const verifySessionId = randomUUID()
+    await db.execute(
+      'INSERT INTO sessions (id, agent_id, client, status) VALUES ($1, $2, $3, $4)',
+      [verifySessionId, session.agent_id, 'verification', 'active']
+    )
+
+    const verificationPrompt = buildVerificationPrompt(body)
+
+    const chunks: string[] = []
+    try {
+      for await (const chunk of orchestrator.run(
+        { id: verifySessionId, agentId: session.agent_id } as any,
+        verificationPrompt,
+        [],
+        undefined,
+        { systemInjection: 'CRITICAL: You are in VERIFICATION-ONLY mode. You CANNOT edit, write, or create any files in the project directory.' }
+      )) {
+        if (chunk.type === 'text') chunks.push(chunk.text)
+      }
+    } finally {
+      await db.execute('UPDATE sessions SET status = $1 WHERE id = $2', ['completed', verifySessionId])
+    }
+
+    const report = chunks.join('')
+    const verdict = parseVerdict(report)
+
+    return reply.send({ verdict, report, sessionId: verifySessionId })
   })
 
   app.delete('/sessions/:id', async (request, reply) => {

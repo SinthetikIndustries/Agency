@@ -27,6 +27,8 @@ import type { DatabaseClient } from './db.js'
 import { buildCompactionPrompt, parseCompactionSummary, pruneToolResults } from './compaction.js'
 import { type MemoryStore, formatMemoriesForContext } from '@agency/memory'
 export { buildCoordinatorSystemPrompt, isCoordinatorMessage } from './coordinator.js'
+export { buildVerificationPrompt, parseVerdict } from './verification-agent.js'
+export type { VerificationRequest, Verdict } from './verification-agent.js'
 
 export type HookFireFn = (event: string, context?: Record<string, unknown>) => Promise<{ blocked: boolean; reason?: string }>
 
