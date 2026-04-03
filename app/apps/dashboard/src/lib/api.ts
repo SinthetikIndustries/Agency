@@ -200,6 +200,12 @@ export const sessions = {
 
   suggestions: (sessionId: string) =>
     request<{ suggestions: string[] }>(`/sessions/${sessionId}/suggestions`),
+
+  verify: (sessionId: string, body: { taskDescription: string; filesChanged: string[]; approach?: string }) =>
+    request<{ verdict: 'PASS' | 'FAIL' | 'PARTIAL' | null; report: string; sessionId: string }>(
+      `/sessions/${sessionId}/verify`,
+      { method: 'POST', body: JSON.stringify(body) }
+    ),
 }
 
 // ─── Agents ───────────────────────────────────────────────────────────────────
