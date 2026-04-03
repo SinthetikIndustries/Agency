@@ -156,10 +156,18 @@ export interface ToolDefinition {
   inputSchema: Record<string, unknown>  // JSON Schema
 }
 
+export interface SystemBlock {
+  type: 'text'
+  text: string
+  cache_control?: { type: 'ephemeral' }
+}
+
 export interface CompletionRequest {
   model: string
   messages: CompletionMessage[]
   system?: string | undefined
+  systemBlocks?: SystemBlock[] | undefined
+  betaHeaders?: string[] | undefined
   tools?: ToolDefinition[] | undefined
   maxTokens?: number | undefined
   temperature?: number | undefined

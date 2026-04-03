@@ -40,10 +40,18 @@ export class AnthropicAdapter implements ModelAdapter {
       messages: request.messages as Anthropic.MessageParam[],
     }
     if (request.temperature !== undefined) params.temperature = request.temperature
-    if (request.system) params.system = request.system
+    if (request.systemBlocks && request.systemBlocks.length > 0) {
+      params.system = request.systemBlocks as Anthropic.TextBlockParam[]
+    } else if (request.system) {
+      params.system = request.system
+    }
     if (request.tools && request.tools.length > 0) params.tools = request.tools as unknown as Anthropic.Tool[]
 
-    const response = await this.client.messages.create(params)
+    const sdkOptions = request.betaHeaders?.length
+      ? { headers: { 'anthropic-beta': request.betaHeaders.join(',') } }
+      : undefined
+
+    const response = await this.client.messages.create(params, sdkOptions)
 
     return {
       id: response.id,
@@ -63,10 +71,18 @@ export class AnthropicAdapter implements ModelAdapter {
       stream: true,
     }
     if (request.temperature !== undefined) params.temperature = request.temperature
-    if (request.system) params.system = request.system
+    if (request.systemBlocks && request.systemBlocks.length > 0) {
+      params.system = request.systemBlocks as Anthropic.TextBlockParam[]
+    } else if (request.system) {
+      params.system = request.system
+    }
     if (request.tools && request.tools.length > 0) params.tools = request.tools as unknown as Anthropic.Tool[]
 
-    const stream = await this.client.messages.stream(params)
+    const sdkOptions = request.betaHeaders?.length
+      ? { headers: { 'anthropic-beta': request.betaHeaders.join(',') } }
+      : undefined
+
+    const stream = await this.client.messages.stream(params, sdkOptions)
 
     let inputTokens = 0
     let outputTokens = 0

@@ -854,7 +854,7 @@ export class Orchestrator {
     agent: AgentWithProfile,
     messages: Message[],
     options?: { systemInjection?: string }
-  ): Promise<{ system: string; history: CompletionMessage[] }> {
+  ): Promise<{ systemBlocks: Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }>; history: CompletionMessage[] }> {
     const configDir = join(agent.identity.workspacePath, 'config')
     const contextParts: string[] = []
 
@@ -891,11 +891,18 @@ export class Orchestrator {
       }
     } catch { /* no config dir */ }
 
-    const system = [
-      agent.profile.systemPrompt,
-      contextParts.length ? `\n\n---\n\n${contextParts.join('\n\n---\n\n')}` : '',
-      options?.systemInjection ? `\n\n---\n\n${options.systemInjection}` : '',
-    ].join('')
+    // Static block: profile system prompt — stable across turns, eligible for caching
+    const systemBlocks: Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }> = [
+      { type: 'text', text: agent.profile.systemPrompt, cache_control: { type: 'ephemeral' } },
+    ]
+
+    // Dynamic block: workspace context + injection — rebuilt each turn, no cache flag
+    const dynamicParts: string[] = []
+    if (contextParts.length > 0) dynamicParts.push(contextParts.join('\n\n---\n\n'))
+    if (options?.systemInjection) dynamicParts.push(options.systemInjection)
+    if (dynamicParts.length > 0) {
+      systemBlocks.push({ type: 'text', text: dynamicParts.join('\n\n---\n\n') })
+    }
 
     // Convert DB messages to completion messages, then compact if needed
     let history: CompletionMessage[] = messages.map(m => ({
@@ -904,7 +911,7 @@ export class Orchestrator {
     }))
     history = await this.maybeCompactHistory(history)
 
-    return { system, history }
+    return { systemBlocks, history }
   }
 
   // Rough token estimate: ~4 chars per token
@@ -1024,7 +1031,7 @@ export class Orchestrator {
       this.wakeAgent(agent.identity.slug)
     }
 
-    const { system, history } = await this.buildContext(agent, messages, options)
+    const { systemBlocks, history } = await this.buildContext(agent, messages, options)
 
     const context: ToolContext = {
       agentId: agent.identity.id,
@@ -1064,7 +1071,8 @@ export class Orchestrator {
       const streamRequest = {
         model: resolvedModel,
         messages: turnMessages,
-        system,
+        systemBlocks,
+        betaHeaders: ['prompt-caching-2024-07-31'],
         tools: tools.length > 0 ? tools as never : undefined,
         maxTokens: 8192,
       }
