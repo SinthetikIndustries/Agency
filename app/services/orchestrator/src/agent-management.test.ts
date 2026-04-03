@@ -571,10 +571,10 @@ describe('Orchestrator.addWorkspacePath()', () => {
     expect(appendCalls).toHaveLength(1)
   })
 
-  it('throws when path is not absolute', async () => {
-    await expect(orchestrator.addWorkspacePath('main', 'relative/path')).rejects.toThrow(
-      'Workspace path must be absolute'
-    )
+  it('resolves relative paths to absolute before storing', async () => {
+    await orchestrator.addWorkspacePath('main', 'relative/path')
+    const paths = orchestrator.getAgent('main')!.identity.additionalWorkspacePaths
+    expect(paths.some(p => p.startsWith('/') && p.endsWith('relative/path'))).toBe(true)
   })
 
   it('throws when agent does not exist', async () => {
