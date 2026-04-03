@@ -950,6 +950,33 @@ export function createToolRegistry(queueClient?: QueueClient, options?: { memory
     })
   }
 
+  // ── Sleep tool ────────────────────────────────────────────────────────────
+  registry.register({
+    name: 'sleep',
+    type: 'code',
+    description: 'Pause execution for a specified number of seconds. Use this in autonomous mode to control how often you wake up. Calling Sleep instead of outputting text when idle prevents wasting API turns.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        seconds: {
+          type: 'number',
+          description: 'Number of seconds to sleep. Min 5, max 300 (5 minutes). Stay under 300 to keep the prompt cache warm.',
+          minimum: 5,
+          maximum: 300,
+        },
+      },
+      required: ['seconds'],
+    },
+    permissions: [],
+    sandboxed: false,
+    timeout: 310_000,
+  }, async (input: Record<string, unknown>) => {
+    const seconds = input['seconds'] as number
+    const clamped = Math.max(5, Math.min(300, seconds))
+    await new Promise(resolve => setTimeout(resolve, clamped * 1000))
+    return { slept: clamped }
+  })
+
   return registry
 }
 
