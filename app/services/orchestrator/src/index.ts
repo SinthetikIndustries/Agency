@@ -25,6 +25,7 @@ import { ModelRouter } from '@agency/model-router'
 import { ToolRegistry } from '@agency/tool-registry'
 import type { DatabaseClient } from './db.js'
 import { buildCompactionPrompt, parseCompactionSummary, pruneToolResults } from './compaction.js'
+import { type MemoryStore, formatMemoriesForContext } from '@agency/memory'
 
 export type HookFireFn = (event: string, context?: Record<string, unknown>) => Promise<{ blocked: boolean; reason?: string }>
 
@@ -155,6 +156,7 @@ export class Orchestrator {
     private readonly modelRouter: ModelRouter,
     private readonly toolRegistry: ToolRegistry,
     private readonly hookFire?: HookFireFn,
+    private readonly memoryStore?: MemoryStore,
   ) {
     this.agencyDir = join(homedir(), '.agency')
     this.agentsDir = join(this.agencyDir, 'agents')
@@ -890,6 +892,27 @@ export class Orchestrator {
         } catch { /* skip */ }
       }
     } catch { /* no config dir */ }
+
+    // Inject relevant memories for the current query (last user message)
+    if (this.memoryStore && messages.length > 0) {
+      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
+      if (lastUserMsg) {
+        const queryText = typeof lastUserMsg.content === 'string'
+          ? lastUserMsg.content
+          : (lastUserMsg.content as Array<{ type: string; text?: string }>).map(b => b.text ?? '').join(' ')
+        try {
+          const memories = await this.memoryStore.read({
+            agentId: agent.identity.id,
+            query: queryText,
+            types: ['semantic', 'episodic'],
+            limit: 5,
+            minScore: 0.7,
+          })
+          const memoryContext = formatMemoriesForContext(memories)
+          if (memoryContext) contextParts.push(memoryContext)
+        } catch { /* memory query failure is non-fatal */ }
+      }
+    }
 
     // Static block: profile system prompt — stable across turns, eligible for caching
     const systemBlocks: Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }> = [

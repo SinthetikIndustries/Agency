@@ -61,7 +61,7 @@ function makeAgent(systemPrompt = 'You are helpful.'): AgentWithProfile {
   }
 }
 
-async function makeBuildContext() {
+async function makeBuildContext(memoryStore?: { read: ReturnType<typeof vi.fn> }) {
   const { Orchestrator } = await import('./index.js')
   const db = {
     query: vi.fn().mockResolvedValue([]),
@@ -80,7 +80,7 @@ async function makeBuildContext() {
     ollamaEnabled: false,
   }
   const toolRegistry = { getTools: vi.fn().mockReturnValue([]) }
-  const orchestrator = new Orchestrator(db as any, modelRouter as any, toolRegistry as any)
+  const orchestrator = new Orchestrator(db as any, modelRouter as any, toolRegistry as any, undefined, memoryStore as any)
   // Access private method via cast for testing
   return (orchestrator as any).buildContext.bind(orchestrator) as (
     agent: AgentWithProfile,
@@ -136,5 +136,59 @@ describe('buildContext() — systemBlocks', () => {
     const result = await buildContext(makeAgent(), [], { systemInjection: 'Extra context.' })
     expect(result.systemBlocks).toHaveLength(2)
     expect(result.systemBlocks[1]!.text).toContain('Extra context.')
+  })
+})
+
+// ─── buildContext() — memory integration ─────────────────────────────────────
+
+describe('buildContext() — memory integration', () => {
+  beforeEach(() => {
+    mockReadFile.mockRejectedValue(new Error('ENOENT'))
+    mockWriteFile.mockResolvedValue(undefined)
+    mockReaddir.mockResolvedValue([])
+  })
+
+  it('includes relevant memories in the dynamic block', async () => {
+    const mockRead = vi.fn().mockResolvedValue([
+      { id: '1', agentId: 'main', type: 'semantic', content: 'User prefers bullet points', createdAt: new Date(), expiresAt: null },
+    ])
+    const buildContext = await makeBuildContext({ read: mockRead })
+    const messages = [{ role: 'user', content: 'Explain something' }]
+    const result = await buildContext(makeAgent(), messages)
+    expect(result.systemBlocks).toHaveLength(2)
+    expect(result.systemBlocks[1]!.text).toContain('User prefers bullet points')
+    expect(result.systemBlocks[1]!.text).toContain('Relevant Memories')
+  })
+
+  it('queries memoryStore with the last user message', async () => {
+    const mockRead = vi.fn().mockResolvedValue([])
+    const buildContext = await makeBuildContext({ read: mockRead })
+    const messages = [
+      { role: 'user', content: 'First message' },
+      { role: 'assistant', content: 'Response' },
+      { role: 'user', content: 'Second message' },
+    ]
+    await buildContext(makeAgent(), messages)
+    expect(mockRead).toHaveBeenCalledWith(expect.objectContaining({ query: 'Second message' }))
+  })
+
+  it('does not add a memory block when memoryStore returns no results', async () => {
+    const mockRead = vi.fn().mockResolvedValue([])
+    const buildContext = await makeBuildContext({ read: mockRead })
+    const result = await buildContext(makeAgent(), [{ role: 'user', content: 'hello' }])
+    expect(result.systemBlocks).toHaveLength(1)
+  })
+
+  it('is non-fatal when memoryStore.read() throws', async () => {
+    const mockRead = vi.fn().mockRejectedValue(new Error('DB down'))
+    const buildContext = await makeBuildContext({ read: mockRead })
+    await expect(buildContext(makeAgent(), [{ role: 'user', content: 'hello' }])).resolves.toBeDefined()
+  })
+
+  it('skips memory query when no messages are present', async () => {
+    const mockRead = vi.fn().mockResolvedValue([])
+    const buildContext = await makeBuildContext({ read: mockRead })
+    await buildContext(makeAgent(), [])
+    expect(mockRead).not.toHaveBeenCalled()
   })
 })

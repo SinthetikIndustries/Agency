@@ -21,6 +21,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@agency/memory": "workspace:*",
     "@agency/model-router": "workspace:*",
     "@agency/shared-types": "workspace:*",
     "@agency/tool-registry": "workspace:*",
