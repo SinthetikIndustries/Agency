@@ -96,6 +96,7 @@ export interface Session {
   name?: string
   pinned?: boolean
   pinnedAt?: Date
+  coordinatorMode?: boolean
   createdAt: Date
   updatedAt: Date
 }

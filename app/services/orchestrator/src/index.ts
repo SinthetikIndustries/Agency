@@ -26,6 +26,7 @@ import { ToolRegistry } from '@agency/tool-registry'
 import type { DatabaseClient } from './db.js'
 import { buildCompactionPrompt, parseCompactionSummary, pruneToolResults } from './compaction.js'
 import { type MemoryStore, formatMemoriesForContext } from '@agency/memory'
+export { buildCoordinatorSystemPrompt, isCoordinatorMessage } from './coordinator.js'
 
 export type HookFireFn = (event: string, context?: Record<string, unknown>) => Promise<{ blocked: boolean; reason?: string }>
 

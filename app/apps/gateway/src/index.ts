@@ -45,6 +45,7 @@ import { McpManager } from './mcp-manager.js'
 import { isInsideWorkspace } from './path-utils.js'
 import { rankSessionsByRelevance } from './session-search.js'
 import { generatePromptSuggestions } from './prompt-suggestions.js'
+import { getCoordinatorInjection } from './coordinator-session.js'
 
 // ─── First-Run Bootstrap ──────────────────────────────────────────────────────
 
@@ -158,17 +159,18 @@ interface AppServices {
 
 // ─── Session Helpers ──────────────────────────────────────────────────────────
 
-async function createSession(db: PostgresClient, agentId: string, client = 'cli'): Promise<Session> {
+async function createSession(db: PostgresClient, agentId: string, client = 'cli', coordinatorMode = false): Promise<Session> {
   const id = randomUUID()
   await db.execute(
-    'INSERT INTO sessions (id, agent_id, client, status) VALUES ($1, $2, $3, $4)',
-    [id, agentId, client, 'active']
+    'INSERT INTO sessions (id, agent_id, client, status, coordinator_mode) VALUES ($1, $2, $3, $4, $5)',
+    [id, agentId, client, 'active', coordinatorMode]
   )
   return {
     id,
     agentId,
     client,
     status: 'active',
+    coordinatorMode,
     createdAt: new Date(),
     updatedAt: new Date(),
   }
@@ -191,6 +193,7 @@ async function getSession(db: PostgresClient, id: string): Promise<Session | nul
   }
   if (row['name']) base.name = row['name']
   if (row['pinned_at']) base.pinnedAt = new Date(row['pinned_at'])
+  if ((row['coordinator_mode'] as unknown) === true || row['coordinator_mode'] === 'true') base.coordinatorMode = true
   return base
 }
 
@@ -837,14 +840,15 @@ export async function createGateway(): Promise<void> {
 
   // Sessions
   app.post('/sessions', async (request, reply) => {
-    const body = request.body as { agentSlug?: string; client?: string } | undefined
+    const body = request.body as { agentSlug?: string; client?: string; coordinatorMode?: boolean } | undefined
     const agentSlug = body?.agentSlug ?? 'main'
     const client = body?.client ?? 'cli'
+    const coordinatorMode = body?.coordinatorMode ?? false
     const agent = orchestrator.getAgent(agentSlug)
     if (!agent) {
       return reply.status(404).send({ error: `Agent not found: ${agentSlug}` })
     }
-    const session = await createSession(db, agent.identity.id, client)
+    const session = await createSession(db, agent.identity.id, client, coordinatorMode)
     metrics.sessionsTotal.inc({ client })
     metrics.sessionsActive.inc({ agent: agentSlug })
     void services.auditLogger.log({
@@ -1222,6 +1226,15 @@ export async function createGateway(): Promise<void> {
             }
           } catch { /* config not readable, skip */ }
           firstRunHandled = true
+        }
+
+        // Apply coordinator injection when session is in coordinator mode
+        if (session.coordinatorMode) {
+          const workerRows = await db.query<{ slug: string }>(
+            `SELECT slug FROM agents WHERE status = 'active' AND id != $1`,
+            [session.agentId]
+          ).catch(() => [] as { slug: string }[])
+          wsSystemInjection = getCoordinatorInjection(true, workerRows.map(r => r.slug), wsSystemInjection)
         }
 
         let fullResponse = ''
