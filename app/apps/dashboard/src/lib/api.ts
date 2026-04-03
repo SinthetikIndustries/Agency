@@ -483,6 +483,8 @@ export interface Approval {
   reason: string
   status: string
   created_at: string
+  risk_level?: 'LOW' | 'MEDIUM' | 'HIGH'
+  explanation?: string
 }
 
 export const approvals = {

@@ -125,17 +125,32 @@ function ApprovalCard({
     }
   }, [approval.tool_input])
 
+  const riskBadge = {
+    LOW:    'bg-green-900/50 text-green-400',
+    MEDIUM: 'bg-yellow-900/50 text-yellow-400',
+    HIGH:   'bg-red-900/50 text-red-400',
+  }[approval.risk_level ?? 'MEDIUM'] ?? 'bg-yellow-900/50 text-yellow-400'
+
   return (
     <div className="bg-gray-900 border border-yellow-800/50 rounded-lg p-4">
       <div className="flex items-start justify-between gap-4 mb-3">
-        <div>
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-sm text-white">{approval.tool_name}</span>
-          <span className="ml-2 text-xs text-gray-600">by {approval.agent_id.slice(0, 8)}</span>
+          <span className="text-xs text-gray-600">by {approval.agent_id.slice(0, 8)}</span>
+          {approval.risk_level && (
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${riskBadge}`}>
+              {approval.risk_level}
+            </span>
+          )}
         </div>
         <span className="text-xs text-gray-600 shrink-0">
           {new Date(approval.created_at).toLocaleString()}
         </span>
       </div>
+
+      {approval.explanation && (
+        <p className="text-xs text-gray-500 mb-2 italic">{approval.explanation}</p>
+      )}
 
       {approval.reason && (
         <p className="text-xs text-gray-400 mb-3">{approval.reason}</p>
