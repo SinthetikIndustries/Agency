@@ -24,6 +24,7 @@ import type {
 import { ModelRouter } from '@agency/model-router'
 import { ToolRegistry } from '@agency/tool-registry'
 import type { DatabaseClient } from './db.js'
+import { buildCompactionPrompt, parseCompactionSummary, pruneToolResults } from './compaction.js'
 
 export type HookFireFn = (event: string, context?: Record<string, unknown>) => Promise<{ blocked: boolean; reason?: string }>
 
@@ -912,57 +913,47 @@ export class Orchestrator {
   }
 
   private async maybeCompactHistory(history: CompletionMessage[]): Promise<CompletionMessage[]> {
-    // Keep last N turn-pairs verbatim; summarize the rest if over threshold
-    const KEEP_TURNS = 10          // number of user+assistant pairs to keep verbatim
-    const TOKEN_THRESHOLD = 8000   // estimated tokens before compaction triggers
+    const KEEP_TURNS = 10
+    const TOKEN_THRESHOLD = 8000
 
     if (history.length === 0) return history
+
+    // Step 1: prune old tool results (cheap, no API call)
+    const pruned = pruneToolResults(history, 5)
 
     const contentToText = (c: string | import('@agency/shared-types').ContentBlock[]): string =>
       typeof c === 'string' ? c : c.map(b => ('text' in b ? b.text : '')).join('')
 
-    const totalTokens = history.reduce((sum, m) => sum + this.estimateTokens(contentToText(m.content)), 0)
-    if (totalTokens <= TOKEN_THRESHOLD) return history
+    const totalTokens = pruned.reduce((sum, m) => sum + this.estimateTokens(contentToText(m.content)), 0)
+    if (totalTokens <= TOKEN_THRESHOLD) return pruned
 
-    // Separate the recent turns from the older ones
-    // Each "turn" = 1 user + 1 assistant message (2 messages), so keep last KEEP_TURNS*2
     const keepCount = KEEP_TURNS * 2
-    if (history.length <= keepCount) return history
+    if (pruned.length <= keepCount) return pruned
 
-    const olderMessages = history.slice(0, history.length - keepCount)
-    const recentMessages = history.slice(history.length - keepCount)
+    const olderMessages = pruned.slice(0, pruned.length - keepCount)
+    const recentMessages = pruned.slice(pruned.length - keepCount)
 
-    // Summarize the older messages
     try {
-      const transcript = olderMessages
-        .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${contentToText(m.content)}`)
-        .join('\n\n')
-
       const summaryResponse = await this.modelRouter.complete({
         model: this.modelRouter.resolveModel('cheap'),
-        messages: [
-          {
-            role: 'user',
-            content: `Summarize the following conversation transcript concisely, preserving key facts, decisions, and context that would be useful to an AI assistant continuing this conversation:\n\n${transcript}`,
-          },
-        ],
+        messages: [{ role: 'user', content: buildCompactionPrompt(olderMessages) }],
       })
 
-      const summaryText = summaryResponse.content
+      const rawSummary = typeof summaryResponse.content === 'string'
+        ? summaryResponse.content
+        : (summaryResponse.content as Array<{ type: string; text?: string }>).map(b => b.text ?? '').join('')
 
       const summaryMessage: CompletionMessage = {
         role: 'assistant',
-        content: `[Session summary — earlier conversation]\n\n${summaryText}`,
+        content: `[Session summary — earlier conversation compacted]\n\n${parseCompactionSummary(rawSummary)}`,
       }
 
-      console.log(`[Orchestrator] Compacted ${olderMessages.length} messages into summary (was ~${totalTokens} tokens)`)
-      void this.hookFire?.('model.context.compact', { messagesCompacted: olderMessages.length, tokensBefore: totalTokens })
+      console.log(`[Orchestrator] Compacted ${olderMessages.length} messages into structured summary (was ~${totalTokens} tokens)`)
       void this.hookFire?.('agent.context.compact', { messagesCompacted: olderMessages.length, tokensBefore: totalTokens })
       return [summaryMessage, ...recentMessages]
     } catch (err) {
-      // If compaction fails, return original history — don't break the session
-      console.warn('[Orchestrator] History compaction failed, using full history:', err)
-      return history
+      console.warn('[Orchestrator] History compaction failed, using pruned history:', err)
+      return pruned
     }
   }
 
