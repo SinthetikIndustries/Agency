@@ -11,7 +11,7 @@ import type { AgencyConfig, AgencyCredentials } from '@agency/shared-types'
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const GatewayConfigSchema = z.object({
-  port: z.number().int().min(1).max(65535).default(3000),
+  port: z.number().int().min(1).max(65535).default(PORTS.GATEWAY),
   host: z.string().default('127.0.0.1'),
   logLevel: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   auth: z.object({

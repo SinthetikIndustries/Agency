@@ -27,8 +27,7 @@ class PlannerWorker extends BaseWorker {
     if (!this.modelRouter) throw new Error('Model router not initialized')
     
     console.log(`[Planner Worker] Processing job ${job.id} for tool ${toolName}`)
-    // For now, return a placeholder success until planner tools are fully defined
-    return { status: 'planned', steps: [] }
+    throw new Error(`PlannerWorker: tool "${toolName}" is not yet implemented`)
   }
 }
 

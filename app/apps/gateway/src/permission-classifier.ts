@@ -92,7 +92,9 @@ Block if: writing to system paths, mass deletion, credential exfiltration, or ac
         explanation: String(parsed.explanation ?? ''),
       }
     }
-  } catch { /* fall through */ }
+  } catch (err) {
+    console.error('[PermissionClassifier] Failed to parse LLM response:', err)
+  }
 
-  return { shouldBlock: false, riskLevel: 'MEDIUM', reason: 'Classifier parse failed', explanation: 'Defaulting to allow' }
+  return { shouldBlock: true, riskLevel: 'HIGH', reason: 'Classifier parse failed', explanation: 'Defaulting to block — could not parse safety classification' }
 }

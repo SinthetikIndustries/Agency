@@ -16,41 +16,51 @@ export function registerAgentSkillRoutes(
 ): void {
   app.get('/agents/:slug/skills', async (request, reply) => {
     const { slug } = request.params as { slug: string }
-    const agent = await db.queryOne<{ id: string }>('SELECT id FROM agent_identities WHERE slug = $1', [slug])
-    if (!agent) return reply.status(404).send({ error: 'Agent not found' })
-    const skills = await skillsManager.listAgentSkills(agent.id)
-    return { skills, total: skills.length }
+    if (!slug?.trim()) return reply.status(400).send({ error: 'slug is required' })
+    try {
+      const agent = await db.queryOne<{ id: string }>('SELECT id FROM agent_identities WHERE slug = $1', [slug])
+      if (!agent) return reply.status(404).send({ error: 'Agent not found' })
+      const skills = await skillsManager.listAgentSkills(agent.id)
+      return { skills, total: skills.length }
+    } catch (err) {
+      const msg = (err as Error).message
+      return reply.status(500).send({ error: msg })
+    }
   })
 
   app.post('/agents/:slug/skills/:name/enable', async (request, reply) => {
     const { slug, name } = request.params as { slug: string; name: string }
+    if (!slug?.trim()) return reply.status(400).send({ error: 'slug is required' })
+    if (!name?.trim()) return reply.status(400).send({ error: 'name is required' })
     const agent = await db.queryOne<{ id: string }>('SELECT id FROM agent_identities WHERE slug = $1', [slug])
     if (!agent) return reply.status(404).send({ error: 'Agent not found' })
     try {
       await skillsManager.enableAgentSkill(agent.id, name)
     } catch (err) {
       const msg = (err as Error).message
-      void hooksManager?.fire('skill.error', { skillName: name, error: msg })
+      hooksManager?.fire('skill.error', { skillName: name, error: msg }).catch(e => console.error('[Hooks] skill.error fire failed:', e))
       return reply.status(400).send({ error: msg })
     }
     void auditLogger.log({ action: 'agent_skill.enable', actor: 'user', targetType: 'agent_skill', targetId: `${slug}:${name}` })
-    void hooksManager?.fire('skill.activated', { skillName: name, agentSlug: slug, agentId: agent.id })
+    hooksManager?.fire('skill.activated', { skillName: name, agentSlug: slug, agentId: agent.id }).catch(e => console.error('[Hooks] skill.activated fire failed:', e))
     return { ok: true }
   })
 
   app.post('/agents/:slug/skills/:name/disable', async (request, reply) => {
     const { slug, name } = request.params as { slug: string; name: string }
+    if (!slug?.trim()) return reply.status(400).send({ error: 'slug is required' })
+    if (!name?.trim()) return reply.status(400).send({ error: 'name is required' })
     const agent = await db.queryOne<{ id: string }>('SELECT id FROM agent_identities WHERE slug = $1', [slug])
     if (!agent) return reply.status(404).send({ error: 'Agent not found' })
     try {
       await skillsManager.disableAgentSkill(agent.id, name)
     } catch (err) {
       const msg = (err as Error).message
-      void hooksManager?.fire('skill.error', { skillName: name, error: msg })
+      hooksManager?.fire('skill.error', { skillName: name, error: msg }).catch(e => console.error('[Hooks] skill.error fire failed:', e))
       return reply.status(400).send({ error: msg })
     }
     void auditLogger.log({ action: 'agent_skill.disable', actor: 'user', targetType: 'agent_skill', targetId: `${slug}:${name}` })
-    void hooksManager?.fire('skill.deactivated', { skillName: name, agentSlug: slug, agentId: agent.id })
+    hooksManager?.fire('skill.deactivated', { skillName: name, agentSlug: slug, agentId: agent.id }).catch(e => console.error('[Hooks] skill.deactivated fire failed:', e))
     return { ok: true }
   })
 }

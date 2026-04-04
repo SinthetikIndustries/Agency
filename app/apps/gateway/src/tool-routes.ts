@@ -30,6 +30,7 @@ export function registerToolRoutes(
 
   app.post('/tools/:name/enable', async (request, reply) => {
     const { name } = request.params as { name: string }
+    if (!name?.trim()) return reply.status(400).send({ error: 'name is required' })
     if (!toolRegistry.get(name)) return reply.status(404).send({ error: `Tool "${name}" not found` })
     await db.execute(
       `INSERT INTO tool_overrides (tool_name, enabled, updated_at)
@@ -38,12 +39,13 @@ export function registerToolRoutes(
       [name]
     )
     void auditLogger.log({ action: 'tool.enable', actor: 'user', targetType: 'tool', targetId: name })
-    void hooksManager?.fire('tool.enabled', { toolName: name })
+    hooksManager?.fire('tool.enabled', { toolName: name }).catch(e => console.error('[Hooks] tool.enabled fire failed:', e))
     return { ok: true }
   })
 
   app.post('/tools/:name/disable', async (request, reply) => {
     const { name } = request.params as { name: string }
+    if (!name?.trim()) return reply.status(400).send({ error: 'name is required' })
     if (!toolRegistry.get(name)) return reply.status(404).send({ error: `Tool "${name}" not found` })
     await db.execute(
       `INSERT INTO tool_overrides (tool_name, enabled, updated_at)
@@ -52,7 +54,7 @@ export function registerToolRoutes(
       [name]
     )
     void auditLogger.log({ action: 'tool.disable', actor: 'user', targetType: 'tool', targetId: name })
-    void hooksManager?.fire('tool.disabled', { toolName: name })
+    hooksManager?.fire('tool.disabled', { toolName: name }).catch(e => console.error('[Hooks] tool.disabled fire failed:', e))
     return { ok: true }
   })
 }
