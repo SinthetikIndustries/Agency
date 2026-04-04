@@ -32,7 +32,9 @@ describe('GET /agents/:slug/skills', () => {
     await app.ready()
     const res = await app.inject({ method: 'GET', url: '/agents/my-agent/skills' })
     expect(res.statusCode).toBe(200)
-    expect(JSON.parse(res.body).skills).toHaveLength(1)
+    const body = JSON.parse(res.body)
+    expect(body.skills).toHaveLength(1)
+    expect(body.total).toBe(1)
   })
 
   it('returns 404 for unknown agent', async () => {
@@ -40,6 +42,16 @@ describe('GET /agents/:slug/skills', () => {
     await app.ready()
     const res = await app.inject({ method: 'GET', url: '/agents/nobody/skills' })
     expect(res.statusCode).toBe(404)
+  })
+
+  it('returns 500 when listAgentSkills throws', async () => {
+    const { app, mockDb, mockSkillsManager } = makeApp()
+    mockDb.queryOne.mockResolvedValueOnce({ id: 'agent-1' })
+    mockSkillsManager.listAgentSkills.mockRejectedValueOnce(new Error('db error'))
+    await app.ready()
+    const res = await app.inject({ method: 'GET', url: '/agents/my-agent/skills' })
+    expect(res.statusCode).toBe(500)
+    expect(res.json().error).toBe('db error')
   })
 })
 
@@ -50,6 +62,7 @@ describe('POST /agents/:slug/skills/:name/enable', () => {
     await app.ready()
     const res = await app.inject({ method: 'POST', url: '/agents/my-agent/skills/bash/enable' })
     expect(res.statusCode).toBe(200)
+    expect(res.json()).toMatchObject({ ok: true })
     expect(mockSkillsManager.enableAgentSkill).toHaveBeenCalledWith('agent-1', 'bash')
   })
 
@@ -58,6 +71,16 @@ describe('POST /agents/:slug/skills/:name/enable', () => {
     await app.ready()
     const res = await app.inject({ method: 'POST', url: '/agents/nobody/skills/bash/enable' })
     expect(res.statusCode).toBe(404)
+  })
+
+  it('returns 400 when enableAgentSkill throws', async () => {
+    const { app, mockDb, mockSkillsManager } = makeApp()
+    mockDb.queryOne.mockResolvedValueOnce({ id: 'agent-1' })
+    mockSkillsManager.enableAgentSkill.mockRejectedValueOnce(new Error('already enabled'))
+    await app.ready()
+    const res = await app.inject({ method: 'POST', url: '/agents/my-agent/skills/bash/enable' })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error).toBe('already enabled')
   })
 })
 
@@ -68,6 +91,7 @@ describe('POST /agents/:slug/skills/:name/disable', () => {
     await app.ready()
     const res = await app.inject({ method: 'POST', url: '/agents/my-agent/skills/bash/disable' })
     expect(res.statusCode).toBe(200)
+    expect(res.json()).toMatchObject({ ok: true })
     expect(mockSkillsManager.disableAgentSkill).toHaveBeenCalledWith('agent-1', 'bash')
   })
 
@@ -76,5 +100,15 @@ describe('POST /agents/:slug/skills/:name/disable', () => {
     await app.ready()
     const res = await app.inject({ method: 'POST', url: '/agents/nobody/skills/bash/disable' })
     expect(res.statusCode).toBe(404)
+  })
+
+  it('returns 400 when disableAgentSkill throws', async () => {
+    const { app, mockDb, mockSkillsManager } = makeApp()
+    mockDb.queryOne.mockResolvedValueOnce({ id: 'agent-1' })
+    mockSkillsManager.disableAgentSkill.mockRejectedValueOnce(new Error('not enabled'))
+    await app.ready()
+    const res = await app.inject({ method: 'POST', url: '/agents/my-agent/skills/bash/disable' })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error).toBe('not enabled')
   })
 })

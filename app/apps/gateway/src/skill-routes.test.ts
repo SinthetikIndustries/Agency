@@ -33,6 +33,15 @@ describe('POST /skills/:name/enable', () => {
     const res = await app.inject({ method: 'POST', url: '/skills/nope/enable' })
     expect(res.statusCode).toBe(404)
   })
+
+  it('returns 400 for generic manager error', async () => {
+    const { app, mockSkillsManager } = makeApp()
+    mockSkillsManager.enableSkill.mockRejectedValueOnce(new Error('something went wrong'))
+    await app.ready()
+    const res = await app.inject({ method: 'POST', url: '/skills/bash/enable' })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error).toBe('something went wrong')
+  })
 })
 
 describe('POST /skills/:name/disable', () => {
@@ -51,5 +60,14 @@ describe('POST /skills/:name/disable', () => {
     await app.ready()
     const res = await app.inject({ method: 'POST', url: '/skills/nope/disable' })
     expect(res.statusCode).toBe(404)
+  })
+
+  it('returns 400 for generic manager error', async () => {
+    const { app, mockSkillsManager } = makeApp()
+    mockSkillsManager.disableSkill.mockRejectedValueOnce(new Error('something went wrong'))
+    await app.ready()
+    const res = await app.inject({ method: 'POST', url: '/skills/bash/disable' })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error).toBe('something went wrong')
   })
 })

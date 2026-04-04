@@ -49,4 +49,13 @@ describe('GET /me', () => {
     const res = await app.inject({ method: 'GET', url: '/me' })
     expect(res.json().name).toBe('')
   })
+
+  it('treats missing config.json as first-run (onboarded=false)', async () => {
+    await fs.rm('/tmp/test-agency/config.json', { force: true })
+    const app = Fastify()
+    registerMeRoutes(app)
+    const res = await app.inject({ method: 'GET', url: '/me' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().onboarded).toBe(false)
+  })
 })
