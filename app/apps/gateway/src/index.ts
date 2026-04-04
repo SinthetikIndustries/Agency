@@ -1929,9 +1929,9 @@ export async function createGateway(): Promise<void> {
     const body = request.body as { name?: string; localPath?: string } | undefined
     const name = body?.name?.trim()
     if (!name) return reply.status(400).send({ error: 'name is required' })
+    if (!body?.localPath) return reply.status(400).send({ error: 'localPath is required' })
     try {
-      const opts = body?.localPath ? { localPath: body.localPath } : {}
-      const skill = await services.skillsManager.install(name, opts)
+      const skill = await services.skillsManager.install(name, { localPath: body.localPath })
       void services.auditLogger.log({ action: 'skill.install', actor: 'user', targetType: 'skill', targetId: name, details: { version: skill.version } })
       void services.hooksManager.fire('skill.installed', { skillName: name, version: skill.version })
       return { ok: true, skill }

@@ -159,13 +159,9 @@ export class SkillsManager {
 
   // ─── Install ──────────────────────────────────────────────────────────────
 
-  async install(name: string, options: { localPath?: string } = {}): Promise<InstalledSkill> {
+  async install(name: string, options: { localPath: string }): Promise<InstalledSkill> {
     if (this.installed.has(name)) {
       throw new Error(`Skill "${name}" is already installed.`)
-    }
-
-    if (!options.localPath) {
-      throw new Error(`localPath is required. Remote registry installs are no longer supported.`)
     }
 
     // Prevent arbitrary filesystem reads — local paths must be within skillsDir
