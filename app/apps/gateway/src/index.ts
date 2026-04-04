@@ -46,6 +46,7 @@ import { isInsideWorkspace } from './path-utils.js'
 import { rankSessionsByRelevance } from './session-search.js'
 import { generatePromptSuggestions } from './prompt-suggestions.js'
 import { getCoordinatorInjection } from './coordinator-session.js'
+import { classifyToolInvocation } from './permission-classifier.js'
 import { buildVerificationPrompt, parseVerdict } from '@agency/orchestrator'
 import { ProactiveLoop, buildProactiveSystemPrompt } from './proactive-mode.js'
 
