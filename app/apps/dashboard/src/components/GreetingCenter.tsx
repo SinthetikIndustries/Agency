@@ -57,13 +57,13 @@ export function GreetingCenter({
   }
 
   const currentAgent = agentList.find(a => a.identity.slug === selectedAgent)
-  const agentLabel = currentAgent?.profile?.name ?? currentAgent?.identity?.name ?? selectedAgent
+  const agentLabel = currentAgent?.identity?.name ?? currentAgent?.profile?.name ?? selectedAgent
 
   const sortedAgents = [
     ...agentList.filter(a => a.identity.slug === 'main'),
     ...[...agentList.filter(a => a.identity.slug !== 'main')].sort((a, b) => {
-      const nameA = (a.profile?.name ?? a.identity?.name ?? a.identity.slug).toLowerCase()
-      const nameB = (b.profile?.name ?? b.identity?.name ?? b.identity.slug).toLowerCase()
+      const nameA = (a.identity?.name ?? a.profile?.name ?? a.identity.slug).toLowerCase()
+      const nameB = (b.identity?.name ?? b.profile?.name ?? b.identity.slug).toLowerCase()
       return nameA.localeCompare(nameB)
     }),
   ]
@@ -185,7 +185,7 @@ export function GreetingCenter({
                     }}
                   >
                     {sortedAgents.map((agent, idx) => {
-                      const name = agent.profile?.name ?? agent.identity.name ?? agent.identity.slug
+                      const name = agent.identity.name ?? agent.profile?.name ?? agent.identity.slug
                       const isSelected = agent.identity.slug === selectedAgent
                       const isDefault = agent.identity.slug === 'main'
                       const showDivider = idx > 0 && sortedAgents[idx - 1].identity.slug === 'main'
