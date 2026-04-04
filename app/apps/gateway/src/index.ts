@@ -1501,10 +1501,11 @@ export async function createGateway(): Promise<void> {
     let ws = primaryWs
     if (query.root) {
       const additionalPaths = agent.identity.additionalWorkspacePaths ?? []
-      if (!additionalPaths.includes(query.root)) {
+      const absRoot = resolve(agencyDir, query.root)
+      if (!additionalPaths.includes(absRoot)) {
         return reply.status(403).send({ error: 'Root path is not a configured workspace' })
       }
-      ws = query.root
+      ws = absRoot
     }
 
     const subPath = query.path ? normalize(query.path) : ''
@@ -1543,10 +1544,11 @@ export async function createGateway(): Promise<void> {
     let ws = primaryWs
     if (query.root) {
       const additionalPaths = agent.identity.additionalWorkspacePaths ?? []
-      if (!additionalPaths.includes(query.root)) {
+      const absRoot = resolve(agencyDir, query.root)
+      if (!additionalPaths.includes(absRoot)) {
         return reply.status(403).send({ error: 'Root path is not a configured workspace' })
       }
-      ws = query.root
+      ws = absRoot
     }
 
     const abs = resolve(join(ws, normalize(filePath)))

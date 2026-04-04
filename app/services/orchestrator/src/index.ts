@@ -251,6 +251,18 @@ export class Orchestrator {
         await this.provisionWorkspace(agent.identity, row.profile_slug ?? 'default')
       }
     }
+
+    // Sync: ensure main agent has all other agents' workspace paths in additionalWorkspacePaths
+    const main = this.agents.get('main')
+    if (main) {
+      for (const [slug, agent] of this.agents) {
+        if (slug === 'main') continue
+        const ws = agent.identity.workspacePath
+        if (!main.identity.additionalWorkspacePaths.includes(ws)) {
+          await this.addWorkspacePath('main', ws).catch(() => {})
+        }
+      }
+    }
   }
 
   private async ensureMainAgent(): Promise<void> {
@@ -928,6 +940,16 @@ export class Orchestrator {
     // Dynamic block: workspace context + injection — rebuilt each turn, no cache flag
     const dynamicParts: string[] = []
     if (contextParts.length > 0) dynamicParts.push(contextParts.join('\n\n---\n\n'))
+
+    // Inform the agent of additional workspace paths it has access to
+    const extraPaths = agent.identity.additionalWorkspacePaths ?? []
+    if (extraPaths.length > 0) {
+      const pathList = extraPaths.map(p => `- ${p}`).join('\n')
+      dynamicParts.push(
+        `## Additional Workspace Access\n\nYou have read/write access to the following additional workspaces:\n${pathList}\n\nUse absolute paths when reading or writing files in these workspaces.`
+      )
+    }
+
     if (options?.systemInjection) dynamicParts.push(options.systemInjection)
     if (dynamicParts.length > 0) {
       systemBlocks.push({ type: 'text', text: dynamicParts.join('\n\n---\n\n') })

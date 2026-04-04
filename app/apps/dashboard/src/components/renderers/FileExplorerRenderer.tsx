@@ -5,13 +5,14 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
-import { workspace } from '@/lib/api'
+import { workspace, agents } from '@/lib/api'
 import { CodeRenderer } from './CodeRenderer'
 
 interface TreeNode {
   name: string
   type: 'file' | 'dir'
   path: string
+  root?: string  // undefined = primary workspace; set = additional workspace root
   children?: TreeNode[]
   expanded?: boolean
 }
@@ -28,44 +29,74 @@ function fileIcon(name: string, type: 'file' | 'dir'): string {
 }
 
 export function FileExplorerRenderer({ agentSlug }: Props) {
-  const [nodes, setNodes] = useState<TreeNode[]>([])
+  const [sections, setSections] = useState<Array<{ label: string; root?: string; nodes: TreeNode[] }>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedFile, setSelectedFile] = useState<{ path: string; content: string } | null>(null)
+  const [selectedFile, setSelectedFile] = useState<{ path: string; root?: string; content: string } | null>(null)
   const [fileLoading, setFileLoading] = useState(false)
 
-  async function loadDir(path?: string, parentPath = ''): Promise<TreeNode[]> {
-    const result = await workspace.list(agentSlug, path)
+  async function loadDir(path?: string, parentPath = '', root?: string): Promise<TreeNode[]> {
+    const result = await workspace.list(agentSlug, path, root)
     return result.files.map(f => ({
       name: f.name,
       type: f.type,
       path: parentPath ? `${parentPath}/${f.name}` : f.name,
-      children: f.type === 'dir' ? undefined : undefined,
+      root,
       expanded: false,
     }))
   }
 
   useEffect(() => {
-    loadDir().then(ns => {
-      setNodes(ns)
-      setLoading(false)
-    }).catch(err => {
-      setError(err instanceof Error ? err.message : 'Failed to load workspace')
-      setLoading(false)
-    })
+    async function init() {
+      setLoading(true)
+      setError(null)
+      try {
+        // Load primary workspace
+        const primaryNodes = await loadDir()
+        const newSections: Array<{ label: string; root?: string; nodes: TreeNode[] }> = [
+          { label: 'Workspace', root: undefined, nodes: primaryNodes },
+        ]
+
+        // Load additional workspaces if any
+        const agentInfo = await agents.get(agentSlug).catch(() => null)
+        const extraPaths = agentInfo?.agent?.identity?.additionalWorkspacePaths ?? []
+        for (const rootPath of extraPaths) {
+          const label = rootPath.split('/').pop() ?? rootPath
+          const nodes = await loadDir(undefined, '', rootPath).catch(() => [])
+          newSections.push({ label, root: rootPath, nodes })
+        }
+
+        setSections(newSections)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load workspace')
+      } finally {
+        setLoading(false)
+      }
+    }
+    void init()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentSlug])
+
+  function updateNodeInSections(
+    sectionRoot: string | undefined,
+    nodePath: string,
+    fn: (n: TreeNode) => TreeNode
+  ) {
+    setSections(prev => prev.map(section => {
+      if (section.root !== sectionRoot) return section
+      return { ...section, nodes: updateNode(section.nodes, nodePath, fn) }
+    }))
+  }
 
   async function toggleDir(node: TreeNode) {
     if (node.type !== 'dir') return
     if (node.expanded && node.children) {
-      // collapse
-      setNodes(prev => updateNode(prev, node.path, n => ({ ...n, expanded: false })))
+      updateNodeInSections(node.root, node.path, n => ({ ...n, expanded: false }))
       return
     }
     try {
-      const children = await loadDir(node.path, node.path)
-      setNodes(prev => updateNode(prev, node.path, n => ({ ...n, expanded: true, children })))
+      const children = await loadDir(node.path, node.path, node.root)
+      updateNodeInSections(node.root, node.path, n => ({ ...n, expanded: true, children }))
     } catch {
       setError(`Failed to open ${node.path}`)
     }
@@ -75,8 +106,8 @@ export function FileExplorerRenderer({ agentSlug }: Props) {
     if (node.type !== 'file') return
     setFileLoading(true)
     try {
-      const result = await workspace.readFile(agentSlug, node.path)
-      setSelectedFile({ path: node.path, content: result.content })
+      const result = await workspace.readFile(agentSlug, node.path, node.root)
+      setSelectedFile({ path: node.path, root: node.root, content: result.content })
     } catch {
       setError(`Failed to read ${node.path}`)
     } finally {
@@ -94,7 +125,7 @@ export function FileExplorerRenderer({ agentSlug }: Props) {
 
   function renderNode(node: TreeNode, depth = 0): ReactNode {
     return (
-      <div key={node.path}>
+      <div key={`${node.root ?? ''}::${node.path}`}>
         <button
           onClick={() => node.type === 'dir' ? void toggleDir(node) : void openFile(node)}
           style={{
@@ -103,7 +134,7 @@ export function FileExplorerRenderer({ agentSlug }: Props) {
             gap: '6px',
             width: '100%',
             padding: `4px 12px 4px ${12 + depth * 16}px`,
-            background: selectedFile?.path === node.path ? 'var(--bg-elevated)' : 'none',
+            background: selectedFile?.path === node.path && selectedFile?.root === node.root ? 'var(--bg-elevated)' : 'none',
             border: 'none',
             cursor: 'pointer',
             color: 'var(--text-primary)',
@@ -139,7 +170,27 @@ export function FileExplorerRenderer({ agentSlug }: Props) {
       {loading && <div style={{ padding: '16px', fontSize: '12px', color: 'var(--text-muted)' }}>Loading...</div>}
       {fileLoading && <div style={{ padding: '4px 12px', fontSize: '11px', color: 'var(--text-muted)' }}>Opening file...</div>}
       {error && <div style={{ padding: '8px 12px', fontSize: '12px', color: 'var(--red)' }}>{error}</div>}
-      {nodes.map(n => renderNode(n))}
+      {sections.map((section, i) => (
+        <div key={section.root ?? '__primary__'}>
+          {sections.length > 1 && (
+            <div style={{
+              padding: '6px 12px 4px',
+              fontSize: '10px',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--text-muted)',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              borderTop: i > 0 ? '1px solid var(--border)' : undefined,
+              marginTop: i > 0 ? '4px' : undefined,
+            }}>
+              {section.label}
+            </div>
+          )}
+          {section.nodes.length === 0
+            ? <div style={{ padding: '4px 12px', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>empty</div>
+            : section.nodes.map(n => renderNode(n))}
+        </div>
+      ))}
     </div>
   )
 }
