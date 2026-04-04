@@ -34,3 +34,10 @@ next-env.d.ts
 
 # Git worktrees
 .worktrees/
+
+# AI tool artifacts (Claude Code, Superpowers, Cursor, etc.)
+.superpowers/
+.claude/
+.cursor/
+.aider*
+.continue/

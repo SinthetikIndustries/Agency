@@ -303,6 +303,9 @@ importers:
 
   services/orchestrator:
     dependencies:
+      '@agency/memory':
+        specifier: workspace:*
+        version: link:../../packages/memory
       '@agency/model-router':
         specifier: workspace:*
         version: link:../model-router

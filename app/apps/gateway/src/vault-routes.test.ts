@@ -141,7 +141,7 @@ describe('GET /vault/search', () => {
     ;(db.query as ReturnType<typeof vi.fn>).mockResolvedValueOnce([])
     const res = await app.inject({ method: 'GET', url: '/vault/search?q=foo&limit=999' })
     expect(res.statusCode).toBe(200)
-    const callArgs = (db.query as ReturnType<typeof vi.fn>).mock.calls[0]
+    const callArgs = (db.query as ReturnType<typeof vi.fn>).mock.calls[0]!
     expect(callArgs[1][2]).toBe(50) // third param is the limit
   })
 })
