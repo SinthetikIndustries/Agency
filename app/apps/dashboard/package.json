@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@codesandbox/sandpack-react": "^2.20.0",
+    "@xyflow/react": "^12.10.2",
     "cronstrue": "^3.14.0",
     "diff": "^8.0.3",
     "dompurify": "^3.3.3",
