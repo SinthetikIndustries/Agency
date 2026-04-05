@@ -31,7 +31,7 @@ services:
       retries: 5
 
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:latest
     container_name: agency-ollama
     volumes:
       - agency_ollama_data:/root/.ollama
