@@ -5,7 +5,13 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { groups, type WorkspaceGroup } from '@/lib/api'
+import dynamic from 'next/dynamic'
+import { groups, agents, type WorkspaceGroup, type Agent } from '@/lib/api'
+
+const GroupsCanvas = dynamic(
+  () => import('./GroupsCanvas').then(m => m.GroupsCanvas),
+  { ssr: false, loading: () => <p className="text-sm text-gray-500">Loading canvas...</p> }
+)
 
 const HIERARCHY_LABELS: Record<string, string> = {
   flat:         'Flat',
@@ -164,14 +170,19 @@ function CreateGroupModal({ onClose, onCreated }: { onClose: () => void; onCreat
 
 export default function GroupsPage() {
   const [groupList, setGroupList] = useState<WorkspaceGroup[]>([])
+  const [agentList, setAgentList] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'canvas'>('list')
 
   function load() {
     setLoading(true)
-    groups.list()
-      .then(r => setGroupList(r.groups))
+    Promise.all([groups.list(), agents.list()])
+      .then(([groupData, agentData]) => {
+        setGroupList(groupData.groups)
+        setAgentList(agentData.agents)
+      })
       .catch(err => setError(err instanceof Error ? err.message : 'Failed to load'))
       .finally(() => setLoading(false))
   }
@@ -190,19 +201,45 @@ export default function GroupsPage() {
           <h1 className="text-xl font-bold text-white">Groups</h1>
           <p className="text-sm text-gray-500 mt-0.5">Workspace groups for multi-agent coordination</p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="px-3 py-1.5 text-sm rounded-lg transition-colors"
-          style={{ background: '#2563eb', color: '#fff' }}
-        >
-          + New Group
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg overflow-hidden border border-gray-700">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 text-sm transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-gray-700 text-white'
+                  : 'bg-gray-900 text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              List
+            </button>
+            <button
+              onClick={() => setViewMode('canvas')}
+              className={`px-3 py-1.5 text-sm transition-colors ${
+                viewMode === 'canvas'
+                  ? 'bg-gray-700 text-white'
+                  : 'bg-gray-900 text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              Canvas
+            </button>
+          </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="px-3 py-1.5 text-sm rounded-lg transition-colors"
+            style={{ background: '#2563eb', color: '#fff' }}
+          >
+            + New Group
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
 
       {loading ? (
         <p className="text-sm text-gray-500">Loading...</p>
+      ) : viewMode === 'canvas' ? (
+        <GroupsCanvas groups={groupList} allAgents={agentList} />
       ) : groupList.length === 0 ? (
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center">
           <p className="text-sm text-gray-500">No groups yet.</p>

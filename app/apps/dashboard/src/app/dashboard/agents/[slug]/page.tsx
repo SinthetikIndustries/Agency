@@ -6,9 +6,12 @@
 import { useEffect, useState, use } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import '@xyflow/react/dist/style.css'
+import { ReactFlow, Background, Controls, useNodesState, useEdgesState, type Node, type Edge } from '@xyflow/react'
+import { NODE_TYPES } from '@/components/canvas/node-types'
 import { agents, workspace, models, routingProfiles, skills, agentSkills, tools, mcp, agentMcp, type Agent, type WorkspaceFile, type AgentModelConfig, type RoutingProfile, type Skill, type AgentSkill, type Tool, type McpServer, type AgentMcpServer } from '@/lib/api'
 
-type Tab = 'overview' | 'model' | 'files' | 'tools' | 'skills' | 'mcp'
+type Tab = 'overview' | 'model' | 'files' | 'tools' | 'skills' | 'mcp' | 'canvas'
 const CONTEXT_FILES = ['config/identity.md', 'config/soul.md', 'config/user.md', 'config/heartbeat.md', 'config/capabilities.md', 'config/scratch.md']
 
 function formatSize(bytes: number | null): string {
@@ -75,6 +78,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ slug: st
     { key: 'tools',    label: 'Tools' },
     { key: 'skills',   label: 'Skills' },
     { key: 'mcp',      label: 'MCP' },
+    { key: 'canvas',   label: 'Canvas' },
   ]
 
   return (
@@ -115,6 +119,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ slug: st
           {tab === 'tools'    && <ToolsTab />}
           {tab === 'skills'   && <SkillsTab slug={slug} />}
           {tab === 'mcp'      && <McpTab slug={slug} />}
+          {tab === 'canvas'   && agent && <AgentCanvas agent={agent} />}
         </>
       )}
     </div>
@@ -1190,4 +1195,73 @@ function useProfiles() {
     import('@/lib/api').then(({ profiles }) => profiles.list().then(r => setProfileList(r.profiles)).catch(() => {}))
   }, [])
   return { profiles: profileList }
+}
+
+// ─── Agent Canvas Tab ─────────────────────────────────────────────────────────
+
+function AgentCanvas({ agent }: { agent: Agent }) {
+  const initialNodes: Node[] = [
+    {
+      id: 'agent-center',
+      type: 'agentNode',
+      position: { x: 300, y: 200 },
+      data: {
+        label: agent.identity.name,
+        slug: agent.identity.slug,
+        status: agent.identity.status,
+        isOrchestrator: agent.identity.slug === 'orchestrator',
+      },
+    },
+  ]
+
+  // Add tool nodes
+  const toolNodes: Node[] = (agent.profile.allowedTools ?? []).slice(0, 8).map((tool, i) => ({
+    id: `tool-${tool}`,
+    type: 'toolNode',
+    position: { x: 600, y: i * 60 },
+    data: { label: tool, toolType: 'tool' },
+  }))
+
+  // Add workspace nodes
+  const workspaceNodes: Node[] = [
+    {
+      id: 'workspace-private',
+      type: 'workspaceNode',
+      position: { x: 0, y: 150 },
+      data: { label: 'Private Workspace', path: agent.identity.workspacePath },
+    },
+    ...(agent.identity.additionalWorkspacePaths ?? []).slice(0, 3).map((path, i) => ({
+      id: `workspace-extra-${i}`,
+      type: 'workspaceNode',
+      position: { x: 0, y: 250 + i * 80 },
+      data: { label: `Shared Workspace ${i + 1}`, path },
+    })),
+  ]
+
+  const allNodes = [...initialNodes, ...toolNodes, ...workspaceNodes]
+
+  const edges: Edge[] = [
+    ...toolNodes.map(n => ({ id: `e-${n.id}`, source: 'agent-center', target: n.id, style: { stroke: '#4b5563' } })),
+    ...workspaceNodes.map(n => ({ id: `e-${n.id}`, source: 'agent-center', target: n.id, style: { stroke: '#92400e', strokeDasharray: '4 2' } })),
+  ]
+
+  const [nodes, , onNodesChange] = useNodesState(allNodes)
+  const [edgeState, , onEdgesChange] = useEdgesState(edges)
+
+  return (
+    <div style={{ height: '600px' }} className="border border-gray-700 rounded-lg overflow-hidden">
+      <ReactFlow
+        nodes={nodes}
+        edges={edgeState}
+        nodeTypes={NODE_TYPES}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        fitView
+        className="bg-gray-900"
+      >
+        <Background color="#374151" gap={16} />
+        <Controls />
+      </ReactFlow>
+    </div>
+  )
 }
