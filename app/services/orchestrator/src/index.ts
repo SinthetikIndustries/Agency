@@ -886,11 +886,17 @@ export class Orchestrator {
         if (rawLifecycle !== undefined) createInput.lifecycleType = rawLifecycle
         if (rawShell !== undefined) createInput.shellPermissionLevel = rawShell
 
-        if (ctx.agentManagementPermission === 'autonomous') {
+        const perm = ctx.agencyPermissions.agentCreate
+
+        if (perm === 'deny') {
+          return { error: 'Permission denied: this agent is not allowed to create agents' }
+        }
+
+        if (perm === 'autonomous' || (perm === 'request' && ctx.autonomousMode)) {
           return await this.createAgent(createInput)
         }
 
-        // approval_required — insert pending approval
+        // perm === 'request' in supervised mode — insert pending approval
         const approvalId = randomUUID()
         await this.db.execute(
           `INSERT INTO approvals
@@ -923,8 +929,17 @@ export class Orchestrator {
         if (!agent) return { error: `Agent not found: ${slug}` }
 
         const deleteInput = { slug }
+        const perm = ctx.agencyPermissions.agentDelete
 
-        // agent_delete ALWAYS requires approval
+        if (perm === 'deny') {
+          return { error: 'Permission denied: this agent is not allowed to delete agents' }
+        }
+
+        if (perm === 'autonomous' || (perm === 'request' && ctx.autonomousMode)) {
+          return await this.deleteAgent(deleteInput)
+        }
+
+        // perm === 'request' in supervised mode — insert pending approval
         const approvalId = randomUUID()
         await this.db.execute(
           `INSERT INTO approvals
