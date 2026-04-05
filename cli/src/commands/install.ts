@@ -747,7 +747,7 @@ export default class Install extends Command {
         this.warn('Ollama daemon did not start in time — pull models manually after install: docker exec agency-ollama ollama pull <model>')
       } else {
         this.log(chalk.green(' ready'))
-        const ollamaModels = ['qwen3:1.7b', 'nemotron-3-nano:4b', 'gemma4:e4b']
+        const ollamaModels = ['qwen3:1.7b', 'qwen3:8b', 'nemotron-3-nano:4b', 'gemma4:e4b']
         const modelCheck = spawnSync(
           'docker', ['exec', 'agency-ollama', 'ollama', 'list'],
           { stdio: 'pipe' }

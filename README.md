@@ -140,7 +140,7 @@ The installer will:
 1. 👤 Ask for your name and your main agent's name
 2. 🔑 Ask for your AI API key (Anthropic or OpenAI)
 3. 🐳 Start PostgreSQL, Redis, and Ollama in Docker
-4. 🦙 Pull `qwen3:1.7b`, `nemotron-3-nano:4b`, and `gemma4:e4b` into Ollama automatically
+4. 🦙 Pull `qwen3:1.7b`, `qwen3:8b`, `nemotron-3-nano:4b`, and `gemma4:e4b` into Ollama automatically
 5. 🔨 Build the app
 6. 🤖 Create built-in agents: **Orchestrator** (system) + **Main** (personal assistant)
 7. 📁 Set up an [Obsidian](https://obsidian.md) vault at `~/.agency/vault/` — open it in Obsidian to browse your agent's knowledge base, proposals, and canon notes visually
@@ -347,7 +347,7 @@ Agency supports **three providers simultaneously**:
 |----------|--------|-------|
 | 🟠 **Anthropic** | Claude Sonnet, Haiku, Opus | Default provider |
 | 🟢 **OpenAI** | GPT-4.1, GPT-4.1 mini | Optional |
-| 🦙 **Ollama** | `qwen3:1.7b`, `nemotron-3-nano:4b`, `gemma4:e4b` + any Ollama model | Local inference in Docker — no cloud required |
+| 🦙 **Ollama** | `qwen3:1.7b`, `qwen3:8b`, `nemotron-3-nano:4b`, `gemma4:e4b` + any Ollama model | Local inference in Docker — no cloud required |
 
 The model router handles **per-tier routing**: configure a `cheap` model for lightweight tasks and a `strong` model for complex reasoning, with automatic fallbacks.
 

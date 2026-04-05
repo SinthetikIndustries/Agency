@@ -30,7 +30,7 @@ Format: `[version] — date — description`
 - **Queue CLI** — `agency queue workers`
 - **Background worker fleet** — shell, browser, code, planner, and ingestion workers with queue monitoring.
 - **Dashboard expanded to 16 pages** — added Tools, Hooks, Messaging, Schedules, MCP Servers.
-- **Bundled Ollama models expanded** — `agency install` now pulls `qwen3:1.7b`, `nemotron-3-nano:4b`, and `gemma4:e4b` automatically.
+- **Bundled Ollama models expanded** — `agency install` now pulls `qwen3:1.7b`, `qwen3:8b`, `nemotron-3-nano:4b`, and `gemma4:e4b` automatically.
 
 ---
 
