@@ -373,13 +373,13 @@ export class Orchestrator {
     await this.db.execute(
       `INSERT INTO agent_identities
         (id, name, slug, parent_agent_id, lifecycle_type, wake_mode, current_profile_id, shell_permission_level,
-         agent_management_permission, agency_permissions, workspace_path, status, created_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+         agent_management_permission, agency_permissions, autonomous_mode, workspace_path, status, created_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
        ON CONFLICT (id) DO NOTHING`,
       [
         identity.id, identity.name, identity.slug, identity.parentAgentId, identity.lifecycleType, identity.wakeMode,
         identity.currentProfileId, identity.shellPermissionLevel, identity.agentManagementPermission,
-        JSON.stringify(ORCHESTRATOR_DEFAULT_PERMISSIONS),
+        JSON.stringify(ORCHESTRATOR_DEFAULT_PERMISSIONS), false,
         join('agents', 'orchestrator'), identity.status, identity.createdBy,
         identity.createdAt.toISOString(), identity.updatedAt.toISOString(),
       ]
@@ -420,13 +420,13 @@ export class Orchestrator {
     await this.db.execute(
       `INSERT INTO agent_identities
         (id, name, slug, parent_agent_id, lifecycle_type, wake_mode, current_profile_id, shell_permission_level,
-         agent_management_permission, agency_permissions, workspace_path, status, created_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+         agent_management_permission, agency_permissions, autonomous_mode, workspace_path, status, created_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
        ON CONFLICT (id) DO NOTHING`,
       [
         identity.id, identity.name, identity.slug, identity.parentAgentId, identity.lifecycleType, identity.wakeMode,
         identity.currentProfileId, identity.shellPermissionLevel, identity.agentManagementPermission,
-        JSON.stringify(MAIN_DEFAULT_PERMISSIONS),
+        JSON.stringify(MAIN_DEFAULT_PERMISSIONS), false,
         join('agents', 'main'), identity.status, identity.createdBy,
         identity.createdAt.toISOString(), identity.updatedAt.toISOString(),
       ]
@@ -1625,7 +1625,9 @@ function rowToAgentWithProfile(row: AgentIdentityRow, agencyDir: string): AgentW
     shellPermissionLevel: row.shell_permission_level as AgentIdentity['shellPermissionLevel'],
     agentManagementPermission: row.agent_management_permission as AgentIdentity['agentManagementPermission'],
     agencyPermissions: row.agency_permissions
-      ? parseJsonField<AgencyPermissions>(row.agency_permissions as unknown as string)
+      ? (typeof row.agency_permissions === 'string'
+          ? JSON.parse(row.agency_permissions) as AgencyPermissions
+          : row.agency_permissions as unknown as AgencyPermissions)
       : DEFAULT_AGENT_PERMISSIONS,
     autonomousMode: row.autonomous_mode ?? false,
     workspacePath: resolveWs(row.workspace_path),
