@@ -44,6 +44,11 @@ Your agents maintain **persistent memory** across all sessions — stored in Pos
 | 🔀 **Model routing** | Route tasks across Anthropic (Claude), OpenAI (GPT), and Ollama simultaneously. Per-tier routing with automatic fallbacks. Prompt caching reduces API costs on repeated context. |
 | ⚡ **Real-time streaming** | WebSocket chat with live token streaming, tool call cards, and full session history. Session search, prompt suggestions, and away-summary recaps when you return to an idle session. |
 | 🛠️ **Skills & profiles** | Modular agent capabilities and swappable behavior profiles. Attach different toolsets without reconfiguring everything. |
+| 🔧 **Tool registry** | Browse and manage the full set of agent tools by type: file, shell, browser, HTTP, code, memory, vault, messaging, and agent management. |
+| 🪝 **Event hooks** | Register shell commands that fire on platform events — session created, agent woke, tool called, and more. Blocking hooks can intercept and gate events before they proceed. |
+| 📬 **Messaging** | Structured inbound message queues per agent with priority, expiry, and delivery tracking. Agents send and receive typed messages. Monitor inbox depths and message history from the dashboard. |
+| 🕐 **Scheduled tasks** | Cron-style job scheduling per agent. Configure recurring tasks from the dashboard or CLI, with run history and human-readable schedule descriptions. |
+| 🔌 **MCP servers** | Connect to external MCP servers via stdio or HTTP/SSE. Tools from connected servers are automatically available to agents. Manage connections, trigger reconnects, and monitor status from the dashboard or CLI. |
 | 🔌 **Connectors** | Discord integration. Talk to your agents from your existing chat apps. |
 | 📬 **Redis queues** | Message queuing and pub/sub via Redis for async agent coordination and background tasks. |
 | 🙋 **Smart approvals** | Agents pause before sensitive operations. A 2-stage permission classifier (heuristic + LLM) auto-blocks dangerous invocations and labels each approval LOW / MEDIUM / HIGH risk with an explanation and reasoning trace. |
@@ -177,16 +182,6 @@ Pulls latest changes, rebuilds, and restarts automatically.
 
 ---
 
-## 🗑️ Uninstall
-
-```bash
-agency uninstall
-```
-
-Removes all data and Docker volumes. Type `uninstall` to confirm. Then `npm uninstall -g agencycli` to remove the CLI.
-
----
-
 ## ⚙️ Configuration
 
 | File | Purpose |
@@ -208,22 +203,112 @@ agency install             🔧 First-time setup
 agency start               ▶️  Start gateway
 agency stop                ⏹️  Stop gateway
 agency status              💚 Service health
+agency restart             🔄 Restart gateway
 agency doctor              🩺 Run diagnostics
-agency update              🔄 Update to latest
+agency repair              🔨 Repair installation
+agency update              ↑  Update to latest
 agency uninstall           🗑️  Remove everything
+agency metrics             📊 Prometheus metrics
+agency health              🏥 Detailed health check
 
+# Authentication
+agency auth login          🔑 Log in with API key
+agency auth logout         🚪 Log out
+agency auth me             👤 Show current identity
+
+# Configuration
+agency config get <key>    📄 Get config value
+agency config set <key>    ✏️  Set config value
+agency config edit         📝 Open config in editor
+
+# Agents
 agency agents list         📋 List agents
 agency agents create -n Name
+agency agents show <slug>
+agency agents update <slug>
+agency agents enable <slug>
+agency agents disable <slug>
+agency agents model-config <slug>
 agency agents profile list
 agency agents profile attach <agent> <profile>
 agency agents profile create
+agency agents workspace get <slug>
+agency agents workspace set <slug>
 
+# Groups
 agency groups list         👥 List workspace groups
 agency groups create       Create a new group
 agency groups members <id> List group members
 
-agency chat                💬 Chat in terminal
+# Sessions
+agency sessions list       💬 List sessions
+agency sessions info <id>
+agency sessions messages <id>
+agency sessions send <id> <message>
+agency sessions pin <id>
+agency sessions unpin <id>
+agency sessions rename <id> <name>
+agency sessions delete <id>
+
+# Models
+agency models list         🤖 List available models
+agency models pull <model> Pull an Ollama model
+agency models set-default <model>
+agency models test <model> Send a test prompt
+
+# Skills
+agency skills list         🛠️  List skills
+agency skills install <skill>
+agency skills remove <skill>
+agency skills update <skill>
+
+# Vault
 agency vault status        📚 Vault sync status
+agency vault sync          Trigger manual sync
+agency vault validate      Validate vault integrity
+agency vault init          Initialize vault
+
+# Schedules
+agency schedules list      🕐 List scheduled tasks
+agency schedules create    Create a scheduled task
+agency schedules delete <id>
+agency schedules enable <id>
+agency schedules disable <id>
+agency schedules runs <id>
+agency schedules stats
+agency schedules workers
+
+# MCP Servers
+agency mcp connections     🔌 List MCP connections
+agency mcp reconnect <id>  Reconnect an MCP server
+
+# Messaging
+agency messaging status    📬 Messaging system status
+
+# Queue
+agency queue workers       ⚙️  Queue worker status
+
+# Connectors
+agency connectors list
+agency connectors discord install
+agency connectors discord enable
+agency connectors discord disable
+
+# Approvals
+agency approvals list      🙋 Pending approvals
+agency approvals approve <id>
+agency approvals reject <id>
+
+# Audit
+agency audit list          📋 Audit log
+
+# Logs
+agency logs                View logs
+agency logs service <name> Logs for a specific service
+
+# Chat
+agency chat                💬 Chat in terminal
+
 agency --help              📖 Full command list
 ```
 
@@ -236,16 +321,20 @@ Open at **[http://localhost:2001](http://localhost:2001)**
 | Page | Description |
 |------|-------------|
 | 🏠 Overview | System health, active agents, recent activity |
-| 💬 Chat | Real-time streaming chat with session history and tool call cards |
+| 💬 Chat | Real-time streaming chat with session history, tool call cards, session search, prompt suggestions, and away-summary recaps |
 | 🤖 Agents | Agent list, profile switcher, workspace management, per-agent canvas view, permission settings |
 | 👥 Groups | Workspace group management — list view or canvas topology view |
 | 🗺️ Network | Full-system canvas: orchestrator → groups → agents with live edges |
 | 🛠️ Skills | View and manage agent skills |
+| 🔧 Tools | Browse the full tool registry by type — file, shell, browser, HTTP, code, memory, vault, messaging, and agent management |
+| 🪝 Hooks | Create and manage event hooks — shell commands that fire on platform events with blocking and non-blocking modes |
 | 📚 Vault | Knowledge base status, sync controls, graph view |
-| 🔌 Connectors | Discord integration management |
+| 📬 Messaging | Inter-agent message queues — inbox depths, recent messages, priority, and delivery status |
 | 📋 Logs | Filterable service logs with JSON parsing |
-| 🙋 Approvals | Human-in-the-loop approval queue |
+| 🙋 Approvals | Human-in-the-loop approval queue with risk classification and reasoning traces |
 | 🔍 Audit | Full audit log of all agent and API actions |
+| 🕐 Schedules | Create and manage cron-style scheduled tasks per agent with run history |
+| 🔌 MCP Servers | Add and manage MCP server connections (stdio and HTTP/SSE) |
 | ⚙️ Settings | Platform configuration |
 
 ---
@@ -277,7 +366,12 @@ Pre-1.0. Core platform is functional. Active development.
 - [x] 🤖 Agent Architect — LLM-generated agent specs from plain-language descriptions
 - [x] 🔀 Model routing (Anthropic / OpenAI / Ollama) + prompt caching
 - [x] 📚 Vault sync (Markdown → PostgreSQL + pgvector)
-- [x] 🌐 Dashboard (12 pages)
+- [x] 🌐 Dashboard (16 pages)
+- [x] 🔧 Tool registry with typed tool browsing
+- [x] 🪝 Event hooks (blocking and non-blocking)
+- [x] 📬 Messaging system with typed queues and delivery tracking
+- [x] 🕐 Scheduled tasks with cron scheduling and run history
+- [x] 🔌 MCP server support (stdio + HTTP/SSE)
 - [x] 🔌 Discord connector
 - [x] 🛠️ Skills + profiles
 - [x] 📋 Audit log + smart approvals with risk classification and reasoning trace

@@ -6,6 +6,33 @@ Format: `[version] — date — description`
 
 ---
 
+## [0.3.0] — 2026-04-05
+
+### Added
+- **Orchestrator / PA split** — Two protected built-in agents: Orchestrator (full autonomy) and Main (personal assistant with approval gates). Each has its own workspace, memory, and permission profile.
+- **Workspace groups** — Organize agents into named groups with shared workspaces and group-level memory. Agents in a group see group context alongside their own.
+- **Canvas views** — Interactive ReactFlow canvases: per-agent capability map, group topology, and full-system Network map.
+- **Agent Architect** — Describe an agent in plain language; Agency generates a complete spec (name, slug, system prompt, tools, permissions) via LLM. One click to accept and create.
+- **Per-agent permissions** — Fine-grained `AgencyPermissions`: `agentCreate`, `agentDelete`, `agentUpdate`, `groupCreate`, `groupUpdate`, `groupDelete`, `shellRun` each independently set to `deny`, `request`, or `autonomous`. Plus per-agent allow/deny rule lists.
+- **Tool registry** — Typed tool browser in the dashboard. Browse all agent tools by category: file, shell, browser, HTTP, code, memory, vault, messaging, agent management.
+- **Event hooks** — Register shell commands that fire on platform events (session, agent, tool, approval, and more). Blocking hooks can gate events before they proceed.
+- **Messaging system** — Structured inbound message queues per agent with priority, expiry, and delivery tracking. Dashboard shows inbox depths and recent message history.
+- **Scheduled tasks** — Cron-style job scheduling per agent. Create, enable/disable, and inspect run history from the dashboard or CLI.
+- **MCP server support** — Connect to external MCP servers via stdio or HTTP/SSE. Tools from connected servers are automatically available to agents. Manage connections and reconnects from the dashboard or CLI.
+- **Session management CLI** — `agency sessions list/info/messages/send/pin/unpin/rename/delete`
+- **Model management CLI** — `agency models list/pull/set-default/test`
+- **Auth CLI** — `agency auth login/logout/me`
+- **Config CLI** — `agency config get/set/edit`
+- **Approvals CLI** — `agency approvals list/approve/reject`
+- **Audit CLI** — `agency audit list`
+- **Schedules CLI** — `agency schedules list/create/delete/enable/disable/runs/stats/workers`
+- **MCP CLI** — `agency mcp connections/reconnect`
+- **Queue CLI** — `agency queue workers`
+- **Background worker fleet** — shell, browser, code, planner, and ingestion workers with queue monitoring.
+- **Dashboard expanded to 16 pages** — added Tools, Hooks, Messaging, Schedules, MCP Servers.
+
+---
+
 ## [0.2.1 / CLI 0.1.1] — 2026-03-30
 
 ### Added
