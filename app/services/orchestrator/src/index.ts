@@ -31,6 +31,7 @@ import { ModelRouter } from '@agency/model-router'
 import { ToolRegistry } from '@agency/tool-registry'
 import type { DatabaseClient } from './db.js'
 import { buildCompactionPrompt, parseCompactionSummary, pruneToolResults } from './compaction.js'
+import { DestructiveActionService } from './destructive-action.js'
 import { type MemoryStore, formatMemoriesForContext } from '@agency/memory'
 export { buildCoordinatorSystemPrompt, isCoordinatorMessage } from './coordinator.js'
 export { buildVerificationPrompt, parseVerdict } from './verification-agent.js'
@@ -38,7 +39,7 @@ export type { VerificationRequest, Verdict } from './verification-agent.js'
 
 export type HookFireFn = (event: string, context?: Record<string, unknown>) => Promise<{ blocked: boolean; reason?: string }>
 
-export type ClassifyToolFn = (request: { toolName: string; toolInput: unknown; recentToolUses: Array<{ name: string; input: unknown }> }) => Promise<{ shouldBlock: boolean; riskLevel: string; reason: string; explanation: string }>
+export type ClassifyToolFn = (request: { toolName: string; toolInput: unknown; recentToolUses: Array<{ name: string; input: unknown }> }) => Promise<{ shouldBlock: boolean; riskLevel: string; reason: string; explanation: string; reasoning: string }>
 
 // ─── Permission Defaults ─────────────────────────────────────────────────────
 
@@ -231,6 +232,8 @@ export class Orchestrator {
   private idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private readonly IDLE_TIMEOUT_MS = 5 * 60 * 1000
 
+  private destructiveActionService!: DestructiveActionService
+
   constructor(
     private readonly db: DatabaseClient,
     private readonly modelRouter: ModelRouter,
@@ -247,6 +250,7 @@ export class Orchestrator {
   // ─── Startup ───────────────────────────────────────────────────────────────
 
   async initialize(): Promise<void> {
+    this.destructiveActionService = new DestructiveActionService(this.db, this.modelRouter)
     await this.ensureDirectories()
     await this.seedBuiltInProfiles()
     await this.loadAgentRegistry()
@@ -897,26 +901,13 @@ export class Orchestrator {
         }
 
         // perm === 'request' in supervised mode — insert pending approval
-        const approvalId = randomUUID()
-        await this.db.execute(
-          `INSERT INTO approvals
-             (id, agent_id, session_id, prompt, tool_name, tool_input, status, requested_at)
-           VALUES ($1,$2,$3,$4,$5,$6,'pending',NOW())`,
-          [
-            approvalId,
-            ctx.agentId,
-            ctx.sessionId,
-            `Create agent "${rawName}" with profile "${rawProfile ?? 'personal-assistant'}"`,
-            'agent_create',
-            JSON.stringify(createInput),
-          ]
+        const { approvalId, explanation, riskLevel } = await this.destructiveActionService.createApprovalRecord(
+          ctx,
+          { operationType: 'agent_delete', description: `Create agent "${rawName}" with profile "${rawProfile ?? 'personal-assistant'}"` },
+          `Create agent "${rawName}" with profile "${rawProfile ?? 'personal-assistant'}"`,
         )
         void this.hookFire?.('approval.requested', { approvalId, toolName: 'agent_create', agentId: ctx.agentId, sessionId: ctx.sessionId })
-        return {
-          status: 'pending_approval',
-          approvalId,
-          message: `Approval required. Run: agency approvals approve ${approvalId}`,
-        }
+        return { status: 'pending_approval', approvalId, explanation, riskLevel, message: `Approval required. Run: agency approvals approve ${approvalId}` }
       }
     )
 
@@ -940,26 +931,13 @@ export class Orchestrator {
         }
 
         // perm === 'request' in supervised mode — insert pending approval
-        const approvalId = randomUUID()
-        await this.db.execute(
-          `INSERT INTO approvals
-             (id, agent_id, session_id, prompt, tool_name, tool_input, status, requested_at)
-           VALUES ($1,$2,$3,$4,$5,$6,'pending',NOW())`,
-          [
-            approvalId,
-            ctx.agentId,
-            ctx.sessionId,
-            `Delete agent "${deleteInput.slug}" and archive its workspace`,
-            'agent_delete',
-            JSON.stringify(deleteInput),
-          ]
+        const { approvalId, explanation, riskLevel } = await this.destructiveActionService.createApprovalRecord(
+          ctx,
+          { operationType: 'agent_delete', description: `Delete agent "${slug}" and archive its workspace` },
+          `Delete agent "${slug}" and archive its workspace`,
         )
         void this.hookFire?.('approval.requested', { approvalId, toolName: 'agent_delete', agentId: ctx.agentId, sessionId: ctx.sessionId })
-        return {
-          status: 'pending_approval',
-          approvalId,
-          message: `Approval required. Run: agency approvals approve ${approvalId}`,
-        }
+        return { status: 'pending_approval', approvalId, explanation, riskLevel, message: `Approval required. Run: agency approvals approve ${approvalId}` }
       }
     )
   }
@@ -1382,10 +1360,17 @@ export class Orchestrator {
         // ── Inline approval flow ────────────────────────────────────────────
         const resultOut = result.output as Record<string, unknown> | null
         if (result.success && resultOut?.['approval_required'] === true) {
-          // Run permission classifier before creating approval record
-          const classification = this.classifyTool
-            ? await this.classifyTool({ toolName: tc.name, toolInput: input, recentToolUses: [] })
-            : { shouldBlock: false, riskLevel: 'MEDIUM', explanation: '', reason: '' }
+          const command = resultOut['command'] as string ?? ''
+          const reason = resultOut['reason'] as string ?? ''
+          const message = resultOut['message'] as string ?? `Approve ${tc.name}?`
+
+          const [classification, sideQuery] = await Promise.all([
+            this.classifyTool
+              ? this.classifyTool({ toolName: tc.name, toolInput: input, recentToolUses: [] })
+              : Promise.resolve({ shouldBlock: false, riskLevel: 'MEDIUM', explanation: '', reason: '', reasoning: '' }),
+            this.destructiveActionService.runSideQuery(context, { operationType: 'shell', commands: [command] }),
+          ])
+
           if (classification.shouldBlock) {
             result = { success: false, output: null, error: `Blocked by classifier: ${classification.reason}` }
             toolResults.push({ type: 'tool_result', tool_use_id: tc.id, content: JSON.stringify({ error: result.error }), is_error: true } as ContentBlock)
@@ -1393,26 +1378,21 @@ export class Orchestrator {
           }
 
           const approvalId = `approval-${randomUUID()}`
-          const command = resultOut['command'] as string ?? ''
-          const reason  = resultOut['reason']  as string ?? ''
-          const message = resultOut['message'] as string ?? `Approve ${tc.name}?`
           await this.db.execute(
-            `INSERT INTO approvals (id, agent_id, session_id, prompt, tool_name, tool_input, status, risk_level, explanation)
-             VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)`,
+            `INSERT INTO approvals (id,agent_id,session_id,prompt,tool_name,tool_input,status,risk_level,explanation,requested_at)
+             VALUES ($1,$2,$3,$4,$5,$6,'pending',$7,$8,NOW())`,
             [approvalId, context.agentId, context.sessionId, message, tc.name, JSON.stringify(input),
-             classification.riskLevel, classification.explanation]
+             sideQuery.riskLevel || classification.riskLevel, sideQuery.explanation || classification.explanation]
           )
+
           yield { type: 'approval_pending', approvalId, toolName: tc.name, command, reason }
 
-          const resolution = await this.pollApproval(approvalId)
+          const resolution = await this.destructiveActionService.pollApproval(approvalId)
           if (resolution === 'approved') {
-            // Re-run with session grant active so the tool proceeds past the permission check
             const grantedCtx = { ...context, sessionGrantActive: true }
             result = await this.toolRegistry.dispatch(tc.name, input, grantedCtx)
           } else {
-            const errMsg = resolution === 'rejected'
-              ? 'Command was rejected by the user'
-              : 'Approval request timed out'
+            const errMsg = resolution === 'rejected' ? 'Command was rejected by the user' : 'Approval request timed out'
             result = { success: false, output: null, error: errMsg }
           }
         }
@@ -1494,26 +1474,6 @@ export class Orchestrator {
     }
   }
 
-  /** Poll DB for approval resolution. Resolves when approved/rejected/expired or after 10 min timeout. */
-  private async pollApproval(approvalId: string): Promise<'approved' | 'rejected' | 'expired'> {
-    const POLL_MS = 500
-    const TIMEOUT_MS = 10 * 60 * 1000
-    const deadline = Date.now() + TIMEOUT_MS
-    while (Date.now() < deadline) {
-      await new Promise<void>(resolve => setTimeout(resolve, POLL_MS))
-      const row = await this.db.queryOne<{ status: string }>(
-        'SELECT status FROM approvals WHERE id=$1', [approvalId]
-      )
-      const s = row?.status
-      if (s === 'approved') return 'approved'
-      if (s === 'rejected') return 'rejected'
-      if (s === 'expired')  return 'expired'
-    }
-    await this.db.execute(
-      `UPDATE approvals SET status='expired', resolved_at=NOW() WHERE id=$1`, [approvalId]
-    )
-    return 'expired'
-  }
 }
 
 // ─── Run Yield Types ──────────────────────────────────────────────────────────
