@@ -903,7 +903,7 @@ export class Orchestrator {
         // perm === 'request' in supervised mode — insert pending approval
         const { approvalId, explanation, riskLevel } = await this.destructiveActionService.createApprovalRecord(
           ctx,
-          { operationType: 'agent_delete', description: `Create agent "${rawName}" with profile "${rawProfile ?? 'personal-assistant'}"` },
+          { operationType: 'agent_create', description: `Create agent "${rawName}" with profile "${rawProfile ?? 'personal-assistant'}"` },
           `Create agent "${rawName}" with profile "${rawProfile ?? 'personal-assistant'}"`,
         )
         void this.hookFire?.('approval.requested', { approvalId, toolName: 'agent_create', agentId: ctx.agentId, sessionId: ctx.sessionId })

@@ -11,7 +11,7 @@ export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 export interface DestructiveActionRequest {
   commands?: string[]
   affectedPaths?: string[]
-  operationType: 'shell' | 'file_delete' | 'agent_delete' | 'group_delete' | 'workspace_remove'
+  operationType: 'shell' | 'file_delete' | 'agent_create' | 'agent_delete' | 'group_delete' | 'workspace_remove'
   description?: string  // human-readable description of the action
 }
 
