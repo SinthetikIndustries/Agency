@@ -103,6 +103,9 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
   const [selectedRole, setSelectedRole] = useState('member')
   const [addingMemberLoading, setAddingMemberLoading] = useState(false)
 
+  // Remove member
+  const [removingMember, setRemovingMember] = useState<string | null>(null)
+
   // Delete
   const [showDelete, setShowDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -157,12 +160,15 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   async function handleRemoveMember(agentId: string) {
+    setRemovingMember(agentId)
     try {
       await groups.removeMember(id, agentId)
       setMembers(prev => prev.filter(m => m.agentId !== agentId))
       flash('Member removed')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove member')
+    } finally {
+      setRemovingMember(null)
     }
   }
 
@@ -390,9 +396,10 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
                     <td className="px-4 py-2.5 text-right">
                       <button
                         onClick={() => void handleRemoveMember(member.agentId)}
-                        className="text-xs text-red-500 hover:text-red-400 transition-colors"
+                        disabled={removingMember === member.agentId}
+                        className="text-xs text-red-500 hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Remove
+                        {removingMember === member.agentId ? '…' : 'Remove'}
                       </button>
                     </td>
                   </tr>
