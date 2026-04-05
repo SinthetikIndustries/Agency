@@ -22,6 +22,25 @@ export type ToolType = 'file' | 'shell' | 'browser' | 'http' | 'code' | 'memory'
 export type BehaviorTone = 'professional' | 'casual' | 'technical'
 export type BehaviorVerbosity = 'concise' | 'normal' | 'detailed'
 
+// ─── Built-In Agents ─────────────────────────────────────────────────────────
+
+export const BUILT_IN_AGENTS = ['orchestrator', 'main'] as const;
+export type BuiltInAgentSlug = typeof BUILT_IN_AGENTS[number];
+
+export type PermissionLevel = 'deny' | 'request' | 'autonomous';
+
+export interface AgencyPermissions {
+  agentCreate: PermissionLevel;
+  agentDelete: PermissionLevel;
+  agentUpdate: PermissionLevel;
+  groupCreate: PermissionLevel;
+  groupUpdate: PermissionLevel;
+  groupDelete: PermissionLevel;
+  shellRun: PermissionLevel;
+  allowRules?: string[];
+  denyRules?: string[];
+}
+
 // ─── Agent Identity ───────────────────────────────────────────────────────────
 
 export interface AgentIdentity {
@@ -34,6 +53,8 @@ export interface AgentIdentity {
   currentProfileId: string
   shellPermissionLevel: ShellPermissionLevel
   agentManagementPermission: AgentManagementPermission
+  agencyPermissions: AgencyPermissions
+  autonomousMode: boolean
   workspacePath: string    // absolute path to agent's workspace
   additionalWorkspacePaths: string[]  // extra directories this agent can read/write
   status: AgentStatus
@@ -226,6 +247,8 @@ export interface ToolContext {
   shellPermissionLevel: ShellPermissionLevel
   sessionGrantActive: boolean
   agentManagementPermission: AgentManagementPermission
+  agencyPermissions: AgencyPermissions
+  autonomousMode: boolean
 }
 
 export interface ToolDispatchResult {
@@ -269,6 +292,8 @@ export interface ToolJobContext {
   shellPermissionLevel: ShellPermissionLevel
   sessionGrantActive: boolean
   agentManagementPermission: AgentManagementPermission
+  agencyPermissions: AgencyPermissions
+  autonomousMode: boolean
 }
 
 export interface ToolJob {

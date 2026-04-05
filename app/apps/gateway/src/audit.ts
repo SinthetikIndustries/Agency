@@ -40,6 +40,11 @@ export type AuditAction =
   | 'vault.sync'
   | 'auth.login'
   | 'auth.logout'
+  | 'group.create'
+  | 'group.update'
+  | 'group.delete'
+  | 'group.member_add'
+  | 'group.member_remove'
 
 interface AuditEntry {
   action: AuditAction

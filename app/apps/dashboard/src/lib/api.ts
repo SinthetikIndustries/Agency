@@ -230,6 +230,8 @@ export interface AgentIdentity {
   additionalWorkspacePaths: string[]
   createdBy: string
   modelConfig?: AgentModelConfig
+  autonomousMode?: boolean
+  agencyPermissions?: Record<string, string>
 }
 
 export interface Agent {
@@ -264,6 +266,8 @@ export const agents = {
     wakeMode?: string
     shellPermissionLevel?: string
     agentManagementPermission?: string
+    autonomousMode?: boolean
+    agencyPermissions?: Record<string, string>
   }) => request<{ ok: boolean; agent: AgentIdentity }>(`/agents/${slug}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   setModelConfig: (slug: string, config: AgentModelConfig) =>
     request<{ ok: boolean; modelConfig: AgentModelConfig }>(
@@ -745,4 +749,49 @@ export const schedules = {
     const qs = limit ? `?limit=${limit}` : ''
     return request<{ runs: ScheduledRun[] }>(`/schedules/${id}/runs${qs}`)
   },
+}
+
+// ─── Groups ──────────────────────────────────────────────────────────────────
+
+export interface WorkspaceGroup {
+  id: string
+  name: string
+  description: string | null
+  hierarchyType: string
+  goals: string[]
+  workspacePath: string
+  memoryPath: string
+  memberCount?: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface GroupMember {
+  agentId: string
+  role: string
+  joinedAt: string
+  agentName?: string
+  agentSlug?: string
+}
+
+export const groups = {
+  list: () => request<{ groups: WorkspaceGroup[] }>('/groups'),
+  create: (body: { name: string; slug?: string; description?: string; hierarchyType?: string; goals?: string[] }) =>
+    request<{ group: WorkspaceGroup }>('/groups', { method: 'POST', body: JSON.stringify(body) }),
+  get: (id: string) => request<{ group: WorkspaceGroup; members: GroupMember[] }>(`/groups/${id}`),
+  update: (id: string, body: { name?: string; description?: string; hierarchyType?: string; goals?: string[] }) =>
+    request<{ group: WorkspaceGroup }>(`/groups/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  delete: (id: string) => request<{ success: boolean }>(`/groups/${id}`, { method: 'DELETE' }),
+  addMember: (groupId: string, body: { agentId: string; role?: string }) =>
+    request<{ success: boolean }>(`/groups/${groupId}/members`, { method: 'POST', body: JSON.stringify(body) }),
+  removeMember: (groupId: string, agentId: string) =>
+    request<{ success: boolean }>(`/groups/${groupId}/members/${agentId}`, { method: 'DELETE' }),
+}
+
+export const architect = {
+  generate: (description: string) =>
+    request<{ name: string; slug: string; identity: string; soul: string; suggestedProfile: string; reasoning: string }>(
+      '/agents/architect',
+      { method: 'POST', body: JSON.stringify({ description }) }
+    ),
 }

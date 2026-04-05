@@ -38,6 +38,8 @@ function makeAgent(systemPrompt = 'You are helpful.'): AgentWithProfile {
       currentProfileId: 'builtin-personal-assistant',
       shellPermissionLevel: 'none',
       agentManagementPermission: 'approval_required',
+      agencyPermissions: { agentCreate: 'deny', agentDelete: 'deny', agentUpdate: 'deny', groupCreate: 'deny', groupUpdate: 'deny', groupDelete: 'deny', shellRun: 'deny' },
+      autonomousMode: false,
       status: 'active',
       createdBy: 'system',
       createdAt: new Date(),

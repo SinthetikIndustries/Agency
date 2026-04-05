@@ -22,7 +22,8 @@ import { startVaultSync } from '@agency/vault-sync'
 import type { VaultSync } from '@agency/vault-sync'
 import { MessagingService } from '@agency/messaging'
 import { MemoryStore } from '@agency/memory'
-import type { AgencyConfig, AgencyCredentials, HealthStatus, Session, AgentModelConfig } from '@agency/shared-types'
+import type { AgencyConfig, AgencyCredentials, HealthStatus, Session, AgentModelConfig, BuiltInAgentSlug } from '@agency/shared-types'
+import { BUILT_IN_AGENTS } from '@agency/shared-types'
 import { runMigrations } from './migrate.js'
 import { loadRoutingProfiles, registerRoutingProfileRoutes, type RoutingProfile } from './routing-profiles.js'
 import { registerVaultRoutes } from './vault-routes.js'
@@ -31,6 +32,7 @@ import { registerOnboardingRoutes } from './onboarding-routes.js'
 import { SkillsManager } from './skills-manager.js'
 import { registerSkillRoutes } from './skill-routes.js'
 import { registerAgentSkillRoutes } from './agent-skill-routes.js'
+import { registerGroupRoutes } from './groups-routes.js'
 import { registerToolRoutes } from './tool-routes.js'
 import { registerMcpRoutes } from './mcp-routes.js'
 import { HooksManager } from './hooks-manager.js'
@@ -1401,6 +1403,21 @@ export async function createGateway(): Promise<void> {
     return { agent: withRelativeWs(agent, { lockedWorkspacePaths }) }
   })
 
+  // POST /agents/architect — generate agent spec from description
+  app.post('/agents/architect', async (req, reply) => {
+    const body = req.body as { description?: string }
+    if (!body.description || typeof body.description !== 'string' || !body.description.trim()) {
+      return reply.status(400).send({ error: 'description is required' })
+    }
+    try {
+      const spec = await orchestrator.architectAgent(body.description.trim())
+      return reply.send(spec)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return reply.status(500).send({ error: `Architect failed: ${msg}` })
+    }
+  })
+
   app.post('/agents', async (request, reply) => {
     const body = request.body as {
       name?: string
@@ -1613,7 +1630,7 @@ export async function createGateway(): Promise<void> {
 
   app.post('/agents/:slug/profile', async (request, reply) => {
     const { slug } = request.params as { slug: string }
-    if (slug === 'main') return reply.status(400).send({ error: 'The main agent profile is fixed and cannot be changed.' })
+    if (BUILT_IN_AGENTS.includes(slug as BuiltInAgentSlug)) return reply.status(400).send({ error: 'Built-in agent profiles are fixed and cannot be changed.' })
     const body = request.body as { profileSlug?: string } | undefined
     const profileSlug = body?.profileSlug
     if (!profileSlug) return reply.status(400).send({ error: 'profileSlug is required' })
@@ -1917,6 +1934,7 @@ export async function createGateway(): Promise<void> {
   // Skills
   registerSkillRoutes(app, services.skillsManager, services.auditLogger, services.hooksManager)
   registerAgentSkillRoutes(app, db, services.skillsManager, services.auditLogger, services.hooksManager)
+  await registerGroupRoutes(app, db, services.auditLogger)
 
   app.get('/skills', async () => {
     const skills = services.skillsManager.list()

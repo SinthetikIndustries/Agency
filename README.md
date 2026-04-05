@@ -1,7 +1,7 @@
 # 🤖 Agency
 
 [![License: ASL-1.0](https://img.shields.io/badge/license-ASL--1.0-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.1-green.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.0-green.svg)](./CHANGELOG.md)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org/)
 [![Docker](https://img.shields.io/badge/docker-required-blue.svg)](https://docs.docker.com/engine/install/)
 [![Made by Sinthetix](https://img.shields.io/badge/made%20by-Sinthetix%2C%20LLC-purple.svg)](https://www.sinthetix.com)
@@ -32,8 +32,13 @@ Your agents maintain **persistent memory** across all sessions — stored in Pos
 
 | Feature | Description |
 |---------|-------------|
-| 🤝 **Multi-agent orchestration** | Main agent + specialized workers (Researcher, Coder, Writer). Coordinator mode breaks complex tasks into Research → Synthesis → Implementation phases with worker delegation. |
-| 💾 **Persistent memory** | Conversations and knowledge stored in PostgreSQL with pgvector for semantic vector search. Context retrieved automatically across sessions. |
+| 🤝 **Multi-agent orchestration** | Orchestrator agent (system) + personal assistant (main) + any number of specialized sub-agents. Coordinator mode breaks complex tasks into phases with worker delegation. |
+| 🔀 **Orchestrator / PA split** | Two protected built-in agents: the **Orchestrator** (full autonomy, system-level permissions) and **Main** (your personal assistant, human-approval gates). Each has its own workspace, memory, and permission profile. |
+| 👥 **Workspace groups** | Organize agents into named groups with shared workspaces and shared memory. Agents in a group automatically see group-level context alongside their own. Create, manage, and delete groups from the dashboard or CLI. |
+| 🗺️ **Canvas views** | Interactive ReactFlow canvases throughout the dashboard: per-agent capability map, group topology, and a full-system Network map showing orchestrator → groups → agents at a glance. |
+| 🤖 **Agent Architect** | Describe what you want an agent to do in plain language — Agency generates a complete agent spec (name, slug, system prompt, tools, permissions) using the LLM. One click to accept and create. |
+| 🔐 **Per-agent permissions** | Fine-grained `AgencyPermissions` model: set `agentCreate`, `agentDelete`, `agentUpdate`, `groupCreate`, `groupUpdate`, `groupDelete`, and `shellRun` independently to `deny`, `request` (human approval), or `autonomous`. Plus per-agent allow/deny rule lists. |
+| 💾 **Persistent memory** | Conversations and knowledge stored in PostgreSQL with pgvector for semantic vector search. Context retrieved automatically across sessions. Agents in a group share a group memory layer. |
 | 📚 **Structured knowledge base** | An [Obsidian](https://obsidian.md) vault at `~/.agency/vault/` synced in real-time to PostgreSQL. Open it in Obsidian to visually browse your agent's default brain, explore agent-drafted proposals, and review canon notes you've approved. Obsidian is free and optional — the vault is plain Markdown files that work in any editor. |
 | 🦙 **Local model support** | Ollama runs in Docker. `qwen3:8b` pulled automatically on install. No cloud required. |
 | 🔀 **Model routing** | Route tasks across Anthropic (Claude), OpenAI (GPT), and Ollama simultaneously. Per-tier routing with automatic fallbacks. Prompt caching reduces API costs on repeated context. |
@@ -41,7 +46,7 @@ Your agents maintain **persistent memory** across all sessions — stored in Pos
 | 🛠️ **Skills & profiles** | Modular agent capabilities and swappable behavior profiles. Attach different toolsets without reconfiguring everything. |
 | 🔌 **Connectors** | Discord integration. Talk to your agents from your existing chat apps. |
 | 📬 **Redis queues** | Message queuing and pub/sub via Redis for async agent coordination and background tasks. |
-| 🙋 **Smart approvals** | Agents pause before sensitive operations. A 2-stage permission classifier (heuristic + LLM) auto-blocks dangerous invocations and labels each approval LOW / MEDIUM / HIGH risk with an explanation. |
+| 🙋 **Smart approvals** | Agents pause before sensitive operations. A 2-stage permission classifier (heuristic + LLM) auto-blocks dangerous invocations and labels each approval LOW / MEDIUM / HIGH risk with an explanation and reasoning trace. |
 | 🔍 **Adversarial verification** | Run an independent verification pass on completed work. The verifier tries to break the implementation — runs builds, tests, and adversarial probes — and returns a PASS / FAIL / PARTIAL verdict. |
 | 🤖 **Proactive / autonomous mode** | Agents can run on a heartbeat loop, waking periodically to act on their own initiative. Focus-aware: collaborative when you're in the dashboard, fully autonomous when you're away. |
 | 📋 **Audit log** | Every agent action, tool call, and API request logged with full context. |
@@ -94,7 +99,7 @@ graph TB
 
 | Port | Component | Role |
 |------|-----------|------|
-| **2001** | Dashboard | Web UI — chat, agents, vault, logs, approvals |
+| **2001** | Dashboard | Web UI — chat, agents, groups, network map, vault, logs, approvals |
 | **2002** | Gateway | Core API, WebSocket streaming, JWT auth, connectors |
 | **2003** | PostgreSQL + pgvector | Persistent storage + semantic vector search |
 | **2004** | Redis | Message queues, pub/sub, async task coordination |
@@ -132,7 +137,7 @@ The installer will:
 3. 🐳 Start PostgreSQL, Redis, and Ollama in Docker
 4. 🦙 Pull `qwen3:8b` into Ollama automatically
 5. 🔨 Build the app
-6. 🤖 Create default agents: main + Researcher, Coder, Writer
+6. 🤖 Create built-in agents: **Orchestrator** (system) + **Main** (personal assistant)
 7. 📁 Set up an [Obsidian](https://obsidian.md) vault at `~/.agency/vault/` — open it in Obsidian to browse your agent's knowledge base, proposals, and canon notes visually
 
 ### Uninstall
@@ -190,6 +195,7 @@ Removes all data and Docker volumes. Type `uninstall` to confirm. Then `npm unin
 | `~/.agency/credentials.json` | 🔐 API keys — never share |
 | `~/.agency/vault/` | 📖 Obsidian vault — canon, proposals, notes, templates |
 | `~/.agency/workspaces/` | Agent workspaces |
+| `~/.agency/shared/` | Shared group workspaces and memory |
 
 See `installation/config.example.json` for the full config schema.
 
@@ -208,6 +214,14 @@ agency uninstall           🗑️  Remove everything
 
 agency agents list         📋 List agents
 agency agents create -n Name
+agency agents profile list
+agency agents profile attach <agent> <profile>
+agency agents profile create
+
+agency groups list         👥 List workspace groups
+agency groups create       Create a new group
+agency groups members <id> List group members
+
 agency chat                💬 Chat in terminal
 agency vault status        📚 Vault sync status
 agency --help              📖 Full command list
@@ -223,7 +237,9 @@ Open at **[http://localhost:2001](http://localhost:2001)**
 |------|-------------|
 | 🏠 Overview | System health, active agents, recent activity |
 | 💬 Chat | Real-time streaming chat with session history and tool call cards |
-| 🤖 Agents | Agent list, profile switcher, workspace management |
+| 🤖 Agents | Agent list, profile switcher, workspace management, per-agent canvas view, permission settings |
+| 👥 Groups | Workspace group management — list view or canvas topology view |
+| 🗺️ Network | Full-system canvas: orchestrator → groups → agents with live edges |
 | 🛠️ Skills | View and manage agent skills |
 | 📚 Vault | Knowledge base status, sync controls, graph view |
 | 🔌 Connectors | Discord integration management |
@@ -254,12 +270,17 @@ Pre-1.0. Core platform is functional. Active development.
 
 - [x] ⚙️ Gateway + WebSocket streaming
 - [x] 🤝 Multi-agent orchestration + coordinator mode
+- [x] 🔀 Orchestrator / PA split with protected built-in agents
+- [x] 🔐 Per-agent `AgencyPermissions` (deny / request / autonomous per operation)
+- [x] 👥 Workspace groups with shared workspaces and group memory
+- [x] 🗺️ Canvas views (per-agent, group topology, full-system network map)
+- [x] 🤖 Agent Architect — LLM-generated agent specs from plain-language descriptions
 - [x] 🔀 Model routing (Anthropic / OpenAI / Ollama) + prompt caching
 - [x] 📚 Vault sync (Markdown → PostgreSQL + pgvector)
-- [x] 🌐 Dashboard (10 pages)
+- [x] 🌐 Dashboard (12 pages)
 - [x] 🔌 Discord connector
 - [x] 🛠️ Skills + profiles
-- [x] 📋 Audit log + smart approvals with risk classification
+- [x] 📋 Audit log + smart approvals with risk classification and reasoning trace
 - [x] 💬 Session search, prompt suggestions, away summaries
 - [x] 🔍 Adversarial verification gate
 - [x] 🤖 Proactive / autonomous mode

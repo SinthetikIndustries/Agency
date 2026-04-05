@@ -10,8 +10,10 @@ import type {
   ToolDispatchResult,
   ToolType,
   ToolJob,
-  WorkerQueueName
+  WorkerQueueName,
+  BuiltInAgentSlug,
 } from '@agency/shared-types'
+import { BUILT_IN_AGENTS } from '@agency/shared-types'
 import { QueueClient } from '@agency/shared-worker'
 import { randomUUID } from 'node:crypto'
 import type { MemoryStore } from '@agency/memory'
@@ -353,6 +355,8 @@ const MEMORY_WRITE_MANIFEST: ToolManifest = {
     properties: {
       content: { type: 'string', description: 'The memory content to store' },
       type: { type: 'string', enum: ['episodic', 'semantic', 'working'], description: 'Memory type' },
+      scope: { type: 'string', enum: ['private', 'group'], description: "Memory scope: 'private' (default) or 'group'" },
+      groupId: { type: 'string', description: "Group ID when scope is 'group'" },
     },
     required: ['content'],
   },
@@ -518,6 +522,125 @@ const AGENT_DELETE_MANIFEST: ToolManifest = {
   permissions: ['agent:manage'],
   sandboxed: false,
   timeout: 30_000,
+}
+
+// ─── Group Management Tool Manifests ──────────────────────────────────────────
+
+const GROUP_CREATE_MANIFEST: ToolManifest = {
+  name: 'group_create',
+  type: 'agent_management',
+  description: 'Create a new workspace group with a shared directory and memory space.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      name: { type: 'string', description: 'Display name for the group' },
+      slug: { type: 'string', description: 'URL-safe identifier (auto-generated from name if omitted)' },
+      description: { type: 'string', description: 'What this group is for' },
+      hierarchyType: { type: 'string', enum: ['flat', 'hierarchical', 'council'], description: 'Group structure type' },
+      goals: { type: 'array', items: { type: 'string' }, description: 'Goals or objectives for this group' },
+    },
+    required: ['name'],
+  },
+  permissions: [],
+  sandboxed: false,
+  timeout: 10000,
+}
+
+const GROUP_UPDATE_MANIFEST: ToolManifest = {
+  name: 'group_update',
+  type: 'agent_management',
+  description: 'Update a workspace group name, description, goals, or hierarchy type.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', description: 'Group ID' },
+      name: { type: 'string' },
+      description: { type: 'string' },
+      hierarchyType: { type: 'string', enum: ['flat', 'hierarchical', 'council'] },
+      goals: { type: 'array', items: { type: 'string' } },
+    },
+    required: ['id'],
+  },
+  permissions: [],
+  sandboxed: false,
+  timeout: 10000,
+}
+
+const GROUP_DELETE_MANIFEST: ToolManifest = {
+  name: 'group_delete',
+  type: 'agent_management',
+  description: 'Delete a workspace group. The shared directory is preserved on disk.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', description: 'Group ID' },
+    },
+    required: ['id'],
+  },
+  permissions: [],
+  sandboxed: false,
+  timeout: 10000,
+}
+
+const GROUP_MEMBER_ADD_MANIFEST: ToolManifest = {
+  name: 'group_member_add',
+  type: 'agent_management',
+  description: 'Add an agent to a workspace group.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      groupId: { type: 'string', description: 'Group ID' },
+      agentId: { type: 'string', description: 'Agent ID or slug' },
+      role: { type: 'string', enum: ['lead', 'member', 'observer'], description: 'Role in the group' },
+    },
+    required: ['groupId', 'agentId'],
+  },
+  permissions: [],
+  sandboxed: false,
+  timeout: 10000,
+}
+
+const GROUP_MEMBER_REMOVE_MANIFEST: ToolManifest = {
+  name: 'group_member_remove',
+  type: 'agent_management',
+  description: 'Remove an agent from a workspace group.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      groupId: { type: 'string', description: 'Group ID' },
+      agentId: { type: 'string', description: 'Agent ID or slug' },
+    },
+    required: ['groupId', 'agentId'],
+  },
+  permissions: [],
+  sandboxed: false,
+  timeout: 10000,
+}
+
+const GROUP_LIST_MANIFEST: ToolManifest = {
+  name: 'group_list',
+  type: 'agent_management',
+  description: 'List all workspace groups with member counts.',
+  inputSchema: { type: 'object', properties: {} },
+  permissions: [],
+  sandboxed: false,
+  timeout: 10000,
+}
+
+const GROUP_GET_MANIFEST: ToolManifest = {
+  name: 'group_get',
+  type: 'agent_management',
+  description: 'Get details of a workspace group including its members.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', description: 'Group ID' },
+    },
+    required: ['id'],
+  },
+  permissions: [],
+  sandboxed: false,
+  timeout: 10000,
 }
 
 // ─── Vault Tool Manifests ─────────────────────────────────────────────────────
@@ -920,6 +1043,15 @@ export function createToolRegistry(queueClient?: QueueClient, options?: { memory
   registry.register(AGENT_CREATE_MANIFEST, async () => ({ error: 'Not implemented' }))
   registry.register(AGENT_DELETE_MANIFEST, async () => ({ error: 'Not implemented' }))
 
+  // Group management tools — handlers registered by Orchestrator
+  registry.register(GROUP_CREATE_MANIFEST, async () => ({ error: 'Not initialised' }))
+  registry.register(GROUP_UPDATE_MANIFEST, async () => ({ error: 'Not initialised' }))
+  registry.register(GROUP_DELETE_MANIFEST, async () => ({ error: 'Not initialised' }))
+  registry.register(GROUP_MEMBER_ADD_MANIFEST, async () => ({ error: 'Not initialised' }))
+  registry.register(GROUP_MEMBER_REMOVE_MANIFEST, async () => ({ error: 'Not initialised' }))
+  registry.register(GROUP_LIST_MANIFEST, async () => ({ error: 'Not initialised' }))
+  registry.register(GROUP_GET_MANIFEST, async () => ({ error: 'Not initialised' }))
+
   // Vault tools
   if (options?.vaultStore) {
     const vaultHandlers = createVaultHandlers(options.vaultStore)
@@ -936,15 +1068,15 @@ export function createToolRegistry(queueClient?: QueueClient, options?: { memory
   if (options?.diagnosticsProvider) {
     const provider = options.diagnosticsProvider
     registry.register(SYSTEM_DIAGNOSE_MANIFEST, async (_input, context) => {
-      if (context.agentId !== 'main') {
-        return { error: 'system_diagnose is only available to the main orchestrator agent.' }
+      if (!BUILT_IN_AGENTS.includes(context.agentId as BuiltInAgentSlug)) {
+        return { error: 'system_diagnose is only available to built-in agents.' }
       }
       return provider()
     })
   } else {
     registry.register(SYSTEM_DIAGNOSE_MANIFEST, async (_input, context) => {
-      if (context.agentId !== 'main') {
-        return { error: 'system_diagnose is only available to the main orchestrator agent.' }
+      if (!BUILT_IN_AGENTS.includes(context.agentId as BuiltInAgentSlug)) {
+        return { error: 'system_diagnose is only available to built-in agents.' }
       }
       return { error: 'Diagnostics provider not configured.' }
     })

@@ -653,33 +653,12 @@ async function prompt(rl: ReturnType<typeof createInterface>, question: string):
 
 // ─── Agent seeding ────────────────────────────────────────────────────────────
 
-const PRESET_AGENTS: Array<{ name: string; profileSlug: string }> = [
-  { name: 'Researcher', profileSlug: 'researcher' },
-  { name: 'Coder',      profileSlug: 'developer'  },
-  { name: 'Writer',     profileSlug: 'analyst'     },
-]
-
 async function seedAgents(mainAgentName: string): Promise<void> {
   // Rename main agent to user's chosen name
   await gatewayFetch('/agents/main', {
     method: 'PATCH',
     body: JSON.stringify({ name: mainAgentName }),
   })
-
-  // Fetch existing agents to avoid creating duplicates on re-install
-  const { agents: existing } = await gatewayFetch<{ agents: Array<{ identity: { name: string; slug: string } }> }>('/agents')
-  const existingSlugs = new Set(existing.map((a: { identity: { name: string; slug: string } }) => a.identity.slug))
-  const existingNames = new Set(existing.map((a: { identity: { name: string; slug: string } }) => a.identity.name.toLowerCase()))
-
-  // Create preset agents (workspace created automatically by orchestrator)
-  for (const { name, profileSlug } of PRESET_AGENTS) {
-    const derivedSlug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    if (existingSlugs.has(derivedSlug) || existingNames.has(name.toLowerCase())) continue
-    await gatewayFetch('/agents', {
-      method: 'POST',
-      body: JSON.stringify({ name, profileSlug, lifecycleType: 'dormant', shellPermissionLevel: 'none' }),
-    })
-  }
 }
 
 // ─── Command ─────────────────────────────────────────────────────────────────

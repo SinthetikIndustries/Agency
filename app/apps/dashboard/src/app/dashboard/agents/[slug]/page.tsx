@@ -6,9 +6,12 @@
 import { useEffect, useState, use } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import '@xyflow/react/dist/style.css'
+import { ReactFlow, Background, Controls, useNodesState, useEdgesState, type Node, type Edge } from '@xyflow/react'
+import { NODE_TYPES } from '@/components/canvas/node-types'
 import { agents, workspace, models, routingProfiles, skills, agentSkills, tools, mcp, agentMcp, type Agent, type WorkspaceFile, type AgentModelConfig, type RoutingProfile, type Skill, type AgentSkill, type Tool, type McpServer, type AgentMcpServer } from '@/lib/api'
 
-type Tab = 'overview' | 'model' | 'files' | 'tools' | 'skills' | 'mcp'
+type Tab = 'overview' | 'model' | 'files' | 'tools' | 'skills' | 'mcp' | 'canvas'
 const CONTEXT_FILES = ['config/identity.md', 'config/soul.md', 'config/user.md', 'config/heartbeat.md', 'config/capabilities.md', 'config/scratch.md']
 
 function formatSize(bytes: number | null): string {
@@ -75,6 +78,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ slug: st
     { key: 'tools',    label: 'Tools' },
     { key: 'skills',   label: 'Skills' },
     { key: 'mcp',      label: 'MCP' },
+    { key: 'canvas',   label: 'Canvas' },
   ]
 
   return (
@@ -115,6 +119,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ slug: st
           {tab === 'tools'    && <ToolsTab />}
           {tab === 'skills'   && <SkillsTab slug={slug} />}
           {tab === 'mcp'      && <McpTab slug={slug} />}
+          {tab === 'canvas'   && agent && <AgentCanvas agent={agent} />}
         </>
       )}
     </div>
@@ -276,7 +281,10 @@ function WorkspaceSection({ agent, slug, onReload }: { agent: Agent; slug: strin
 
 function OverviewTab({ agent, slug, onReload }: { agent: Agent; slug: string; onReload: () => void }) {
   const isMain = slug === 'main'
+  const isOrchestrator = slug === 'orchestrator'
+  const isBuiltIn = slug === 'orchestrator' || slug === 'main'
   const { profiles } = useProfiles()
+  const router = useRouter()
 
   const [name, setName] = useState(agent.identity.name)
   const [lifecycleType, setLifecycleType] = useState(agent.identity.lifecycleType)
@@ -361,11 +369,11 @@ function OverviewTab({ agent, slug, onReload }: { agent: Agent; slug: string; on
 
       {/* Lifecycle */}
       <Section title="Lifecycle">
-        {isMain ? (
+        {isBuiltIn ? (
           <Row label="Lifecycle type">
             <div className="flex items-center gap-2 min-w-[220px]">
               <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/40 text-blue-300 border border-blue-800/50">Always-on</span>
-              <span className="text-xs text-gray-600">(locked — main agent)</span>
+              <span className="text-xs text-gray-600">(locked — {isOrchestrator ? 'orchestrator' : 'main'} agent)</span>
             </div>
           </Row>
         ) : (
@@ -376,13 +384,19 @@ function OverviewTab({ agent, slug, onReload }: { agent: Agent; slug: string; on
             onChange={v => setLifecycleType(v as typeof lifecycleType)}
           />
         )}
-        <SelectRow
-          label="Wake mode"
-          value={wakeMode}
-          options={WAKE_OPTIONS}
-          onChange={v => setWakeMode(v as typeof wakeMode)}
-          disabled={lifecycleType === 'always_on' || isMain}
-        />
+        {isOrchestrator ? (
+          <Row label="Wake mode">
+            <span className="text-sm text-gray-400 min-w-[220px]">{WAKE_OPTIONS.find(o => o.value === wakeMode)?.label ?? wakeMode}</span>
+          </Row>
+        ) : (
+          <SelectRow
+            label="Wake mode"
+            value={wakeMode}
+            options={WAKE_OPTIONS}
+            onChange={v => setWakeMode(v as typeof wakeMode)}
+            disabled={lifecycleType === 'always_on' || isMain}
+          />
+        )}
       </Section>
 
       {/* Workspace */}
@@ -396,13 +410,85 @@ function OverviewTab({ agent, slug, onReload }: { agent: Agent; slug: string; on
           options={SHELL_OPTIONS}
           onChange={v => setShellPermission(v as typeof shellPermission)}
         />
-        <SelectRow
-          label="Agent management"
-          value={agentMgmt}
-          options={AGENT_MGMT_OPTIONS}
-          onChange={v => setAgentMgmt(v as typeof agentMgmt)}
-        />
+        {isOrchestrator ? (
+          <Row label="Agent management">
+            <span className="text-sm text-gray-400 min-w-[220px]">{AGENT_MGMT_OPTIONS.find(o => o.value === agentMgmt)?.label ?? agentMgmt}</span>
+          </Row>
+        ) : (
+          <SelectRow
+            label="Agent management"
+            value={agentMgmt}
+            options={AGENT_MGMT_OPTIONS}
+            onChange={v => setAgentMgmt(v as typeof agentMgmt)}
+          />
+        )}
       </Section>
+
+      {/* Autonomous Mode */}
+      <Section title="Autonomous Mode">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-white font-medium">
+              {agent.identity.autonomousMode ? 'Autonomous' : 'Supervised'}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              {agent.identity.autonomousMode
+                ? 'Request-level operations auto-approve and execute immediately (logged to audit).'
+                : 'Request-level operations require human approval before executing.'}
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              await agents.update(slug, { autonomousMode: !agent.identity.autonomousMode })
+              router.refresh()
+              onReload()
+            }}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              agent.identity.autonomousMode ? 'bg-blue-600' : 'bg-gray-600'
+            }`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              agent.identity.autonomousMode ? 'translate-x-6' : 'translate-x-1'
+            }`} />
+          </button>
+        </div>
+      </Section>
+
+      {/* Agency Permissions */}
+      {agent.identity.agencyPermissions && Object.keys(agent.identity.agencyPermissions).filter(k => !['allowRules', 'denyRules'].includes(k)).length > 0 && (
+        <Section title="Agency Permissions">
+          {Object.entries(agent.identity.agencyPermissions)
+            .filter(([key]) => !['allowRules', 'denyRules'].includes(key))
+            .map(([key, value]) => (
+              <div key={key} className="flex items-center justify-between px-4 py-2">
+                <span className="text-sm text-gray-300 capitalize">
+                  {key.replace(/([A-Z])/g, ' $1').trim()}
+                </span>
+                {isOrchestrator ? (
+                  <select
+                    className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white"
+                    defaultValue={value}
+                    onChange={async (e) => {
+                      const newPerms = { ...agent.identity.agencyPermissions, [key]: e.target.value }
+                      await agents.update(slug, { agencyPermissions: newPerms })
+                    }}
+                  >
+                    <option value="deny">Deny</option>
+                    <option value="request">Request</option>
+                    <option value="autonomous">Autonomous</option>
+                  </select>
+                ) : (
+                  <span className={`text-xs px-2 py-1 rounded font-mono ${
+                    value === 'autonomous' ? 'bg-green-900 text-green-300' :
+                    value === 'request' ? 'bg-yellow-900 text-yellow-300' :
+                    'bg-red-900 text-red-300'
+                  }`}>{value}</span>
+                )}
+              </div>
+            ))
+          }
+        </Section>
+      )}
 
       {/* Status */}
       <Section title="Status">
@@ -415,7 +501,7 @@ function OverviewTab({ agent, slug, onReload }: { agent: Agent; slug: string; on
             }`}>
               {agent.identity.status}
             </span>
-            {!isMain && (
+            {!isBuiltIn && (
               <button
                 onClick={() => void toggleStatus()}
                 className={`text-xs transition-colors ${
@@ -427,7 +513,7 @@ function OverviewTab({ agent, slug, onReload }: { agent: Agent; slug: string; on
                 {agent.identity.status === 'active' ? 'Disable' : 'Enable'}
               </button>
             )}
-            {isMain && <span className="text-xs text-gray-600">(cannot be disabled)</span>}
+            {isBuiltIn && <span className="text-xs text-gray-600">(cannot be disabled)</span>}
           </div>
         </Row>
       </Section>
@@ -1109,4 +1195,73 @@ function useProfiles() {
     import('@/lib/api').then(({ profiles }) => profiles.list().then(r => setProfileList(r.profiles)).catch(() => {}))
   }, [])
   return { profiles: profileList }
+}
+
+// ─── Agent Canvas Tab ─────────────────────────────────────────────────────────
+
+function AgentCanvas({ agent }: { agent: Agent }) {
+  const initialNodes: Node[] = [
+    {
+      id: 'agent-center',
+      type: 'agentNode',
+      position: { x: 300, y: 200 },
+      data: {
+        label: agent.identity.name,
+        slug: agent.identity.slug,
+        status: agent.identity.status,
+        isOrchestrator: agent.identity.slug === 'orchestrator',
+      },
+    },
+  ]
+
+  // Add tool nodes
+  const toolNodes: Node[] = (agent.profile.allowedTools ?? []).slice(0, 8).map((tool, i) => ({
+    id: `tool-${tool}`,
+    type: 'toolNode',
+    position: { x: 600, y: i * 60 },
+    data: { label: tool, toolType: 'tool' },
+  }))
+
+  // Add workspace nodes
+  const workspaceNodes: Node[] = [
+    {
+      id: 'workspace-private',
+      type: 'workspaceNode',
+      position: { x: 0, y: 150 },
+      data: { label: 'Private Workspace', path: agent.identity.workspacePath },
+    },
+    ...(agent.identity.additionalWorkspacePaths ?? []).slice(0, 3).map((path, i) => ({
+      id: `workspace-extra-${i}`,
+      type: 'workspaceNode',
+      position: { x: 0, y: 250 + i * 80 },
+      data: { label: `Shared Workspace ${i + 1}`, path },
+    })),
+  ]
+
+  const allNodes = [...initialNodes, ...toolNodes, ...workspaceNodes]
+
+  const edges: Edge[] = [
+    ...toolNodes.map(n => ({ id: `e-${n.id}`, source: 'agent-center', target: n.id, style: { stroke: '#4b5563' } })),
+    ...workspaceNodes.map(n => ({ id: `e-${n.id}`, source: 'agent-center', target: n.id, style: { stroke: '#92400e', strokeDasharray: '4 2' } })),
+  ]
+
+  const [nodes, , onNodesChange] = useNodesState(allNodes)
+  const [edgeState, , onEdgesChange] = useEdgesState(edges)
+
+  return (
+    <div style={{ height: '600px' }} className="border border-gray-700 rounded-lg overflow-hidden">
+      <ReactFlow
+        nodes={nodes}
+        edges={edgeState}
+        nodeTypes={NODE_TYPES}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        fitView
+        className="bg-gray-900"
+      >
+        <Background color="#374151" gap={16} />
+        <Controls />
+      </ReactFlow>
+    </div>
+  )
 }

@@ -19,6 +19,7 @@ export interface MemoryEntry {
 
 export interface MemoryWriteInput {
   agentId: string
+  groupId?: string        // if set, writes to group memory scope
   type: MemoryType
   content: string
   expiresAt?: Date
@@ -34,6 +35,15 @@ export interface MemoryQuery {
   queryEmbedding?: number[] // pre-computed query embedding
 }
 
+export interface MemoryGroupQuery {
+  groupId: string
+  query?: string
+  types?: MemoryType[]
+  limit?: number
+  minScore?: number
+  queryEmbedding?: number[]
+}
+
 export class MemoryStore {
   private pool: Pool
 
@@ -46,17 +56,17 @@ export class MemoryStore {
     let result: pg.QueryResult
     if (entry.embedding) {
       result = await this.pool.query(
-        `INSERT INTO memory_entries (agent_id, type, content, embedding, expires_at)
-         VALUES ($1, $2, $3, $4::vector, $5)
+        `INSERT INTO memory_entries (agent_id, group_id, type, content, embedding, expires_at)
+         VALUES ($1, $2, $3, $4, $5::vector, $6)
          RETURNING id`,
-        [entry.agentId, entry.type, entry.content, `[${entry.embedding.join(',')}]`, entry.expiresAt ?? null]
+        [entry.agentId, entry.groupId ?? null, entry.type, entry.content, `[${entry.embedding.join(',')}]`, entry.expiresAt ?? null]
       )
     } else {
       result = await this.pool.query(
-        `INSERT INTO memory_entries (agent_id, type, content, expires_at)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO memory_entries (agent_id, group_id, type, content, expires_at)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING id`,
-        [entry.agentId, entry.type, entry.content, entry.expiresAt ?? null]
+        [entry.agentId, entry.groupId ?? null, entry.type, entry.content, entry.expiresAt ?? null]
       )
     }
 
@@ -100,6 +110,45 @@ export class MemoryStore {
        ORDER BY created_at DESC
        LIMIT $${types.length + 2}`,
       [query.agentId, ...types, limit]
+    )
+    return result.rows.map(rowToEntry)
+  }
+
+  async readGroup(query: MemoryGroupQuery): Promise<MemoryEntry[]> {
+    const limit = query.limit ?? 10
+    const types = query.types ?? ['episodic', 'semantic', 'working']
+    const typePlaceholders = types.map((_, i) => `$${i + 2}`).join(', ')
+
+    if (query.queryEmbedding && query.queryEmbedding.length > 0) {
+      const minScore = query.minScore ?? 0.7
+      const embeddingStr = `[${query.queryEmbedding.join(',')}]`
+      const result = await this.pool.query(
+        `SELECT id, agent_id, type, content, created_at, expires_at,
+                1 - (embedding <=> $${types.length + 2}::vector) as score
+         FROM memory_entries
+         WHERE group_id = $1
+           AND type = ANY(ARRAY[${typePlaceholders}]::text[])
+           AND (expires_at IS NULL OR expires_at > NOW())
+           AND embedding IS NOT NULL
+         ORDER BY embedding <=> $${types.length + 2}::vector ASC
+         LIMIT $${types.length + 3}`,
+        [query.groupId, ...types, embeddingStr, limit]
+      )
+      const minScoreVal = minScore
+      return result.rows
+        .filter(row => (row.score as number) >= minScoreVal)
+        .map(rowToEntry)
+    }
+
+    const result = await this.pool.query(
+      `SELECT id, agent_id, type, content, created_at, expires_at
+       FROM memory_entries
+       WHERE group_id = $1
+         AND type = ANY(ARRAY[${typePlaceholders}]::text[])
+         AND (expires_at IS NULL OR expires_at > NOW())
+       ORDER BY created_at DESC
+       LIMIT $${types.length + 2}`,
+      [query.groupId, ...types, limit]
     )
     return result.rows.map(rowToEntry)
   }

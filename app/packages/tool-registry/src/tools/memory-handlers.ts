@@ -13,6 +13,8 @@ export function createMemoryHandlers(memoryStore: MemoryStore) {
       const type = input['type'] as 'episodic' | 'semantic' | 'working'
       const content = input['content'] as string
       const expiresAt = input['expiresAt'] as string | undefined
+      const scope = input['scope'] as string | undefined
+      const groupId = input['groupId'] as string | undefined
 
       let expiresAtDate: Date | undefined
       if (expiresAt !== undefined) {
@@ -26,6 +28,7 @@ export function createMemoryHandlers(memoryStore: MemoryStore) {
         type,
         content,
         ...(expiresAtDate !== undefined ? { expiresAt: expiresAtDate } : {}),
+        ...(scope === 'group' && groupId ? { groupId } : {}),
       }
       const id = await memoryStore.write(writeInput)
       return { id }

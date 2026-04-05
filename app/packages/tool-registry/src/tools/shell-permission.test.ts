@@ -23,6 +23,8 @@ function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
     shellPermissionLevel: 'full',
     sessionGrantActive: false,
     agentManagementPermission: 'approval_required',
+    agencyPermissions: { agentCreate: 'deny', agentDelete: 'deny', agentUpdate: 'deny', groupCreate: 'deny', groupUpdate: 'deny', groupDelete: 'deny', shellRun: 'deny' },
+    autonomousMode: false,
     ...overrides,
   }
 }

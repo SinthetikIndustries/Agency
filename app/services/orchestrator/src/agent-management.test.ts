@@ -52,6 +52,8 @@ function makeMockToolRegistry() {
   const toolNames = [
     'agent_list', 'agent_get', 'agent_set_profile', 'profile_list',
     'agent_create', 'agent_delete',
+    'group_list', 'group_get', 'group_create', 'group_update', 'group_delete',
+    'group_member_add', 'group_member_remove',
   ]
   for (const name of toolNames) {
     manifests.set(name, { name })
@@ -76,6 +78,8 @@ function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
     shellPermissionLevel: 'none',
     sessionGrantActive: false,
     agentManagementPermission: 'approval_required',
+    agencyPermissions: { agentCreate: 'deny', agentDelete: 'deny', agentUpdate: 'deny', groupCreate: 'deny', groupUpdate: 'deny', groupDelete: 'deny', shellRun: 'deny' },
+    autonomousMode: false,
     ...overrides,
   }
 }
@@ -215,7 +219,7 @@ describe('Orchestrator.deleteAgent()', () => {
   })
 
   it('throws when attempting to delete main agent', async () => {
-    await expect(orchestrator.deleteAgent({ slug: 'main' })).rejects.toThrow('Cannot delete the main agent')
+    await expect(orchestrator.deleteAgent({ slug: 'main' })).rejects.toThrow('Cannot delete a built-in agent')
   })
 
   it('throws when agent does not exist', async () => {
@@ -288,18 +292,18 @@ describe('agent_create tool handler (approval gate)', () => {
     return toolRegistry._handlers.get(name)!
   }
 
-  it('returns pending_approval when agentManagementPermission is approval_required', async () => {
+  it('returns pending_approval when agencyPermissions.agentCreate is request (supervised)', async () => {
     const handler = getHandler('agent_create')
-    const ctx = makeContext({ agentManagementPermission: 'approval_required' })
+    const ctx = makeContext({ agencyPermissions: { agentCreate: 'request', agentDelete: 'deny', agentUpdate: 'deny', groupCreate: 'deny', groupUpdate: 'deny', groupDelete: 'deny', shellRun: 'deny' }, autonomousMode: false })
     const result = await handler({ name: 'Alpha' }, ctx) as any
     expect(result.status).toBe('pending_approval')
     expect(result.approvalId).toBeDefined()
     expect(result.message).toContain('agency approvals approve')
   })
 
-  it('inserts approval row into approvals table when approval_required', async () => {
+  it('inserts approval row into approvals table when request in supervised mode', async () => {
     const handler = getHandler('agent_create')
-    const ctx = makeContext({ agentManagementPermission: 'approval_required' })
+    const ctx = makeContext({ agencyPermissions: { agentCreate: 'request', agentDelete: 'deny', agentUpdate: 'deny', groupCreate: 'deny', groupUpdate: 'deny', groupDelete: 'deny', shellRun: 'deny' }, autonomousMode: false })
     await handler({ name: 'Beta' }, ctx)
     expect(db.execute).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO approvals'),
@@ -307,12 +311,27 @@ describe('agent_create tool handler (approval gate)', () => {
     )
   })
 
-  it('creates agent immediately when agentManagementPermission is autonomous', async () => {
+  it('creates agent immediately when agencyPermissions.agentCreate is autonomous', async () => {
     const handler = getHandler('agent_create')
-    const ctx = makeContext({ agentManagementPermission: 'autonomous' })
+    const ctx = makeContext({ agencyPermissions: { agentCreate: 'autonomous', agentDelete: 'deny', agentUpdate: 'deny', groupCreate: 'deny', groupUpdate: 'deny', groupDelete: 'deny', shellRun: 'deny' } })
     const result = await handler({ name: 'Gamma' }, ctx) as any
     expect(result.agent).toBeDefined()
     expect(result.agent.slug).toBe('gamma')
+  })
+
+  it('returns error when agencyPermissions.agentCreate is deny', async () => {
+    const handler = getHandler('agent_create')
+    const ctx = makeContext()
+    const result = await handler({ name: 'Delta' }, ctx) as any
+    expect(result.error).toContain('Permission denied')
+  })
+
+  it('creates agent immediately when request + autonomousMode=true', async () => {
+    const handler = getHandler('agent_create')
+    const ctx = makeContext({ agencyPermissions: { agentCreate: 'request', agentDelete: 'deny', agentUpdate: 'deny', groupCreate: 'deny', groupUpdate: 'deny', groupDelete: 'deny', shellRun: 'deny' }, autonomousMode: true })
+    const result = await handler({ name: 'Epsilon' }, ctx) as any
+    expect(result.agent).toBeDefined()
+    expect(result.agent.slug).toBe('epsilon')
   })
 })
 
@@ -364,9 +383,9 @@ describe('agent_delete tool handler (always requires approval)', () => {
     return toolRegistry._handlers.get(name)!
   }
 
-  it('always returns pending_approval even when autonomous', async () => {
+  it('returns pending_approval when agencyPermissions.agentDelete is request (supervised)', async () => {
     const handler = getHandler('agent_delete')
-    const ctx = makeContext({ agentManagementPermission: 'autonomous' })
+    const ctx = makeContext({ agencyPermissions: { agentCreate: 'deny', agentDelete: 'request', agentUpdate: 'deny', groupCreate: 'deny', groupUpdate: 'deny', groupDelete: 'deny', shellRun: 'deny' }, autonomousMode: false })
     const result = await handler({ slug: 'some-agent' }, ctx) as any
     expect(result.status).toBe('pending_approval')
     expect(result.approvalId).toBeDefined()
@@ -374,12 +393,26 @@ describe('agent_delete tool handler (always requires approval)', () => {
 
   it('inserts approval row with tool_name=agent_delete', async () => {
     const handler = getHandler('agent_delete')
-    const ctx = makeContext({ agentManagementPermission: 'approval_required' })
+    const ctx = makeContext({ agencyPermissions: { agentCreate: 'deny', agentDelete: 'request', agentUpdate: 'deny', groupCreate: 'deny', groupUpdate: 'deny', groupDelete: 'deny', shellRun: 'deny' }, autonomousMode: false })
     await handler({ slug: 'target-agent' }, ctx)
     expect(db.execute).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO approvals'),
       expect.arrayContaining(['agent_delete'])
     )
+  })
+
+  it('deletes agent immediately when agencyPermissions.agentDelete is autonomous', async () => {
+    const handler = getHandler('agent_delete')
+    const ctx = makeContext({ agencyPermissions: { agentCreate: 'deny', agentDelete: 'autonomous', agentUpdate: 'deny', groupCreate: 'deny', groupUpdate: 'deny', groupDelete: 'deny', shellRun: 'deny' } })
+    const result = await handler({ slug: 'some-agent' }, ctx) as any
+    expect(result.success).toBe(true)
+  })
+
+  it('returns error when agencyPermissions.agentDelete is deny', async () => {
+    const handler = getHandler('agent_delete')
+    const ctx = makeContext()
+    const result = await handler({ slug: 'some-agent' }, ctx) as any
+    expect(result.error).toContain('Permission denied')
   })
 })
 
@@ -493,7 +526,7 @@ describe('agent_delete tool handler — slug validation before approval', () => 
     const handler = getHandler('agent_delete')
     const ctx = makeContext()
     const result = await handler({ slug: 'main' }, ctx) as any
-    expect(result.error).toContain('Cannot delete the main agent')
+    expect(result.error).toContain('Cannot delete a built-in agent')
     // Must NOT have inserted an approval row
     expect(db.execute).not.toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO approvals'),
@@ -514,7 +547,7 @@ describe('agent_delete tool handler — slug validation before approval', () => 
 
   it('inserts approval row when slug exists and is not "main"', async () => {
     const handler = getHandler('agent_delete')
-    const ctx = makeContext()
+    const ctx = makeContext({ agencyPermissions: { agentCreate: 'deny', agentDelete: 'request', agentUpdate: 'deny', groupCreate: 'deny', groupUpdate: 'deny', groupDelete: 'deny', shellRun: 'deny' }, autonomousMode: false })
     const result = await handler({ slug: 'real-agent' }, ctx) as any
     expect(result.status).toBe('pending_approval')
     expect(db.execute).toHaveBeenCalledWith(

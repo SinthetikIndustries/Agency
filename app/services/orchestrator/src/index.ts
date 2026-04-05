@@ -20,11 +20,19 @@ import type {
   ToolContext,
   AgentModelConfig,
   RoutingChainStep,
+  AgencyPermissions,
+  BuiltInAgentSlug,
+  ModelTier,
+  BehaviorTone,
+  BehaviorVerbosity,
 } from '@agency/shared-types'
+import { BUILT_IN_AGENTS } from '@agency/shared-types'
 import { ModelRouter } from '@agency/model-router'
 import { ToolRegistry } from '@agency/tool-registry'
 import type { DatabaseClient } from './db.js'
 import { buildCompactionPrompt, parseCompactionSummary, pruneToolResults } from './compaction.js'
+import { DestructiveActionService } from './destructive-action.js'
+import { AgentArchitect } from './agent-architect.js'
 import { type MemoryStore, formatMemoriesForContext } from '@agency/memory'
 export { buildCoordinatorSystemPrompt, isCoordinatorMessage } from './coordinator.js'
 export { buildVerificationPrompt, parseVerdict } from './verification-agent.js'
@@ -32,11 +40,80 @@ export type { VerificationRequest, Verdict } from './verification-agent.js'
 
 export type HookFireFn = (event: string, context?: Record<string, unknown>) => Promise<{ blocked: boolean; reason?: string }>
 
-export type ClassifyToolFn = (request: { toolName: string; toolInput: unknown; recentToolUses: Array<{ name: string; input: unknown }> }) => Promise<{ shouldBlock: boolean; riskLevel: string; reason: string; explanation: string }>
+export type ClassifyToolFn = (request: { toolName: string; toolInput: unknown; recentToolUses: Array<{ name: string; input: unknown }> }) => Promise<{ shouldBlock: boolean; riskLevel: string; reason: string; explanation: string; reasoning: string }>
+
+// ─── Permission Defaults ─────────────────────────────────────────────────────
+
+const ORCHESTRATOR_DEFAULT_PERMISSIONS: AgencyPermissions = {
+  agentCreate: 'autonomous',
+  agentDelete: 'autonomous',
+  agentUpdate: 'autonomous',
+  groupCreate: 'autonomous',
+  groupUpdate: 'autonomous',
+  groupDelete: 'autonomous',
+  shellRun: 'autonomous',
+}
+
+const MAIN_DEFAULT_PERMISSIONS: AgencyPermissions = {
+  agentCreate: 'deny',
+  agentDelete: 'deny',
+  agentUpdate: 'request',
+  groupCreate: 'request',
+  groupUpdate: 'request',
+  groupDelete: 'deny',
+  shellRun: 'deny',
+}
+
+const DEFAULT_AGENT_PERMISSIONS: AgencyPermissions = {
+  agentCreate: 'deny',
+  agentDelete: 'deny',
+  agentUpdate: 'deny',
+  groupCreate: 'deny',
+  groupUpdate: 'deny',
+  groupDelete: 'deny',
+  shellRun: 'deny',
+}
 
 // ─── Built-in Profiles ────────────────────────────────────────────────────────
 
 const BUILT_IN_PROFILES: AgentProfile[] = [
+  {
+    id: 'builtin-orchestrator',
+    name: 'Orchestrator',
+    slug: 'orchestrator',
+    description: 'System-level agent with full application authority',
+    systemPrompt: `You are System, the application orchestrator for this Agency installation. You are responsible for the health, configuration, and coordination of all agents and workspaces. When a user speaks to you directly, they are interacting with the application itself, not a personal assistant.
+
+Your operational model:
+- Phase model: Understand → Plan → Confirm (if destructive) → Execute → Report
+- Synthesis-first: When directing other agents, always synthesize findings into specific instructions before delegating. Never say "based on the agent's findings, proceed" — synthesize and specify.
+- Transparency: For every significant action, state what you are doing and why in plain language before doing it.
+- Anti-narration: Do not narrate routine non-destructive actions step-by-step. Focus output on decisions requiring user input, status at natural milestones, and blockers.
+
+You are methodical, transparent, and authoritative. You always explain your reasoning. You never act destructively without explicit confirmation.
+
+Always respond in English, regardless of the language used by the user or any other part of the conversation.`,
+    modelTier: 'strong' as ModelTier,
+    allowedTools: [
+      'file_read', 'file_write', 'file_list',
+      'shell_run',
+      'http_get',
+      'agent_list', 'agent_get', 'agent_create', 'agent_delete', 'agent_set_profile',
+      'agent_invoke', 'agent_message_send', 'agent_message_check', 'agent_message_list',
+      'profile_list',
+      'system_diagnose',
+      'memory_write', 'memory_read',
+      'vault_search', 'vault_related', 'vault_propose',
+      'discord_post', 'discord_list_channels',
+      'group_create', 'group_update', 'group_delete',
+      'group_member_add', 'group_member_remove',
+    ],
+    behaviorSettings: { tone: 'professional' as BehaviorTone, verbosity: 'normal' as BehaviorVerbosity, proactive: false },
+    tags: ['system', 'orchestrator'],
+    builtIn: true,
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-01-01'),
+  },
   {
     id: 'builtin-personal-assistant',
     name: 'Personal Assistant',
@@ -156,6 +233,9 @@ export class Orchestrator {
   private idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private readonly IDLE_TIMEOUT_MS = 5 * 60 * 1000
 
+  private destructiveActionService!: DestructiveActionService
+  private agentArchitect!: AgentArchitect
+
   constructor(
     private readonly db: DatabaseClient,
     private readonly modelRouter: ModelRouter,
@@ -172,9 +252,12 @@ export class Orchestrator {
   // ─── Startup ───────────────────────────────────────────────────────────────
 
   async initialize(): Promise<void> {
+    this.destructiveActionService = new DestructiveActionService(this.db, this.modelRouter)
+    this.agentArchitect = new AgentArchitect(this.modelRouter)
     await this.ensureDirectories()
     await this.seedBuiltInProfiles()
     await this.loadAgentRegistry()
+    await this.ensureOrchestratorAgent()
     await this.ensureMainAgent()
     this.registerManagementToolHandlers()
   }
@@ -192,7 +275,7 @@ export class Orchestrator {
     const srcTemplates = join(pkgDir, 'templates', 'agents')
     if (!existsSync(srcTemplates)) return
 
-    for (const profileSlug of ['personal-assistant', 'researcher', 'developer', 'analyst', 'executive', 'default']) {
+    for (const profileSlug of ['orchestrator', 'personal-assistant', 'researcher', 'developer', 'analyst', 'executive', 'default']) {
       const src = join(srcTemplates, profileSlug)
       const dest = join(this.templatesDir, profileSlug)
       if (!existsSync(src) || existsSync(dest)) continue
@@ -252,17 +335,66 @@ export class Orchestrator {
       }
     }
 
-    // Sync: ensure main agent has all other agents' workspace paths in additionalWorkspacePaths
-    const main = this.agents.get('main')
-    if (main) {
-      for (const [slug, agent] of this.agents) {
-        if (slug === 'main') continue
-        const ws = agent.identity.workspacePath
-        if (!main.identity.additionalWorkspacePaths.includes(ws)) {
-          await this.addWorkspacePath('main', ws).catch(() => {})
+    // Sync: ensure orchestrator has all other agents' workspace paths
+    const orchestratorAgent = this.agents.get('orchestrator')
+    if (orchestratorAgent) {
+      const allPaths = Array.from(this.agents.values())
+        .filter(a => a.identity.slug !== 'orchestrator')
+        .flatMap(a => [a.identity.workspacePath, ...a.identity.additionalWorkspacePaths])
+      const uniquePaths = [...new Set(allPaths)]
+      for (const ws of uniquePaths) {
+        if (!orchestratorAgent.identity.additionalWorkspacePaths.includes(ws)) {
+          await this.addWorkspacePath('orchestrator', ws).catch(() => {})
         }
       }
     }
+  }
+
+  private async ensureOrchestratorAgent(): Promise<void> {
+    if (this.agents.has('orchestrator')) return
+
+    console.log('[Orchestrator] Creating orchestrator agent on first boot...')
+    const workspacePath = join(this.agentsDir, 'orchestrator')
+    const profile = BUILT_IN_PROFILES.find(p => p.slug === 'orchestrator')!
+
+    const identity: AgentIdentity = {
+      id: 'orchestrator',
+      name: 'System',
+      slug: 'orchestrator',
+      parentAgentId: null,
+      lifecycleType: 'always_on',
+      wakeMode: 'auto',
+      currentProfileId: profile.id,
+      shellPermissionLevel: 'full',
+      agentManagementPermission: 'autonomous',
+      agencyPermissions: ORCHESTRATOR_DEFAULT_PERMISSIONS,
+      autonomousMode: false,
+      workspacePath,
+      status: 'active',
+      createdBy: 'system',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      additionalWorkspacePaths: [],
+    }
+
+    await this.db.execute(
+      `INSERT INTO agent_identities
+        (id, name, slug, parent_agent_id, lifecycle_type, wake_mode, current_profile_id, shell_permission_level,
+         agent_management_permission, agency_permissions, autonomous_mode, workspace_path, status, created_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+       ON CONFLICT (id) DO NOTHING`,
+      [
+        identity.id, identity.name, identity.slug, identity.parentAgentId, identity.lifecycleType, identity.wakeMode,
+        identity.currentProfileId, identity.shellPermissionLevel, identity.agentManagementPermission,
+        JSON.stringify(ORCHESTRATOR_DEFAULT_PERMISSIONS), false,
+        join('agents', 'orchestrator'), identity.status, identity.createdBy,
+        identity.createdAt.toISOString(), identity.updatedAt.toISOString(),
+      ]
+    )
+
+    await this.provisionWorkspace(identity, profile.slug)
+    this.agents.set('orchestrator', { identity, profile })
+    console.log('[Orchestrator] Orchestrator agent ready.')
   }
 
   private async ensureMainAgent(): Promise<void> {
@@ -282,6 +414,8 @@ export class Orchestrator {
       currentProfileId: profile.id,
       shellPermissionLevel: 'none',
       agentManagementPermission: 'approval_required',
+      agencyPermissions: MAIN_DEFAULT_PERMISSIONS,
+      autonomousMode: false,
       workspacePath,
       status: 'active',
       createdBy: 'system',
@@ -293,12 +427,13 @@ export class Orchestrator {
     await this.db.execute(
       `INSERT INTO agent_identities
         (id, name, slug, parent_agent_id, lifecycle_type, wake_mode, current_profile_id, shell_permission_level,
-         agent_management_permission, workspace_path, status, created_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         agent_management_permission, agency_permissions, autonomous_mode, workspace_path, status, created_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
        ON CONFLICT (id) DO NOTHING`,
       [
         identity.id, identity.name, identity.slug, identity.parentAgentId, identity.lifecycleType, identity.wakeMode,
         identity.currentProfileId, identity.shellPermissionLevel, identity.agentManagementPermission,
+        JSON.stringify(MAIN_DEFAULT_PERMISSIONS), false,
         join('agents', 'main'), identity.status, identity.createdBy,
         identity.createdAt.toISOString(), identity.updatedAt.toISOString(),
       ]
@@ -355,7 +490,7 @@ export class Orchestrator {
   }
 
   async disableAgent(slug: string): Promise<void> {
-    if (slug === 'main') throw new Error('Cannot disable the main agent')
+    if (BUILT_IN_AGENTS.includes(slug as BuiltInAgentSlug)) throw new Error('Cannot disable a built-in agent')
     const agent = this.agents.get(slug)
     if (!agent) throw new Error(`Agent not found: ${slug}`)
     await this.db.execute(
@@ -403,8 +538,8 @@ export class Orchestrator {
   }): Promise<void> {
     const agent = this.agents.get(slug)
     if (!agent) throw new Error(`Agent not found: ${slug}`)
-    if (slug === 'main' && patch.lifecycleType !== undefined) {
-      throw new Error('Cannot change lifecycle type of the main agent')
+    if (BUILT_IN_AGENTS.includes(slug as BuiltInAgentSlug) && patch.lifecycleType !== undefined) {
+      throw new Error('Cannot change lifecycle type of a built-in agent')
     }
 
     const setClauses: string[] = []
@@ -482,6 +617,10 @@ export class Orchestrator {
 
   listProfiles(): AgentProfile[] {
     return BUILT_IN_PROFILES
+  }
+
+  async architectAgent(description: string) {
+    return this.agentArchitect.architectAgent(description)
   }
 
   async listAllProfiles(): Promise<AgentProfile[]> {
@@ -591,6 +730,8 @@ export class Orchestrator {
       currentProfileId: profile.id,
       shellPermissionLevel: shellPermissionLevel as AgentIdentity['shellPermissionLevel'],
       agentManagementPermission: 'approval_required',
+      agencyPermissions: DEFAULT_AGENT_PERMISSIONS,
+      autonomousMode: false,
       workspacePath,
       status: 'active',
       createdBy: 'system',
@@ -602,11 +743,12 @@ export class Orchestrator {
     await this.db.execute(
       `INSERT INTO agent_identities
         (id, name, slug, parent_agent_id, lifecycle_type, wake_mode, current_profile_id, shell_permission_level,
-         agent_management_permission, workspace_path, status, created_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+         agent_management_permission, agency_permissions, workspace_path, status, created_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [
         identity.id, identity.name, identity.slug, identity.parentAgentId, identity.lifecycleType, identity.wakeMode,
         identity.currentProfileId, identity.shellPermissionLevel, identity.agentManagementPermission,
+        JSON.stringify(DEFAULT_AGENT_PERMISSIONS),
         join('agents', slug), identity.status, identity.createdBy,
         identity.createdAt.toISOString(), identity.updatedAt.toISOString(),
       ]
@@ -634,8 +776,8 @@ export class Orchestrator {
   async deleteAgent(input: { slug: string }): Promise<{ success: boolean; message: string }> {
     const { slug } = input
 
-    if (slug === 'main') {
-      throw new Error('Cannot delete the main agent')
+    if (BUILT_IN_AGENTS.includes(slug as BuiltInAgentSlug)) {
+      throw new Error('Cannot delete a built-in agent')
     }
 
     const agentEntry = this.agents.get(slug)
@@ -716,8 +858,8 @@ export class Orchestrator {
       async (input, _ctx) => {
         const agentSlug = input['agentSlug'] as string
         const profileSlug = input['profileSlug'] as string
-        if (agentSlug === 'main') {
-          return { error: 'The main agent profile is fixed and cannot be changed.' }
+        if (BUILT_IN_AGENTS.includes(agentSlug as BuiltInAgentSlug)) {
+          return { error: 'Built-in agent profiles are fixed and cannot be changed.' }
         }
         await this.switchProfile(agentSlug, profileSlug)
         return { success: true, message: `Profile switched to ${profileSlug}` }
@@ -755,31 +897,24 @@ export class Orchestrator {
         if (rawLifecycle !== undefined) createInput.lifecycleType = rawLifecycle
         if (rawShell !== undefined) createInput.shellPermissionLevel = rawShell
 
-        if (ctx.agentManagementPermission === 'autonomous') {
+        const perm = ctx.agencyPermissions.agentCreate
+
+        if (perm === 'deny') {
+          return { error: 'Permission denied: this agent is not allowed to create agents' }
+        }
+
+        if (perm === 'autonomous' || (perm === 'request' && ctx.autonomousMode)) {
           return await this.createAgent(createInput)
         }
 
-        // approval_required — insert pending approval
-        const approvalId = randomUUID()
-        await this.db.execute(
-          `INSERT INTO approvals
-             (id, agent_id, session_id, prompt, tool_name, tool_input, status, requested_at)
-           VALUES ($1,$2,$3,$4,$5,$6,'pending',NOW())`,
-          [
-            approvalId,
-            ctx.agentId,
-            ctx.sessionId,
-            `Create agent "${rawName}" with profile "${rawProfile ?? 'personal-assistant'}"`,
-            'agent_create',
-            JSON.stringify(createInput),
-          ]
+        // perm === 'request' in supervised mode — insert pending approval
+        const { approvalId, explanation, riskLevel } = await this.destructiveActionService.createApprovalRecord(
+          ctx,
+          { operationType: 'agent_create', description: `Create agent "${rawName}" with profile "${rawProfile ?? 'personal-assistant'}"` },
+          `Create agent "${rawName}" with profile "${rawProfile ?? 'personal-assistant'}"`,
         )
         void this.hookFire?.('approval.requested', { approvalId, toolName: 'agent_create', agentId: ctx.agentId, sessionId: ctx.sessionId })
-        return {
-          status: 'pending_approval',
-          approvalId,
-          message: `Approval required. Run: agency approvals approve ${approvalId}`,
-        }
+        return { status: 'pending_approval', approvalId, explanation, riskLevel, message: `Approval required. Run: agency approvals approve ${approvalId}` }
       }
     )
 
@@ -787,33 +922,207 @@ export class Orchestrator {
       this.toolRegistry.get('agent_delete')!,
       async (input, ctx) => {
         const slug = input['slug'] as string
-        if (slug === 'main') return { error: 'Cannot delete the main agent' }
+        if (BUILT_IN_AGENTS.includes(slug as BuiltInAgentSlug)) return { error: 'Cannot delete a built-in agent' }
         const agent = this.agents.get(slug)
         if (!agent) return { error: `Agent not found: ${slug}` }
 
         const deleteInput = { slug }
+        const perm = ctx.agencyPermissions.agentDelete
 
-        // agent_delete ALWAYS requires approval
-        const approvalId = randomUUID()
-        await this.db.execute(
-          `INSERT INTO approvals
-             (id, agent_id, session_id, prompt, tool_name, tool_input, status, requested_at)
-           VALUES ($1,$2,$3,$4,$5,$6,'pending',NOW())`,
-          [
-            approvalId,
-            ctx.agentId,
-            ctx.sessionId,
-            `Delete agent "${deleteInput.slug}" and archive its workspace`,
-            'agent_delete',
-            JSON.stringify(deleteInput),
-          ]
+        if (perm === 'deny') {
+          return { error: 'Permission denied: this agent is not allowed to delete agents' }
+        }
+
+        if (perm === 'autonomous' || (perm === 'request' && ctx.autonomousMode)) {
+          return await this.deleteAgent(deleteInput)
+        }
+
+        // perm === 'request' in supervised mode — insert pending approval
+        const { approvalId, explanation, riskLevel } = await this.destructiveActionService.createApprovalRecord(
+          ctx,
+          { operationType: 'agent_delete', description: `Delete agent "${slug}" and archive its workspace` },
+          `Delete agent "${slug}" and archive its workspace`,
         )
         void this.hookFire?.('approval.requested', { approvalId, toolName: 'agent_delete', agentId: ctx.agentId, sessionId: ctx.sessionId })
+        return { status: 'pending_approval', approvalId, explanation, riskLevel, message: `Approval required. Run: agency approvals approve ${approvalId}` }
+      }
+    )
+
+    // ── Group management tool handlers ────────────────────────────────────────
+
+    this.toolRegistry.register(
+      this.toolRegistry.get('group_list')!,
+      async (_input, _ctx) => {
+        const rows = await this.db.query<{ id: string; name: string; description: string | null; hierarchy_type: string; goals: unknown; workspace_path: string; member_count: string }>(
+          `SELECT g.id, g.name, g.description, g.hierarchy_type, g.goals, g.workspace_path, COUNT(m.agent_id)::text as member_count
+           FROM workspace_groups g
+           LEFT JOIN workspace_group_members m ON m.group_id = g.id
+           GROUP BY g.id ORDER BY g.created_at DESC`
+        )
+        return rows.map(r => ({
+          id: r.id, name: r.name, description: r.description,
+          hierarchyType: r.hierarchy_type,
+          goals: typeof r.goals === 'string' ? JSON.parse(r.goals) : r.goals,
+          workspacePath: r.workspace_path,
+          memberCount: parseInt(r.member_count ?? '0', 10),
+        }))
+      }
+    )
+
+    this.toolRegistry.register(
+      this.toolRegistry.get('group_get')!,
+      async (input, _ctx) => {
+        const id = input['id'] as string
+        const group = await this.db.queryOne<{ id: string; name: string; description: string | null; hierarchy_type: string; goals: unknown; workspace_path: string; memory_path: string }>(
+          'SELECT * FROM workspace_groups WHERE id=$1', [id]
+        )
+        if (!group) return { error: `Group not found: ${id}` }
+        const members = await this.db.query<{ agent_id: string; role: string; agent_name: string; agent_slug: string }>(
+          `SELECT m.agent_id, m.role, a.name as agent_name, a.slug as agent_slug
+           FROM workspace_group_members m JOIN agent_identities a ON a.id=m.agent_id WHERE m.group_id=$1`, [id]
+        )
         return {
-          status: 'pending_approval',
-          approvalId,
-          message: `Approval required. Run: agency approvals approve ${approvalId}`,
+          id: group.id, name: group.name, description: group.description,
+          hierarchyType: group.hierarchy_type,
+          goals: typeof group.goals === 'string' ? JSON.parse(group.goals as string) : group.goals,
+          workspacePath: group.workspace_path,
+          memoryPath: group.memory_path,
+          members: members.map(m => ({ agentId: m.agent_id, role: m.role, name: m.agent_name, slug: m.agent_slug })),
         }
+      }
+    )
+
+    this.toolRegistry.register(
+      this.toolRegistry.get('group_create')!,
+      async (input, ctx) => {
+        const perm = ctx.agencyPermissions.groupCreate
+        if (perm === 'deny') return { error: 'Permission denied: cannot create groups' }
+        if (perm === 'request' && !ctx.autonomousMode) {
+          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_create', description: `Create group "${input['name'] as string}"` }, `Create group "${input['name'] as string}"`)
+          return { status: 'pending_approval', approvalId, message: `Approval required. Run: agency approvals approve ${approvalId}` }
+        }
+        const name = input['name'] as string
+        const slug = (input['slug'] as string | undefined) ?? name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 50)
+        const id = (await import('node:crypto')).randomUUID()
+        const { join } = await import('node:path')
+        const { homedir } = await import('node:os')
+        const { mkdir } = await import('node:fs/promises')
+        const workspacePath = join(homedir(), '.agency', 'shared', slug, 'workspace')
+        const memoryPath = join(homedir(), '.agency', 'shared', slug, 'memory')
+        await mkdir(workspacePath, { recursive: true })
+        await mkdir(memoryPath, { recursive: true })
+        await this.db.execute(
+          `INSERT INTO workspace_groups (id,name,description,hierarchy_type,goals,workspace_path,memory_path,created_by,created_at,updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW())`,
+          [id, name, input['description'] ?? null, input['hierarchyType'] ?? 'flat', JSON.stringify(input['goals'] ?? []), workspacePath, memoryPath, ctx.agentId]
+        )
+        return { success: true, id, name, workspacePath, memoryPath }
+      }
+    )
+
+    this.toolRegistry.register(
+      this.toolRegistry.get('group_update')!,
+      async (input, ctx) => {
+        const perm = ctx.agencyPermissions.groupUpdate
+        if (perm === 'deny') return { error: 'Permission denied: cannot update groups' }
+        if (perm === 'request' && !ctx.autonomousMode) {
+          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_update', description: `Update group "${input['id'] as string}"` }, `Update group "${input['id'] as string}"`)
+          return { status: 'pending_approval', approvalId, message: `Approval required. Run: agency approvals approve ${approvalId}` }
+        }
+        const id = input['id'] as string
+        const sets: string[] = []; const vals: unknown[] = []; let i = 1
+        if (input['name'] !== undefined) { sets.push(`name=$${i++}`); vals.push(input['name']) }
+        if (input['description'] !== undefined) { sets.push(`description=$${i++}`); vals.push(input['description']) }
+        if (input['hierarchyType'] !== undefined) { sets.push(`hierarchy_type=$${i++}`); vals.push(input['hierarchyType']) }
+        if (input['goals'] !== undefined) { sets.push(`goals=$${i++}`); vals.push(JSON.stringify(input['goals'])) }
+        if (sets.length === 0) return { error: 'No fields to update' }
+        sets.push(`updated_at=NOW()`); vals.push(id)
+        await this.db.execute(`UPDATE workspace_groups SET ${sets.join(',')} WHERE id=$${i}`, vals)
+        return { success: true }
+      }
+    )
+
+    this.toolRegistry.register(
+      this.toolRegistry.get('group_delete')!,
+      async (input, ctx) => {
+        const perm = ctx.agencyPermissions.groupDelete
+        if (perm === 'deny') return { error: 'Permission denied: cannot delete groups' }
+        const id = input['id'] as string
+        if (perm === 'autonomous' || ctx.autonomousMode) {
+          // Get group workspace path and members before deleting
+          const group = await this.db.queryOne<{ workspace_path: string }>('SELECT workspace_path FROM workspace_groups WHERE id=$1', [id])
+          if (!group) return { error: `Group not found: ${id}` }
+
+          const members = await this.db.query<{ agent_id: string }>(
+            'SELECT agent_id FROM workspace_group_members WHERE group_id=$1', [id]
+          )
+
+          // Remove workspace path from all member agents
+          const agentByIdMap = new Map(Array.from(this.agents.values()).map(a => [a.identity.id, a]))
+          for (const { agent_id } of members) {
+            const agent = agentByIdMap.get(agent_id)
+            if (agent) {
+              await this.removeWorkspacePath(agent.identity.slug, group.workspace_path).catch(err =>
+                console.error(`[Orchestrator] Failed to remove workspace path from agent ${agent.identity.slug}:`, err)
+              )
+            }
+          }
+
+          await this.db.execute('DELETE FROM workspace_groups WHERE id=$1', [id])
+          return { success: true, message: 'Group deleted. Directory preserved on disk.' }
+        }
+        const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_delete', description: `Delete group "${id}"` }, `Delete group "${id}"`)
+        return { status: 'pending_approval', approvalId, message: `Approval required. Run: agency approvals approve ${approvalId}` }
+      }
+    )
+
+    this.toolRegistry.register(
+      this.toolRegistry.get('group_member_add')!,
+      async (input, ctx) => {
+        const perm = ctx.agencyPermissions.groupUpdate
+        if (perm === 'deny') return { error: 'Permission denied' }
+        if (perm === 'request' && !ctx.autonomousMode) {
+          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_member_add', description: `Add agent to group` }, `Add agent "${input['agentId'] as string}" to group "${input['groupId'] as string}"`)
+          return { status: 'pending_approval', approvalId }
+        }
+        const groupId = input['groupId'] as string
+        const agentSlug = input['agentId'] as string
+        const role = (input['role'] as string | undefined) ?? 'member'
+        const group = await this.db.queryOne<{ workspace_path: string }>('SELECT workspace_path FROM workspace_groups WHERE id=$1', [groupId])
+        if (!group) return { error: `Group not found: ${groupId}` }
+        const agent = this.agents.get(agentSlug) ?? Array.from(this.agents.values()).find(a => a.identity.id === agentSlug)
+        if (!agent) return { error: `Agent not found: ${agentSlug}` }
+        await this.db.execute(
+          `INSERT INTO workspace_group_members (group_id,agent_id,role,joined_at) VALUES ($1,$2,$3,NOW()) ON CONFLICT (group_id,agent_id) DO UPDATE SET role=$3`,
+          [groupId, agent.identity.id, role]
+        )
+        await this.addWorkspacePath(agent.identity.slug, group.workspace_path).catch(err =>
+          console.error(`[Orchestrator] Failed to add workspace path for agent ${agent.identity.slug}:`, err)
+        )
+        return { success: true }
+      }
+    )
+
+    this.toolRegistry.register(
+      this.toolRegistry.get('group_member_remove')!,
+      async (input, ctx) => {
+        const perm = ctx.agencyPermissions.groupUpdate
+        if (perm === 'deny') return { error: 'Permission denied' }
+        if (perm === 'request' && !ctx.autonomousMode) {
+          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_member_remove', description: 'Remove agent from group' }, `Remove agent "${input['agentId'] as string}" from group "${input['groupId'] as string}"`)
+          return { status: 'pending_approval', approvalId }
+        }
+        const groupId = input['groupId'] as string
+        const agentSlug = input['agentId'] as string
+        const group = await this.db.queryOne<{ workspace_path: string }>('SELECT workspace_path FROM workspace_groups WHERE id=$1', [groupId])
+        if (!group) return { error: `Group not found: ${groupId}` }
+        const agent = this.agents.get(agentSlug) ?? Array.from(this.agents.values()).find(a => a.identity.id === agentSlug)
+        if (!agent) return { error: `Agent not found: ${agentSlug}` }
+        await this.db.execute('DELETE FROM workspace_group_members WHERE group_id=$1 AND agent_id=$2', [groupId, agent.identity.id])
+        await this.removeWorkspacePath(agent.identity.slug, group.workspace_path).catch(err =>
+          console.error(`[Orchestrator] Failed to remove workspace path for agent ${agent.identity.slug}:`, err)
+        )
+        return { success: true }
       }
     )
   }
@@ -929,6 +1238,38 @@ export class Orchestrator {
           const memoryContext = formatMemoriesForContext(memories)
           if (memoryContext) contextParts.push(memoryContext)
         } catch { /* memory query failure is non-fatal */ }
+      }
+    }
+
+    // Load group memories for all groups this agent belongs to
+    if (this.memoryStore && messages.length > 0) {
+      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
+      if (lastUserMsg) {
+        const queryText = typeof lastUserMsg.content === 'string'
+          ? lastUserMsg.content
+          : (lastUserMsg.content as Array<{ type: string; text?: string }>).map(b => b.text ?? '').join(' ')
+        try {
+          const memberships = await this.db.query<{ group_id: string; group_name: string }>(
+            `SELECT m.group_id, g.name as group_name
+             FROM workspace_group_members m
+             JOIN workspace_groups g ON g.id = m.group_id
+             WHERE m.agent_id = $1`,
+            [agent.identity.id]
+          )
+          for (const { group_id, group_name } of memberships) {
+            const groupMemories = await this.memoryStore.readGroup({
+              groupId: group_id,
+              query: queryText,
+              types: ['semantic', 'episodic'],
+              limit: 3,
+              minScore: 0.7,
+            })
+            if (groupMemories.length > 0) {
+              const formatted = formatMemoriesForContext(groupMemories)
+              if (formatted) contextParts.push(`## Shared Group Memories (${group_name})\n\n${formatted}`)
+            }
+          }
+        } catch { /* group memory failure is non-fatal */ }
       }
     }
 
@@ -1068,7 +1409,7 @@ export class Orchestrator {
     modelOverride?: string,
     options?: { systemInjection?: string; invokeDepth?: number }
   ): AsyncGenerator<RunYield> {
-    const agent = this.agents.get(session.agentId === 'main' ? 'main' : session.agentId)
+    const agent = this.agents.get(session.agentId)
     if (!agent) throw new Error(`Agent not found: ${session.agentId}`)
 
     // ── Lifecycle check ────────────────────────────────────────────────────
@@ -1091,6 +1432,8 @@ export class Orchestrator {
       shellPermissionLevel: agent.identity.shellPermissionLevel,
       sessionGrantActive: false,
       agentManagementPermission: agent.identity.agentManagementPermission,
+      agencyPermissions: agent.identity.agencyPermissions,
+      autonomousMode: agent.identity.autonomousMode,
       additionalWorkspacePaths: agent.identity.additionalWorkspacePaths,
       invokeDepth: options?.invokeDepth ?? 0,
     }
@@ -1234,10 +1577,17 @@ export class Orchestrator {
         // ── Inline approval flow ────────────────────────────────────────────
         const resultOut = result.output as Record<string, unknown> | null
         if (result.success && resultOut?.['approval_required'] === true) {
-          // Run permission classifier before creating approval record
-          const classification = this.classifyTool
-            ? await this.classifyTool({ toolName: tc.name, toolInput: input, recentToolUses: [] })
-            : { shouldBlock: false, riskLevel: 'MEDIUM', explanation: '', reason: '' }
+          const command = resultOut['command'] as string ?? ''
+          const reason = resultOut['reason'] as string ?? ''
+          const message = resultOut['message'] as string ?? `Approve ${tc.name}?`
+
+          const [classification, sideQuery] = await Promise.all([
+            this.classifyTool
+              ? this.classifyTool({ toolName: tc.name, toolInput: input, recentToolUses: [] })
+              : Promise.resolve({ shouldBlock: false, riskLevel: 'MEDIUM', explanation: '', reason: '', reasoning: '' }),
+            this.destructiveActionService.runSideQuery(context, { operationType: 'shell', commands: [command] }),
+          ])
+
           if (classification.shouldBlock) {
             result = { success: false, output: null, error: `Blocked by classifier: ${classification.reason}` }
             toolResults.push({ type: 'tool_result', tool_use_id: tc.id, content: JSON.stringify({ error: result.error }), is_error: true } as ContentBlock)
@@ -1245,26 +1595,21 @@ export class Orchestrator {
           }
 
           const approvalId = `approval-${randomUUID()}`
-          const command = resultOut['command'] as string ?? ''
-          const reason  = resultOut['reason']  as string ?? ''
-          const message = resultOut['message'] as string ?? `Approve ${tc.name}?`
           await this.db.execute(
-            `INSERT INTO approvals (id, agent_id, session_id, prompt, tool_name, tool_input, status, risk_level, explanation)
-             VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)`,
+            `INSERT INTO approvals (id,agent_id,session_id,prompt,tool_name,tool_input,status,risk_level,explanation,requested_at)
+             VALUES ($1,$2,$3,$4,$5,$6,'pending',$7,$8,NOW())`,
             [approvalId, context.agentId, context.sessionId, message, tc.name, JSON.stringify(input),
-             classification.riskLevel, classification.explanation]
+             sideQuery.riskLevel || classification.riskLevel, sideQuery.explanation || classification.explanation]
           )
+
           yield { type: 'approval_pending', approvalId, toolName: tc.name, command, reason }
 
-          const resolution = await this.pollApproval(approvalId)
+          const resolution = await this.destructiveActionService.pollApproval(approvalId)
           if (resolution === 'approved') {
-            // Re-run with session grant active so the tool proceeds past the permission check
             const grantedCtx = { ...context, sessionGrantActive: true }
             result = await this.toolRegistry.dispatch(tc.name, input, grantedCtx)
           } else {
-            const errMsg = resolution === 'rejected'
-              ? 'Command was rejected by the user'
-              : 'Approval request timed out'
+            const errMsg = resolution === 'rejected' ? 'Command was rejected by the user' : 'Approval request timed out'
             result = { success: false, output: null, error: errMsg }
           }
         }
@@ -1346,26 +1691,6 @@ export class Orchestrator {
     }
   }
 
-  /** Poll DB for approval resolution. Resolves when approved/rejected/expired or after 10 min timeout. */
-  private async pollApproval(approvalId: string): Promise<'approved' | 'rejected' | 'expired'> {
-    const POLL_MS = 500
-    const TIMEOUT_MS = 10 * 60 * 1000
-    const deadline = Date.now() + TIMEOUT_MS
-    while (Date.now() < deadline) {
-      await new Promise<void>(resolve => setTimeout(resolve, POLL_MS))
-      const row = await this.db.queryOne<{ status: string }>(
-        'SELECT status FROM approvals WHERE id=$1', [approvalId]
-      )
-      const s = row?.status
-      if (s === 'approved') return 'approved'
-      if (s === 'rejected') return 'rejected'
-      if (s === 'expired')  return 'expired'
-    }
-    await this.db.execute(
-      `UPDATE approvals SET status='expired', resolved_at=NOW() WHERE id=$1`, [approvalId]
-    )
-    return 'expired'
-  }
 }
 
 // ─── Run Yield Types ──────────────────────────────────────────────────────────
@@ -1421,6 +1746,8 @@ interface AgentIdentityRow {
   created_by: string
   created_at: string
   updated_at: string
+  agency_permissions?: Record<string, unknown> | null
+  autonomous_mode?: boolean | null
   model_config?: string | null
   // Joined profile fields
   profile_id?: string
@@ -1489,6 +1816,12 @@ function rowToAgentWithProfile(row: AgentIdentityRow, agencyDir: string): AgentW
     currentProfileId: row.current_profile_id,
     shellPermissionLevel: row.shell_permission_level as AgentIdentity['shellPermissionLevel'],
     agentManagementPermission: row.agent_management_permission as AgentIdentity['agentManagementPermission'],
+    agencyPermissions: row.agency_permissions
+      ? (typeof row.agency_permissions === 'string'
+          ? JSON.parse(row.agency_permissions) as AgencyPermissions
+          : row.agency_permissions as unknown as AgencyPermissions)
+      : DEFAULT_AGENT_PERMISSIONS,
+    autonomousMode: row.autonomous_mode ?? false,
     workspacePath: resolveWs(row.workspace_path),
     status: row.status as AgentIdentity['status'],
     createdBy: row.created_by,
