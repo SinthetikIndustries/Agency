@@ -65,6 +65,8 @@ describe('ToolRegistry - browser_navigate', () => {
         shellPermissionLevel: 'none',
         sessionGrantActive: false,
         agentManagementPermission: 'approval_required',
+        agencyPermissions: { agentCreate: 'deny', agentDelete: 'deny', agentUpdate: 'deny', groupCreate: 'deny', groupUpdate: 'deny', groupDelete: 'deny', shellRun: 'deny' },
+        autonomousMode: false,
       }
     )
 
@@ -86,6 +88,8 @@ describe('ToolRegistry - browser_navigate', () => {
         shellPermissionLevel: 'none',
         sessionGrantActive: false,
         agentManagementPermission: 'approval_required',
+        agencyPermissions: { agentCreate: 'deny', agentDelete: 'deny', agentUpdate: 'deny', groupCreate: 'deny', groupUpdate: 'deny', groupDelete: 'deny', shellRun: 'deny' },
+        autonomousMode: false,
       }
     )
 

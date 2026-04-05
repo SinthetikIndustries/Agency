@@ -10,8 +10,10 @@ import type {
   ToolDispatchResult,
   ToolType,
   ToolJob,
-  WorkerQueueName
+  WorkerQueueName,
+  BuiltInAgentSlug,
 } from '@agency/shared-types'
+import { BUILT_IN_AGENTS } from '@agency/shared-types'
 import { QueueClient } from '@agency/shared-worker'
 import { randomUUID } from 'node:crypto'
 import type { MemoryStore } from '@agency/memory'
@@ -936,15 +938,15 @@ export function createToolRegistry(queueClient?: QueueClient, options?: { memory
   if (options?.diagnosticsProvider) {
     const provider = options.diagnosticsProvider
     registry.register(SYSTEM_DIAGNOSE_MANIFEST, async (_input, context) => {
-      if (context.agentId !== 'main') {
-        return { error: 'system_diagnose is only available to the main orchestrator agent.' }
+      if (!BUILT_IN_AGENTS.includes(context.agentId as BuiltInAgentSlug)) {
+        return { error: 'system_diagnose is only available to built-in agents.' }
       }
       return provider()
     })
   } else {
     registry.register(SYSTEM_DIAGNOSE_MANIFEST, async (_input, context) => {
-      if (context.agentId !== 'main') {
-        return { error: 'system_diagnose is only available to the main orchestrator agent.' }
+      if (!BUILT_IN_AGENTS.includes(context.agentId as BuiltInAgentSlug)) {
+        return { error: 'system_diagnose is only available to built-in agents.' }
       }
       return { error: 'Diagnostics provider not configured.' }
     })

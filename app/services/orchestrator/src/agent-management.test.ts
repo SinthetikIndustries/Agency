@@ -76,6 +76,8 @@ function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
     shellPermissionLevel: 'none',
     sessionGrantActive: false,
     agentManagementPermission: 'approval_required',
+    agencyPermissions: { agentCreate: 'deny', agentDelete: 'deny', agentUpdate: 'deny', groupCreate: 'deny', groupUpdate: 'deny', groupDelete: 'deny', shellRun: 'deny' },
+    autonomousMode: false,
     ...overrides,
   }
 }
@@ -215,7 +217,7 @@ describe('Orchestrator.deleteAgent()', () => {
   })
 
   it('throws when attempting to delete main agent', async () => {
-    await expect(orchestrator.deleteAgent({ slug: 'main' })).rejects.toThrow('Cannot delete the main agent')
+    await expect(orchestrator.deleteAgent({ slug: 'main' })).rejects.toThrow('Cannot delete a built-in agent')
   })
 
   it('throws when agent does not exist', async () => {
@@ -493,7 +495,7 @@ describe('agent_delete tool handler — slug validation before approval', () => 
     const handler = getHandler('agent_delete')
     const ctx = makeContext()
     const result = await handler({ slug: 'main' }, ctx) as any
-    expect(result.error).toContain('Cannot delete the main agent')
+    expect(result.error).toContain('Cannot delete a built-in agent')
     // Must NOT have inserted an approval row
     expect(db.execute).not.toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO approvals'),

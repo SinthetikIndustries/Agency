@@ -20,7 +20,13 @@ import type {
   ToolContext,
   AgentModelConfig,
   RoutingChainStep,
+  AgencyPermissions,
+  BuiltInAgentSlug,
+  ModelTier,
+  BehaviorTone,
+  BehaviorVerbosity,
 } from '@agency/shared-types'
+import { BUILT_IN_AGENTS } from '@agency/shared-types'
 import { ModelRouter } from '@agency/model-router'
 import { ToolRegistry } from '@agency/tool-registry'
 import type { DatabaseClient } from './db.js'
@@ -34,9 +40,78 @@ export type HookFireFn = (event: string, context?: Record<string, unknown>) => P
 
 export type ClassifyToolFn = (request: { toolName: string; toolInput: unknown; recentToolUses: Array<{ name: string; input: unknown }> }) => Promise<{ shouldBlock: boolean; riskLevel: string; reason: string; explanation: string }>
 
+// ─── Permission Defaults ─────────────────────────────────────────────────────
+
+const ORCHESTRATOR_DEFAULT_PERMISSIONS: AgencyPermissions = {
+  agentCreate: 'autonomous',
+  agentDelete: 'autonomous',
+  agentUpdate: 'autonomous',
+  groupCreate: 'autonomous',
+  groupUpdate: 'autonomous',
+  groupDelete: 'autonomous',
+  shellRun: 'autonomous',
+}
+
+const MAIN_DEFAULT_PERMISSIONS: AgencyPermissions = {
+  agentCreate: 'deny',
+  agentDelete: 'deny',
+  agentUpdate: 'request',
+  groupCreate: 'request',
+  groupUpdate: 'request',
+  groupDelete: 'deny',
+  shellRun: 'deny',
+}
+
+const DEFAULT_AGENT_PERMISSIONS: AgencyPermissions = {
+  agentCreate: 'deny',
+  agentDelete: 'deny',
+  agentUpdate: 'deny',
+  groupCreate: 'deny',
+  groupUpdate: 'deny',
+  groupDelete: 'deny',
+  shellRun: 'deny',
+}
+
 // ─── Built-in Profiles ────────────────────────────────────────────────────────
 
 const BUILT_IN_PROFILES: AgentProfile[] = [
+  {
+    id: 'builtin-orchestrator',
+    name: 'Orchestrator',
+    slug: 'orchestrator',
+    description: 'System-level agent with full application authority',
+    systemPrompt: `You are System, the application orchestrator for this Agency installation. You are responsible for the health, configuration, and coordination of all agents and workspaces. When a user speaks to you directly, they are interacting with the application itself, not a personal assistant.
+
+Your operational model:
+- Phase model: Understand → Plan → Confirm (if destructive) → Execute → Report
+- Synthesis-first: When directing other agents, always synthesize findings into specific instructions before delegating. Never say "based on the agent's findings, proceed" — synthesize and specify.
+- Transparency: For every significant action, state what you are doing and why in plain language before doing it.
+- Anti-narration: Do not narrate routine non-destructive actions step-by-step. Focus output on decisions requiring user input, status at natural milestones, and blockers.
+
+You are methodical, transparent, and authoritative. You always explain your reasoning. You never act destructively without explicit confirmation.
+
+Always respond in English, regardless of the language used by the user or any other part of the conversation.`,
+    modelTier: 'strong' as ModelTier,
+    allowedTools: [
+      'file_read', 'file_write', 'file_list',
+      'shell_run',
+      'http_get',
+      'agent_list', 'agent_get', 'agent_create', 'agent_delete', 'agent_set_profile',
+      'agent_invoke', 'agent_message_send', 'agent_message_check', 'agent_message_list',
+      'profile_list',
+      'system_diagnose',
+      'memory_write', 'memory_read',
+      'vault_search', 'vault_related', 'vault_propose',
+      'discord_post', 'discord_list_channels',
+      'group_create', 'group_update', 'group_delete',
+      'group_member_add', 'group_member_remove',
+    ],
+    behaviorSettings: { tone: 'professional' as BehaviorTone, verbosity: 'normal' as BehaviorVerbosity, proactive: false },
+    tags: ['system', 'orchestrator'],
+    builtIn: true,
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-01-01'),
+  },
   {
     id: 'builtin-personal-assistant',
     name: 'Personal Assistant',
@@ -175,6 +250,7 @@ export class Orchestrator {
     await this.ensureDirectories()
     await this.seedBuiltInProfiles()
     await this.loadAgentRegistry()
+    await this.ensureOrchestratorAgent()
     await this.ensureMainAgent()
     this.registerManagementToolHandlers()
   }
@@ -192,7 +268,7 @@ export class Orchestrator {
     const srcTemplates = join(pkgDir, 'templates', 'agents')
     if (!existsSync(srcTemplates)) return
 
-    for (const profileSlug of ['personal-assistant', 'researcher', 'developer', 'analyst', 'executive', 'default']) {
+    for (const profileSlug of ['orchestrator', 'personal-assistant', 'researcher', 'developer', 'analyst', 'executive', 'default']) {
       const src = join(srcTemplates, profileSlug)
       const dest = join(this.templatesDir, profileSlug)
       if (!existsSync(src) || existsSync(dest)) continue
@@ -252,17 +328,66 @@ export class Orchestrator {
       }
     }
 
-    // Sync: ensure main agent has all other agents' workspace paths in additionalWorkspacePaths
-    const main = this.agents.get('main')
-    if (main) {
-      for (const [slug, agent] of this.agents) {
-        if (slug === 'main') continue
-        const ws = agent.identity.workspacePath
-        if (!main.identity.additionalWorkspacePaths.includes(ws)) {
-          await this.addWorkspacePath('main', ws).catch(() => {})
+    // Sync: ensure orchestrator has all other agents' workspace paths
+    const orchestratorAgent = this.agents.get('orchestrator')
+    if (orchestratorAgent) {
+      const allPaths = Array.from(this.agents.values())
+        .filter(a => a.identity.slug !== 'orchestrator')
+        .flatMap(a => [a.identity.workspacePath, ...a.identity.additionalWorkspacePaths])
+      const uniquePaths = [...new Set(allPaths)]
+      for (const ws of uniquePaths) {
+        if (!orchestratorAgent.identity.additionalWorkspacePaths.includes(ws)) {
+          await this.addWorkspacePath('orchestrator', ws).catch(() => {})
         }
       }
     }
+  }
+
+  private async ensureOrchestratorAgent(): Promise<void> {
+    if (this.agents.has('orchestrator')) return
+
+    console.log('[Orchestrator] Creating orchestrator agent on first boot...')
+    const workspacePath = join(this.agentsDir, 'orchestrator')
+    const profile = BUILT_IN_PROFILES.find(p => p.slug === 'orchestrator')!
+
+    const identity: AgentIdentity = {
+      id: 'orchestrator',
+      name: 'System',
+      slug: 'orchestrator',
+      parentAgentId: null,
+      lifecycleType: 'always_on',
+      wakeMode: 'auto',
+      currentProfileId: profile.id,
+      shellPermissionLevel: 'full',
+      agentManagementPermission: 'autonomous',
+      agencyPermissions: ORCHESTRATOR_DEFAULT_PERMISSIONS,
+      autonomousMode: false,
+      workspacePath,
+      status: 'active',
+      createdBy: 'system',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      additionalWorkspacePaths: [],
+    }
+
+    await this.db.execute(
+      `INSERT INTO agent_identities
+        (id, name, slug, parent_agent_id, lifecycle_type, wake_mode, current_profile_id, shell_permission_level,
+         agent_management_permission, agency_permissions, workspace_path, status, created_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+       ON CONFLICT (id) DO NOTHING`,
+      [
+        identity.id, identity.name, identity.slug, identity.parentAgentId, identity.lifecycleType, identity.wakeMode,
+        identity.currentProfileId, identity.shellPermissionLevel, identity.agentManagementPermission,
+        JSON.stringify(ORCHESTRATOR_DEFAULT_PERMISSIONS),
+        join('agents', 'orchestrator'), identity.status, identity.createdBy,
+        identity.createdAt.toISOString(), identity.updatedAt.toISOString(),
+      ]
+    )
+
+    await this.provisionWorkspace(identity, profile.slug)
+    this.agents.set('orchestrator', { identity, profile })
+    console.log('[Orchestrator] Orchestrator agent ready.')
   }
 
   private async ensureMainAgent(): Promise<void> {
@@ -282,6 +407,8 @@ export class Orchestrator {
       currentProfileId: profile.id,
       shellPermissionLevel: 'none',
       agentManagementPermission: 'approval_required',
+      agencyPermissions: MAIN_DEFAULT_PERMISSIONS,
+      autonomousMode: false,
       workspacePath,
       status: 'active',
       createdBy: 'system',
@@ -293,12 +420,13 @@ export class Orchestrator {
     await this.db.execute(
       `INSERT INTO agent_identities
         (id, name, slug, parent_agent_id, lifecycle_type, wake_mode, current_profile_id, shell_permission_level,
-         agent_management_permission, workspace_path, status, created_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         agent_management_permission, agency_permissions, workspace_path, status, created_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        ON CONFLICT (id) DO NOTHING`,
       [
         identity.id, identity.name, identity.slug, identity.parentAgentId, identity.lifecycleType, identity.wakeMode,
         identity.currentProfileId, identity.shellPermissionLevel, identity.agentManagementPermission,
+        JSON.stringify(MAIN_DEFAULT_PERMISSIONS),
         join('agents', 'main'), identity.status, identity.createdBy,
         identity.createdAt.toISOString(), identity.updatedAt.toISOString(),
       ]
@@ -355,7 +483,7 @@ export class Orchestrator {
   }
 
   async disableAgent(slug: string): Promise<void> {
-    if (slug === 'main') throw new Error('Cannot disable the main agent')
+    if (BUILT_IN_AGENTS.includes(slug as BuiltInAgentSlug)) throw new Error('Cannot disable a built-in agent')
     const agent = this.agents.get(slug)
     if (!agent) throw new Error(`Agent not found: ${slug}`)
     await this.db.execute(
@@ -403,8 +531,8 @@ export class Orchestrator {
   }): Promise<void> {
     const agent = this.agents.get(slug)
     if (!agent) throw new Error(`Agent not found: ${slug}`)
-    if (slug === 'main' && patch.lifecycleType !== undefined) {
-      throw new Error('Cannot change lifecycle type of the main agent')
+    if (BUILT_IN_AGENTS.includes(slug as BuiltInAgentSlug) && patch.lifecycleType !== undefined) {
+      throw new Error('Cannot change lifecycle type of a built-in agent')
     }
 
     const setClauses: string[] = []
@@ -591,6 +719,8 @@ export class Orchestrator {
       currentProfileId: profile.id,
       shellPermissionLevel: shellPermissionLevel as AgentIdentity['shellPermissionLevel'],
       agentManagementPermission: 'approval_required',
+      agencyPermissions: DEFAULT_AGENT_PERMISSIONS,
+      autonomousMode: false,
       workspacePath,
       status: 'active',
       createdBy: 'system',
@@ -602,11 +732,12 @@ export class Orchestrator {
     await this.db.execute(
       `INSERT INTO agent_identities
         (id, name, slug, parent_agent_id, lifecycle_type, wake_mode, current_profile_id, shell_permission_level,
-         agent_management_permission, workspace_path, status, created_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+         agent_management_permission, agency_permissions, workspace_path, status, created_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [
         identity.id, identity.name, identity.slug, identity.parentAgentId, identity.lifecycleType, identity.wakeMode,
         identity.currentProfileId, identity.shellPermissionLevel, identity.agentManagementPermission,
+        JSON.stringify(DEFAULT_AGENT_PERMISSIONS),
         join('agents', slug), identity.status, identity.createdBy,
         identity.createdAt.toISOString(), identity.updatedAt.toISOString(),
       ]
@@ -634,8 +765,8 @@ export class Orchestrator {
   async deleteAgent(input: { slug: string }): Promise<{ success: boolean; message: string }> {
     const { slug } = input
 
-    if (slug === 'main') {
-      throw new Error('Cannot delete the main agent')
+    if (BUILT_IN_AGENTS.includes(slug as BuiltInAgentSlug)) {
+      throw new Error('Cannot delete a built-in agent')
     }
 
     const agentEntry = this.agents.get(slug)
@@ -716,8 +847,8 @@ export class Orchestrator {
       async (input, _ctx) => {
         const agentSlug = input['agentSlug'] as string
         const profileSlug = input['profileSlug'] as string
-        if (agentSlug === 'main') {
-          return { error: 'The main agent profile is fixed and cannot be changed.' }
+        if (BUILT_IN_AGENTS.includes(agentSlug as BuiltInAgentSlug)) {
+          return { error: 'Built-in agent profiles are fixed and cannot be changed.' }
         }
         await this.switchProfile(agentSlug, profileSlug)
         return { success: true, message: `Profile switched to ${profileSlug}` }
@@ -787,7 +918,7 @@ export class Orchestrator {
       this.toolRegistry.get('agent_delete')!,
       async (input, ctx) => {
         const slug = input['slug'] as string
-        if (slug === 'main') return { error: 'Cannot delete the main agent' }
+        if (BUILT_IN_AGENTS.includes(slug as BuiltInAgentSlug)) return { error: 'Cannot delete a built-in agent' }
         const agent = this.agents.get(slug)
         if (!agent) return { error: `Agent not found: ${slug}` }
 
@@ -1068,7 +1199,7 @@ export class Orchestrator {
     modelOverride?: string,
     options?: { systemInjection?: string; invokeDepth?: number }
   ): AsyncGenerator<RunYield> {
-    const agent = this.agents.get(session.agentId === 'main' ? 'main' : session.agentId)
+    const agent = this.agents.get(session.agentId)
     if (!agent) throw new Error(`Agent not found: ${session.agentId}`)
 
     // ── Lifecycle check ────────────────────────────────────────────────────
@@ -1091,6 +1222,8 @@ export class Orchestrator {
       shellPermissionLevel: agent.identity.shellPermissionLevel,
       sessionGrantActive: false,
       agentManagementPermission: agent.identity.agentManagementPermission,
+      agencyPermissions: agent.identity.agencyPermissions,
+      autonomousMode: agent.identity.autonomousMode,
       additionalWorkspacePaths: agent.identity.additionalWorkspacePaths,
       invokeDepth: options?.invokeDepth ?? 0,
     }
@@ -1421,6 +1554,8 @@ interface AgentIdentityRow {
   created_by: string
   created_at: string
   updated_at: string
+  agency_permissions?: Record<string, unknown> | null
+  autonomous_mode?: boolean | null
   model_config?: string | null
   // Joined profile fields
   profile_id?: string
@@ -1489,6 +1624,10 @@ function rowToAgentWithProfile(row: AgentIdentityRow, agencyDir: string): AgentW
     currentProfileId: row.current_profile_id,
     shellPermissionLevel: row.shell_permission_level as AgentIdentity['shellPermissionLevel'],
     agentManagementPermission: row.agent_management_permission as AgentIdentity['agentManagementPermission'],
+    agencyPermissions: row.agency_permissions
+      ? parseJsonField<AgencyPermissions>(row.agency_permissions as unknown as string)
+      : DEFAULT_AGENT_PERMISSIONS,
+    autonomousMode: row.autonomous_mode ?? false,
     workspacePath: resolveWs(row.workspace_path),
     status: row.status as AgentIdentity['status'],
     createdBy: row.created_by,

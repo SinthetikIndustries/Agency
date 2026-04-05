@@ -22,7 +22,8 @@ import { startVaultSync } from '@agency/vault-sync'
 import type { VaultSync } from '@agency/vault-sync'
 import { MessagingService } from '@agency/messaging'
 import { MemoryStore } from '@agency/memory'
-import type { AgencyConfig, AgencyCredentials, HealthStatus, Session, AgentModelConfig } from '@agency/shared-types'
+import type { AgencyConfig, AgencyCredentials, HealthStatus, Session, AgentModelConfig, BuiltInAgentSlug } from '@agency/shared-types'
+import { BUILT_IN_AGENTS } from '@agency/shared-types'
 import { runMigrations } from './migrate.js'
 import { loadRoutingProfiles, registerRoutingProfileRoutes, type RoutingProfile } from './routing-profiles.js'
 import { registerVaultRoutes } from './vault-routes.js'
@@ -1613,7 +1614,7 @@ export async function createGateway(): Promise<void> {
 
   app.post('/agents/:slug/profile', async (request, reply) => {
     const { slug } = request.params as { slug: string }
-    if (slug === 'main') return reply.status(400).send({ error: 'The main agent profile is fixed and cannot be changed.' })
+    if (BUILT_IN_AGENTS.includes(slug as BuiltInAgentSlug)) return reply.status(400).send({ error: 'Built-in agent profiles are fixed and cannot be changed.' })
     const body = request.body as { profileSlug?: string } | undefined
     const profileSlug = body?.profileSlug
     if (!profileSlug) return reply.status(400).send({ error: 'profileSlug is required' })
