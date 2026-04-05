@@ -940,6 +940,161 @@ export class Orchestrator {
         return { status: 'pending_approval', approvalId, explanation, riskLevel, message: `Approval required. Run: agency approvals approve ${approvalId}` }
       }
     )
+
+    // ── Group management tool handlers ────────────────────────────────────────
+
+    this.toolRegistry.register(
+      this.toolRegistry.get('group_list')!,
+      async (_input, _ctx) => {
+        const rows = await this.db.query<{ id: string; name: string; description: string | null; hierarchy_type: string; goals: unknown; workspace_path: string; member_count: string }>(
+          `SELECT g.id, g.name, g.description, g.hierarchy_type, g.goals, g.workspace_path, COUNT(m.agent_id)::text as member_count
+           FROM workspace_groups g
+           LEFT JOIN workspace_group_members m ON m.group_id = g.id
+           GROUP BY g.id ORDER BY g.created_at DESC`
+        )
+        return rows.map(r => ({
+          id: r.id, name: r.name, description: r.description,
+          hierarchyType: r.hierarchy_type,
+          goals: typeof r.goals === 'string' ? JSON.parse(r.goals) : r.goals,
+          workspacePath: r.workspace_path,
+          memberCount: parseInt(r.member_count ?? '0', 10),
+        }))
+      }
+    )
+
+    this.toolRegistry.register(
+      this.toolRegistry.get('group_get')!,
+      async (input, _ctx) => {
+        const id = input['id'] as string
+        const group = await this.db.queryOne<{ id: string; name: string; description: string | null; hierarchy_type: string; goals: unknown; workspace_path: string; memory_path: string }>(
+          'SELECT * FROM workspace_groups WHERE id=$1', [id]
+        )
+        if (!group) return { error: `Group not found: ${id}` }
+        const members = await this.db.query<{ agent_id: string; role: string; agent_name: string; agent_slug: string }>(
+          `SELECT m.agent_id, m.role, a.name as agent_name, a.slug as agent_slug
+           FROM workspace_group_members m JOIN agent_identities a ON a.id=m.agent_id WHERE m.group_id=$1`, [id]
+        )
+        return {
+          id: group.id, name: group.name, description: group.description,
+          hierarchyType: group.hierarchy_type,
+          goals: typeof group.goals === 'string' ? JSON.parse(group.goals as string) : group.goals,
+          workspacePath: group.workspace_path,
+          memoryPath: group.memory_path,
+          members: members.map(m => ({ agentId: m.agent_id, role: m.role, name: m.agent_name, slug: m.agent_slug })),
+        }
+      }
+    )
+
+    this.toolRegistry.register(
+      this.toolRegistry.get('group_create')!,
+      async (input, ctx) => {
+        const perm = ctx.agencyPermissions.groupCreate
+        if (perm === 'deny') return { error: 'Permission denied: cannot create groups' }
+        if (perm === 'request' && !ctx.autonomousMode) {
+          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_delete', description: `Create group "${input['name'] as string}"` }, `Create group "${input['name'] as string}"`)
+          return { status: 'pending_approval', approvalId, message: `Approval required. Run: agency approvals approve ${approvalId}` }
+        }
+        const name = input['name'] as string
+        const slug = (input['slug'] as string | undefined) ?? name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 50)
+        const id = (await import('node:crypto')).randomUUID()
+        const { join } = await import('node:path')
+        const { homedir } = await import('node:os')
+        const { mkdir } = await import('node:fs/promises')
+        const workspacePath = join(homedir(), '.agency', 'shared', slug, 'workspace')
+        const memoryPath = join(homedir(), '.agency', 'shared', slug, 'memory')
+        await mkdir(workspacePath, { recursive: true })
+        await mkdir(memoryPath, { recursive: true })
+        await this.db.execute(
+          `INSERT INTO workspace_groups (id,name,description,hierarchy_type,goals,workspace_path,memory_path,created_by,created_at,updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW())`,
+          [id, name, input['description'] ?? null, input['hierarchyType'] ?? 'flat', JSON.stringify(input['goals'] ?? []), workspacePath, memoryPath, ctx.agentId]
+        )
+        return { success: true, id, name, workspacePath, memoryPath }
+      }
+    )
+
+    this.toolRegistry.register(
+      this.toolRegistry.get('group_update')!,
+      async (input, ctx) => {
+        const perm = ctx.agencyPermissions.groupUpdate
+        if (perm === 'deny') return { error: 'Permission denied: cannot update groups' }
+        if (perm === 'request' && !ctx.autonomousMode) {
+          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_delete', description: `Update group "${input['id'] as string}"` }, `Update group "${input['id'] as string}"`)
+          return { status: 'pending_approval', approvalId, message: `Approval required. Run: agency approvals approve ${approvalId}` }
+        }
+        const id = input['id'] as string
+        const sets: string[] = []; const vals: unknown[] = []; let i = 1
+        if (input['name'] !== undefined) { sets.push(`name=$${i++}`); vals.push(input['name']) }
+        if (input['description'] !== undefined) { sets.push(`description=$${i++}`); vals.push(input['description']) }
+        if (input['hierarchyType'] !== undefined) { sets.push(`hierarchy_type=$${i++}`); vals.push(input['hierarchyType']) }
+        if (input['goals'] !== undefined) { sets.push(`goals=$${i++}`); vals.push(JSON.stringify(input['goals'])) }
+        if (sets.length === 0) return { error: 'No fields to update' }
+        sets.push(`updated_at=NOW()`); vals.push(id)
+        await this.db.execute(`UPDATE workspace_groups SET ${sets.join(',')} WHERE id=$${i}`, vals)
+        return { success: true }
+      }
+    )
+
+    this.toolRegistry.register(
+      this.toolRegistry.get('group_delete')!,
+      async (input, ctx) => {
+        const perm = ctx.agencyPermissions.groupDelete
+        if (perm === 'deny') return { error: 'Permission denied: cannot delete groups' }
+        const id = input['id'] as string
+        if (perm === 'autonomous' || ctx.autonomousMode) {
+          await this.db.execute('DELETE FROM workspace_groups WHERE id=$1', [id])
+          return { success: true, message: 'Group deleted. Directory preserved on disk.' }
+        }
+        const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_delete', description: `Delete group "${id}"` }, `Delete group "${id}"`)
+        return { status: 'pending_approval', approvalId, message: `Approval required. Run: agency approvals approve ${approvalId}` }
+      }
+    )
+
+    this.toolRegistry.register(
+      this.toolRegistry.get('group_member_add')!,
+      async (input, ctx) => {
+        const perm = ctx.agencyPermissions.groupUpdate
+        if (perm === 'deny') return { error: 'Permission denied' }
+        if (perm === 'request' && !ctx.autonomousMode) {
+          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_delete', description: `Add agent to group` }, `Add agent "${input['agentId'] as string}" to group "${input['groupId'] as string}"`)
+          return { status: 'pending_approval', approvalId }
+        }
+        const groupId = input['groupId'] as string
+        const agentSlug = input['agentId'] as string
+        const role = (input['role'] as string | undefined) ?? 'member'
+        const group = await this.db.queryOne<{ workspace_path: string }>('SELECT workspace_path FROM workspace_groups WHERE id=$1', [groupId])
+        if (!group) return { error: `Group not found: ${groupId}` }
+        const agent = this.agents.get(agentSlug) ?? Array.from(this.agents.values()).find(a => a.identity.id === agentSlug)
+        if (!agent) return { error: `Agent not found: ${agentSlug}` }
+        await this.db.execute(
+          `INSERT INTO workspace_group_members (group_id,agent_id,role,joined_at) VALUES ($1,$2,$3,NOW()) ON CONFLICT (group_id,agent_id) DO UPDATE SET role=$3`,
+          [groupId, agent.identity.id, role]
+        )
+        await this.addWorkspacePath(agent.identity.slug, group.workspace_path).catch(() => {})
+        return { success: true }
+      }
+    )
+
+    this.toolRegistry.register(
+      this.toolRegistry.get('group_member_remove')!,
+      async (input, ctx) => {
+        const perm = ctx.agencyPermissions.groupUpdate
+        if (perm === 'deny') return { error: 'Permission denied' }
+        if (perm === 'request' && !ctx.autonomousMode) {
+          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_delete', description: 'Remove agent from group' }, `Remove agent "${input['agentId'] as string}" from group "${input['groupId'] as string}"`)
+          return { status: 'pending_approval', approvalId }
+        }
+        const groupId = input['groupId'] as string
+        const agentSlug = input['agentId'] as string
+        const group = await this.db.queryOne<{ workspace_path: string }>('SELECT workspace_path FROM workspace_groups WHERE id=$1', [groupId])
+        if (!group) return { error: `Group not found: ${groupId}` }
+        const agent = this.agents.get(agentSlug) ?? Array.from(this.agents.values()).find(a => a.identity.id === agentSlug)
+        if (!agent) return { error: `Agent not found: ${agentSlug}` }
+        await this.db.execute('DELETE FROM workspace_group_members WHERE group_id=$1 AND agent_id=$2', [groupId, agent.identity.id])
+        await this.removeWorkspacePath(agent.identity.slug, group.workspace_path).catch(() => {})
+        return { success: true }
+      }
+    )
   }
 
   // ─── Dormant Lifecycle Methods ─────────────────────────────────────────────
@@ -1053,6 +1208,38 @@ export class Orchestrator {
           const memoryContext = formatMemoriesForContext(memories)
           if (memoryContext) contextParts.push(memoryContext)
         } catch { /* memory query failure is non-fatal */ }
+      }
+    }
+
+    // Load group memories for all groups this agent belongs to
+    if (this.memoryStore && messages.length > 0) {
+      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
+      if (lastUserMsg) {
+        const queryText = typeof lastUserMsg.content === 'string'
+          ? lastUserMsg.content
+          : (lastUserMsg.content as Array<{ type: string; text?: string }>).map(b => b.text ?? '').join(' ')
+        try {
+          const memberships = await this.db.query<{ group_id: string; group_name: string }>(
+            `SELECT m.group_id, g.name as group_name
+             FROM workspace_group_members m
+             JOIN workspace_groups g ON g.id = m.group_id
+             WHERE m.agent_id = $1`,
+            [agent.identity.id]
+          )
+          for (const { group_id, group_name } of memberships) {
+            const groupMemories = await this.memoryStore.readGroup({
+              groupId: group_id,
+              query: queryText,
+              types: ['semantic', 'episodic'],
+              limit: 3,
+              minScore: 0.7,
+            })
+            if (groupMemories.length > 0) {
+              const formatted = formatMemoriesForContext(groupMemories)
+              if (formatted) contextParts.push(`## Shared Group Memories (${group_name})\n\n${formatted}`)
+            }
+          }
+        } catch { /* group memory failure is non-fatal */ }
       }
     }
 

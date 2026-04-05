@@ -52,6 +52,8 @@ function makeMockToolRegistry() {
   const toolNames = [
     'agent_list', 'agent_get', 'agent_set_profile', 'profile_list',
     'agent_create', 'agent_delete',
+    'group_list', 'group_get', 'group_create', 'group_update', 'group_delete',
+    'group_member_add', 'group_member_remove',
   ]
   for (const name of toolNames) {
     manifests.set(name, { name })
