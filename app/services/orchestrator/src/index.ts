@@ -991,7 +991,7 @@ export class Orchestrator {
         const perm = ctx.agencyPermissions.groupCreate
         if (perm === 'deny') return { error: 'Permission denied: cannot create groups' }
         if (perm === 'request' && !ctx.autonomousMode) {
-          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_delete', description: `Create group "${input['name'] as string}"` }, `Create group "${input['name'] as string}"`)
+          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_create', description: `Create group "${input['name'] as string}"` }, `Create group "${input['name'] as string}"`)
           return { status: 'pending_approval', approvalId, message: `Approval required. Run: agency approvals approve ${approvalId}` }
         }
         const name = input['name'] as string
@@ -1019,7 +1019,7 @@ export class Orchestrator {
         const perm = ctx.agencyPermissions.groupUpdate
         if (perm === 'deny') return { error: 'Permission denied: cannot update groups' }
         if (perm === 'request' && !ctx.autonomousMode) {
-          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_delete', description: `Update group "${input['id'] as string}"` }, `Update group "${input['id'] as string}"`)
+          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_update', description: `Update group "${input['id'] as string}"` }, `Update group "${input['id'] as string}"`)
           return { status: 'pending_approval', approvalId, message: `Approval required. Run: agency approvals approve ${approvalId}` }
         }
         const id = input['id'] as string
@@ -1042,6 +1042,25 @@ export class Orchestrator {
         if (perm === 'deny') return { error: 'Permission denied: cannot delete groups' }
         const id = input['id'] as string
         if (perm === 'autonomous' || ctx.autonomousMode) {
+          // Get group workspace path and members before deleting
+          const group = await this.db.queryOne<{ workspace_path: string }>('SELECT workspace_path FROM workspace_groups WHERE id=$1', [id])
+          if (!group) return { error: `Group not found: ${id}` }
+
+          const members = await this.db.query<{ agent_id: string }>(
+            'SELECT agent_id FROM workspace_group_members WHERE group_id=$1', [id]
+          )
+
+          // Remove workspace path from all member agents
+          const agentByIdMap = new Map(Array.from(this.agents.values()).map(a => [a.identity.id, a]))
+          for (const { agent_id } of members) {
+            const agent = agentByIdMap.get(agent_id)
+            if (agent) {
+              await this.removeWorkspacePath(agent.identity.slug, group.workspace_path).catch(err =>
+                console.error(`[Orchestrator] Failed to remove workspace path from agent ${agent.identity.slug}:`, err)
+              )
+            }
+          }
+
           await this.db.execute('DELETE FROM workspace_groups WHERE id=$1', [id])
           return { success: true, message: 'Group deleted. Directory preserved on disk.' }
         }
@@ -1056,7 +1075,7 @@ export class Orchestrator {
         const perm = ctx.agencyPermissions.groupUpdate
         if (perm === 'deny') return { error: 'Permission denied' }
         if (perm === 'request' && !ctx.autonomousMode) {
-          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_delete', description: `Add agent to group` }, `Add agent "${input['agentId'] as string}" to group "${input['groupId'] as string}"`)
+          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_member_add', description: `Add agent to group` }, `Add agent "${input['agentId'] as string}" to group "${input['groupId'] as string}"`)
           return { status: 'pending_approval', approvalId }
         }
         const groupId = input['groupId'] as string
@@ -1070,7 +1089,9 @@ export class Orchestrator {
           `INSERT INTO workspace_group_members (group_id,agent_id,role,joined_at) VALUES ($1,$2,$3,NOW()) ON CONFLICT (group_id,agent_id) DO UPDATE SET role=$3`,
           [groupId, agent.identity.id, role]
         )
-        await this.addWorkspacePath(agent.identity.slug, group.workspace_path).catch(() => {})
+        await this.addWorkspacePath(agent.identity.slug, group.workspace_path).catch(err =>
+          console.error(`[Orchestrator] Failed to add workspace path for agent ${agent.identity.slug}:`, err)
+        )
         return { success: true }
       }
     )
@@ -1081,7 +1102,7 @@ export class Orchestrator {
         const perm = ctx.agencyPermissions.groupUpdate
         if (perm === 'deny') return { error: 'Permission denied' }
         if (perm === 'request' && !ctx.autonomousMode) {
-          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_delete', description: 'Remove agent from group' }, `Remove agent "${input['agentId'] as string}" from group "${input['groupId'] as string}"`)
+          const { approvalId } = await this.destructiveActionService.createApprovalRecord(ctx, { operationType: 'group_member_remove', description: 'Remove agent from group' }, `Remove agent "${input['agentId'] as string}" from group "${input['groupId'] as string}"`)
           return { status: 'pending_approval', approvalId }
         }
         const groupId = input['groupId'] as string
@@ -1091,7 +1112,9 @@ export class Orchestrator {
         const agent = this.agents.get(agentSlug) ?? Array.from(this.agents.values()).find(a => a.identity.id === agentSlug)
         if (!agent) return { error: `Agent not found: ${agentSlug}` }
         await this.db.execute('DELETE FROM workspace_group_members WHERE group_id=$1 AND agent_id=$2', [groupId, agent.identity.id])
-        await this.removeWorkspacePath(agent.identity.slug, group.workspace_path).catch(() => {})
+        await this.removeWorkspacePath(agent.identity.slug, group.workspace_path).catch(err =>
+          console.error(`[Orchestrator] Failed to remove workspace path for agent ${agent.identity.slug}:`, err)
+        )
         return { success: true }
       }
     )

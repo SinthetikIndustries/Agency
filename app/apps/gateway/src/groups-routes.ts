@@ -72,9 +72,9 @@ export async function registerGroupRoutes(
     await mkdir(memoryPath, { recursive: true })
 
     await db.execute(
-      `INSERT INTO workspace_groups (id, name, description, hierarchy_type, goals, workspace_path, memory_path, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),NOW())`,
-      [id, body.name, body.description ?? null, body.hierarchyType ?? 'flat', JSON.stringify(body.goals ?? []), workspacePath, memoryPath]
+      `INSERT INTO workspace_groups (id, name, description, hierarchy_type, goals, workspace_path, memory_path, created_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW())`,
+      [id, body.name, body.description ?? null, body.hierarchyType ?? 'flat', JSON.stringify(body.goals ?? []), workspacePath, memoryPath, null]
     )
 
     const group = await db.queryOne<WorkspaceGroup>('SELECT * FROM workspace_groups WHERE id=$1', [id])
@@ -135,6 +135,25 @@ export async function registerGroupRoutes(
   app.delete<{ Params: { id: string } }>('/groups/:id', async (req, reply) => {
     const group = await db.queryOne<WorkspaceGroup>('SELECT * FROM workspace_groups WHERE id=$1', [req.params.id])
     if (!group) return reply.status(404).send({ error: 'Group not found' })
+
+    // Get members and remove workspace path from their additional_workspace_paths
+    const members = await db.query<{ agent_id: string }>(
+      'SELECT agent_id FROM workspace_group_members WHERE group_id=$1', [req.params.id]
+    )
+    const workspacePath = (group as unknown as Record<string, string>)['workspace_path'] ?? group.workspacePath
+    for (const { agent_id } of members) {
+      const agent = await db.queryOne<{ additional_workspace_paths: string[] | null }>(
+        'SELECT additional_workspace_paths FROM agent_identities WHERE id=$1', [agent_id]
+      )
+      if (agent) {
+        const updated = (agent.additional_workspace_paths ?? []).filter(p => p !== workspacePath)
+        await db.execute(
+          'UPDATE agent_identities SET additional_workspace_paths=$1, updated_at=NOW() WHERE id=$2',
+          [updated, agent_id]
+        )
+      }
+    }
+
     await db.execute('DELETE FROM workspace_groups WHERE id=$1', [req.params.id])
     void auditLogger.log({ action: 'group.delete', actor: 'user', targetType: 'group', targetId: req.params.id })
     return reply.send({ success: true, message: 'Group deleted. Shared directory preserved on disk.' })
