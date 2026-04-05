@@ -149,6 +149,17 @@ function IconMessage() {
   )
 }
 
+function IconGroups() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="5.5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.25"/>
+      <circle cx="10.5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M1 13c0-2.21 2.015-4 4.5-4s4.5 1.79 4.5 4" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <path d="M10.5 9.5c1.933 0 3.5 1.343 3.5 3" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 function IconHook() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -178,6 +189,7 @@ function IconChevronLeft() {
 const DASHBOARD_NAV = [
   { href: '/dashboard/overview',   label: 'Overview',    Icon: IconGrid     },
   { href: '/dashboard/agents',     label: 'Agents',      Icon: IconBot      },
+  { href: '/dashboard/groups',     label: 'Groups',      Icon: IconGroups   },
   { href: '/dashboard/skills',     label: 'Skills',      Icon: IconPuzzle   },
   { href: '/dashboard/tools',      label: 'Tools',       Icon: IconWrench   },
   { href: '/dashboard/hooks',      label: 'Hooks',       Icon: IconHook     },
