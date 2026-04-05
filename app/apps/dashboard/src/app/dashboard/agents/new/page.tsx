@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { agents, profiles, type Profile } from '@/lib/api'
+import { agents, profiles, architect, type Profile } from '@/lib/api'
 
 const LIFECYCLE_OPTIONS = [
   { value: 'always_on', label: 'Always-on',  desc: 'Starts with the gateway, always running' },
@@ -73,6 +73,26 @@ export default function NewAgentPage() {
   const [agentManagementPermission, setAgentManagementPermission] = useState('approval_required')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [description, setDescription] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState('')
+
+  const handleGenerate = async () => {
+    if (!description.trim()) return
+    setGenerating(true)
+    setGenerateError('')
+    try {
+      const spec = await architect.generate(description.trim())
+      setName(spec.name)
+      // Match suggestedProfile to a profile slug in the list
+      const match = profileList.find(p => p.slug === spec.suggestedProfile)
+      if (match) setProfileSlug(match.slug)
+    } catch (err) {
+      setGenerateError(err instanceof Error ? err.message : 'Generation failed')
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   useEffect(() => {
     profiles.list()
@@ -115,6 +135,31 @@ export default function NewAgentPage() {
       </div>
 
       <form onSubmit={e => void handleSubmit(e)} className="flex flex-col gap-5">
+        {/* Agent Architect */}
+        <div className="mb-1 p-4 border border-dashed border-gray-600 rounded-lg">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Describe your agent <span className="text-gray-500 font-normal">(optional — AI will generate the spec)</span>
+          </label>
+          <div className="flex gap-2">
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="e.g. A data analysis agent that specialises in financial reports, can write Python scripts, and summarises findings clearly..."
+              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 resize-none focus:outline-none focus:border-blue-600"
+              rows={3}
+            />
+            <button
+              type="button"
+              onClick={() => void handleGenerate()}
+              disabled={generating || !description.trim()}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium self-start whitespace-nowrap transition-colors"
+            >
+              {generating ? 'Generating...' : 'Generate'}
+            </button>
+          </div>
+          {generateError && <p className="text-red-400 text-xs mt-2">{generateError}</p>}
+        </div>
+
         {/* Name */}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">

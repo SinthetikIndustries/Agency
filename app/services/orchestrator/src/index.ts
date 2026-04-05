@@ -32,6 +32,7 @@ import { ToolRegistry } from '@agency/tool-registry'
 import type { DatabaseClient } from './db.js'
 import { buildCompactionPrompt, parseCompactionSummary, pruneToolResults } from './compaction.js'
 import { DestructiveActionService } from './destructive-action.js'
+import { AgentArchitect } from './agent-architect.js'
 import { type MemoryStore, formatMemoriesForContext } from '@agency/memory'
 export { buildCoordinatorSystemPrompt, isCoordinatorMessage } from './coordinator.js'
 export { buildVerificationPrompt, parseVerdict } from './verification-agent.js'
@@ -233,6 +234,7 @@ export class Orchestrator {
   private readonly IDLE_TIMEOUT_MS = 5 * 60 * 1000
 
   private destructiveActionService!: DestructiveActionService
+  private agentArchitect!: AgentArchitect
 
   constructor(
     private readonly db: DatabaseClient,
@@ -251,6 +253,7 @@ export class Orchestrator {
 
   async initialize(): Promise<void> {
     this.destructiveActionService = new DestructiveActionService(this.db, this.modelRouter)
+    this.agentArchitect = new AgentArchitect(this.modelRouter)
     await this.ensureDirectories()
     await this.seedBuiltInProfiles()
     await this.loadAgentRegistry()
@@ -614,6 +617,10 @@ export class Orchestrator {
 
   listProfiles(): AgentProfile[] {
     return BUILT_IN_PROFILES
+  }
+
+  async architectAgent(description: string) {
+    return this.agentArchitect.architectAgent(description)
   }
 
   async listAllProfiles(): Promise<AgentProfile[]> {

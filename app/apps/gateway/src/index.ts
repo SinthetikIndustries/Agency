@@ -1403,6 +1403,21 @@ export async function createGateway(): Promise<void> {
     return { agent: withRelativeWs(agent, { lockedWorkspacePaths }) }
   })
 
+  // POST /agents/architect — generate agent spec from description
+  app.post('/agents/architect', async (req, reply) => {
+    const body = req.body as { description?: string }
+    if (!body.description || typeof body.description !== 'string' || !body.description.trim()) {
+      return reply.status(400).send({ error: 'description is required' })
+    }
+    try {
+      const spec = await orchestrator.architectAgent(body.description.trim())
+      return reply.send(spec)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return reply.status(500).send({ error: `Architect failed: ${msg}` })
+    }
+  })
+
   app.post('/agents', async (request, reply) => {
     const body = request.body as {
       name?: string
