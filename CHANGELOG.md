@@ -30,6 +30,7 @@ Format: `[version] — date — description`
 - **Queue CLI** — `agency queue workers`
 - **Background worker fleet** — shell, browser, code, planner, and ingestion workers with queue monitoring.
 - **Dashboard expanded to 16 pages** — added Tools, Hooks, Messaging, Schedules, MCP Servers.
+- **Bundled Ollama models expanded** — `agency install` now pulls `qwen3:1.7b`, `nemotron-3-nano:4b`, and `gemma4:e4b` automatically.
 
 ---
 
@@ -37,7 +38,7 @@ Format: `[version] — date — description`
 
 ### Added
 - **Ollama in Docker** — Ollama now runs as a Docker-managed service (port 2005) alongside Postgres and Redis. No separate container management needed.
-- **Auto model pull** — `agency install` automatically pulls `qwen3:8b` into Ollama with a readiness check before pulling (up to 30s wait).
+- **Auto model pull** — `agency install` automatically pulls `qwen3:1.7b` into Ollama with a readiness check before pulling (up to 30s wait).
 - **Unified port constants** — All port numbers consolidated into single-source constants files: `app/packages/config/src/ports.ts`, `cli/src/lib/ports.ts`, `app/apps/dashboard/src/lib/ports.ts`, and `installation/ports.env` for shell scripts.
 
 ### Changed

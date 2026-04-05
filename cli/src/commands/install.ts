@@ -744,27 +744,29 @@ export default class Install extends Command {
         spawnSync('sleep', ['1'])
       }
       if (!ollamaReady) {
-        this.warn('Ollama daemon did not start in time — run `docker exec agency-ollama ollama pull qwen3:1.7b` manually after install.')
+        this.warn('Ollama daemon did not start in time — pull models manually after install: docker exec agency-ollama ollama pull <model>')
       } else {
         this.log(chalk.green(' ready'))
-        // Check if model already exists before pulling
+        const ollamaModels = ['qwen3:1.7b', 'nemotron-3-nano:4b', 'gemma4:e4b']
         const modelCheck = spawnSync(
           'docker', ['exec', 'agency-ollama', 'ollama', 'list'],
           { stdio: 'pipe' }
         )
         const modelList = modelCheck.stdout?.toString() ?? ''
-        if (modelList.includes('qwen3:1.7b')) {
-          this.log(chalk.gray('  Ollama model qwen3:1.7b already present, skipping download.'))
-        } else {
-          this.log(chalk.gray('  Pulling Ollama model qwen3:1.7b (this may take a moment)...'))
-          const ollamaPullResult = spawnSync(
-            'docker', ['exec', 'agency-ollama', 'ollama', 'pull', 'qwen3:1.7b'],
-            { stdio: 'inherit' }
-          )
-          if (ollamaPullResult.status !== 0) {
-            this.warn('Ollama model pull failed — run `docker exec agency-ollama ollama pull qwen3:1.7b` manually after install.')
+        for (const model of ollamaModels) {
+          if (modelList.includes(model)) {
+            this.log(chalk.gray(`  Ollama model ${model} already present, skipping download.`))
           } else {
-            this.log(chalk.green('  Ollama model ready.'))
+            this.log(chalk.gray(`  Pulling Ollama model ${model} (this may take a moment)...`))
+            const ollamaPullResult = spawnSync(
+              'docker', ['exec', 'agency-ollama', 'ollama', 'pull', model],
+              { stdio: 'inherit' }
+            )
+            if (ollamaPullResult.status !== 0) {
+              this.warn(`Ollama model pull failed — run \`docker exec agency-ollama ollama pull ${model}\` manually after install.`)
+            } else {
+              this.log(chalk.green(`  ${model} ready.`))
+            }
           }
         }
       }
