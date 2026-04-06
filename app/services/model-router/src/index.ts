@@ -588,10 +588,10 @@ export class OllamaAdapter implements ModelAdapter {
 
 // ─── Ollama Cloud Adapter ──────────────────────────────────────────────────────
 
-class OllamaCloudAdapter implements ModelAdapter {
-  id = 'ollamaCloud'
-  name = 'Ollama Cloud'
-  models: string[] = []
+export class OllamaCloudAdapter implements ModelAdapter {
+  readonly id = 'ollamaCloud'
+  readonly name = 'Ollama Cloud'
+  readonly models: string[] = []
   private endpoint: string
   private apiKey: string
 
@@ -621,11 +621,10 @@ class OllamaCloudAdapter implements ModelAdapter {
 
   async listModels(): Promise<string[]> {
     try {
-      const res = await fetch(`${this.endpoint}/api/tags`, { headers: this.headers })
+      const res = await fetch(`${this.endpoint}/api/tags`, { headers: this.headers, signal: AbortSignal.timeout(5000) })
       if (!res.ok) return []
       const data = await res.json() as { models?: { name: string }[] }
-      this.models = (data.models ?? []).map(m => m.name)
-      return this.models
+      return (data.models ?? []).map(m => m.name)
     } catch {
       return []
     }
@@ -634,7 +633,7 @@ class OllamaCloudAdapter implements ModelAdapter {
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
     const body = {
       model: request.model,
-      messages: toOllamaMessages(request.messages),
+      messages: toOllamaMessages(request.messages, request.system),
       stream: false,
       ...(request.tools?.length ? { tools: toOllamaTools(request.tools) } : {}),
     }
@@ -655,21 +654,23 @@ class OllamaCloudAdapter implements ModelAdapter {
     if (data.message?.content) {
       content.push({ type: 'text', text: data.message.content })
     }
-    for (const tc of data.message?.tool_calls ?? []) {
+    const toolCalls = data.message?.tool_calls ?? []
+    for (const tc of toolCalls) {
       content.push({
         type: 'tool_use',
-        id: crypto.randomUUID(),
+        id: crypto.randomUUID(), // Ollama native API doesn't provide tool call IDs
         name: tc.function.name,
         input: typeof tc.function.arguments === 'string'
           ? JSON.parse(tc.function.arguments) as Record<string, unknown>
           : tc.function.arguments as Record<string, unknown>,
       })
     }
+    const stopReason = toolCalls.length > 0 ? 'tool_use' : 'end_turn'
     return {
-      id: crypto.randomUUID(),
+      id: crypto.randomUUID(), // Ollama native API doesn't provide response IDs
       model: request.model,
       content,
-      stopReason: 'end_turn',
+      stopReason,
       inputTokens: data.prompt_eval_count ?? 0,
       outputTokens: data.eval_count ?? 0,
     }
@@ -678,7 +679,7 @@ class OllamaCloudAdapter implements ModelAdapter {
   async *stream(request: CompletionRequest): AsyncGenerator<CompletionChunk> {
     const body = {
       model: request.model,
-      messages: toOllamaMessages(request.messages),
+      messages: toOllamaMessages(request.messages, request.system),
       stream: true,
       ...(request.tools?.length ? { tools: toOllamaTools(request.tools) } : {}),
     }
@@ -725,6 +726,8 @@ class OllamaCloudAdapter implements ModelAdapter {
         }
       }
     }
+    // Fallback: emit message_stop if the connection dropped before chunk.done arrived
+    yield { type: 'message_stop' }
   }
 }
 
