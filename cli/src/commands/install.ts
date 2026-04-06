@@ -4,7 +4,7 @@
 import { Command } from '@oclif/core'
 import chalk from 'chalk'
 import { randomUUID } from 'node:crypto'
-import { mkdir, chmod, readFile, writeFile, access } from 'node:fs/promises'
+import { mkdir, chmod, writeFile, access } from 'node:fs/promises'
 import { createInterface } from 'node:readline'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
@@ -612,37 +612,6 @@ related: []
   }
 }
 
-export async function setupObsidianVault(
-  vaultPath: string,
-  obsidianConfigPath: string,
-): Promise<void> {
-  // Directories are already created by seedVault — just register with Obsidian
-
-  // Read existing Obsidian config or start fresh
-  let obsidianConfig: { vaults: Record<string, { path: string; ts: number; open: boolean }> }
-  try {
-    const raw = await readFile(obsidianConfigPath, 'utf8')
-    obsidianConfig = JSON.parse(raw)
-  } catch {
-    obsidianConfig = { vaults: {} }
-  }
-
-  // Defensive: ensure vaults key exists even if config was written without it
-  obsidianConfig.vaults ??= {}
-
-  // Only register if not already present
-  const alreadyRegistered = Object.values(obsidianConfig.vaults).some(v => v.path === vaultPath)
-  if (!alreadyRegistered) {
-    const uuid = randomUUID().replace(/-/g, '')
-    obsidianConfig.vaults[uuid] = { path: vaultPath, ts: Date.now(), open: true }
-  }
-
-  // Ensure parent dir exists (Obsidian may not be installed yet)
-  const parentDir = join(obsidianConfigPath, '..')
-  await mkdir(parentDir, { recursive: true })
-  await writeFile(obsidianConfigPath, JSON.stringify(obsidianConfig, null, 2), 'utf8')
-}
-
 // ─── Prompt helper ────────────────────────────────────────────────────────────
 
 async function prompt(rl: ReturnType<typeof createInterface>, question: string): Promise<string> {
@@ -910,12 +879,10 @@ export default class Install extends Command {
       }
       this.log(chalk.green('done'))
 
-      // Vault scaffold + Obsidian registration
+      // Vault scaffold
       const vaultPath = join(homedir(), '.agency', 'vault')
-      const obsidianConfigPath = join(homedir(), '.config', 'obsidian', 'obsidian.json')
       process.stdout.write(chalk.gray('  Setting up vault... '))
       await seedVault(vaultPath, userName)
-      await setupObsidianVault(vaultPath, obsidianConfigPath)
       this.log(chalk.green('done'))
 
       // Start dashboard
