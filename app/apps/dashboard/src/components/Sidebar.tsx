@@ -68,12 +68,11 @@ function IconPuzzle() {
   )
 }
 
-function IconDatabase() {
+function IconBrain() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <ellipse cx="8" cy="4" rx="5" ry="2" stroke="currentColor" strokeWidth="1.25"/>
-      <path d="M3 4v4c0 1.1 2.24 2 5 2s5-.9 5-2V4" stroke="currentColor" strokeWidth="1.25"/>
-      <path d="M3 8v4c0 1.1 2.24 2 5 2s5-.9 5-2V8" stroke="currentColor" strokeWidth="1.25"/>
+      <path d="M6 2.5C4.067 2.5 2.5 4.067 2.5 6c0 .95.37 1.81.97 2.45A2.5 2.5 0 0 0 3 9.5a2.5 2.5 0 0 0 2 2.45V13h6v-1.05A2.5 2.5 0 0 0 13 9.5a2.5 2.5 0 0 0-.47-1.05C13.13 7.81 13.5 6.95 13.5 6c0-1.933-1.567-3.5-3.5-3.5A3.49 3.49 0 0 0 8 3.18 3.49 3.49 0 0 0 6 2.5Z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M8 3.18V13M5.5 7H3M10.5 7H13M5.5 10H4M10.5 10H12" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
     </svg>
   )
 }
@@ -195,7 +194,7 @@ function IconChevronLeft() {
   )
 }
 
-// ── Match spec exactly: Overview, Agents, Skills, Vault, Connectors, Logs, Approvals, Audit
+// ── Match spec exactly: Overview, Agents, Skills, Brain, Connectors, Logs, Approvals, Audit
 // Settings is handled separately (opens modal, not a route)
 const DASHBOARD_NAV = [
   { href: '/dashboard/overview',   label: 'Overview',    Icon: IconGrid     },
@@ -205,7 +204,7 @@ const DASHBOARD_NAV = [
   { href: '/dashboard/skills',     label: 'Skills',      Icon: IconPuzzle   },
   { href: '/dashboard/tools',      label: 'Tools',       Icon: IconWrench   },
   { href: '/dashboard/hooks',      label: 'Hooks',       Icon: IconHook     },
-  { href: '/dashboard/vault',      label: 'Vault',       Icon: IconDatabase },
+  { href: '/dashboard/brain',      label: 'Brain',       Icon: IconBrain    },
   { href: '/dashboard/messaging',  label: 'Messaging',   Icon: IconMessage  },
   { href: '/dashboard/logs',       label: 'Logs',        Icon: IconScroll   },
   { href: '/dashboard/approvals',  label: 'Approvals',   Icon: IconShield   },
