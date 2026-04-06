@@ -18,7 +18,7 @@ Agency gives you a persistent, multi-agent AI assistant with a web dashboard, CL
 
 Agency is a **personal AI operating system**. It runs a coordinated stack of services on your local machine: a core API gateway, a web dashboard, a multi-agent orchestrator, a model router that spans cloud and local models, and a knowledge base backed by PostgreSQL with pgvector for semantic search.
 
-Your agents maintain **persistent memory** across all sessions — stored in PostgreSQL with vector embeddings for semantic retrieval, and mirrored to an [Obsidian](https://obsidian.md) vault at `~/.agency/vault/`. Obsidian is a free knowledge base app that gives you a beautiful visual interface for browsing your agent's brain — the default knowledge it ships with, the proposals your agents draft, and the canon notes you approve and build up over time. Chat through the web UI or terminal, route tasks to specialized agents, and review everything through a full audit log.
+Your agents maintain **persistent memory** across all sessions — stored in PostgreSQL with vector embeddings for semantic retrieval, and organized in **The Brain**: a 3D interactive knowledge graph built directly into the dashboard. Browse your agent's default knowledge, explore agent-drafted proposals, and review canon notes you've approved — all from the web UI. Chat through the web UI or terminal, route tasks to specialized agents, and review everything through a full audit log.
 
 ---
 
@@ -39,12 +39,12 @@ Your agents maintain **persistent memory** across all sessions — stored in Pos
 | 🤖 **Agent Architect** | Describe what you want an agent to do in plain language — Agency generates a complete agent spec (name, slug, system prompt, tools, permissions) using the LLM. One click to accept and create. |
 | 🔐 **Per-agent permissions** | Fine-grained `AgencyPermissions` model: set `agentCreate`, `agentDelete`, `agentUpdate`, `groupCreate`, `groupUpdate`, `groupDelete`, and `shellRun` independently to `deny`, `request` (human approval), or `autonomous`. Plus per-agent allow/deny rule lists. |
 | 💾 **Persistent memory** | Conversations and knowledge stored in PostgreSQL with pgvector for semantic vector search. Context retrieved automatically across sessions. Agents in a group share a group memory layer. |
-| 📚 **Structured knowledge base** | An [Obsidian](https://obsidian.md) vault at `~/.agency/vault/` synced in real-time to PostgreSQL. Open it in Obsidian to visually browse your agent's default brain, explore agent-drafted proposals, and review canon notes you've approved. Obsidian is free and optional — the vault is plain Markdown files that work in any editor. |
+| 🧠 **The Brain** | Database-first knowledge graph backed by PostgreSQL + pgvector. A 3D interactive graph view lets you visually explore your agent's knowledge, drafted proposals, and approved canon notes. Semantic search across everything. Agent-writable — agents can draft and update knowledge directly. |
 | 🦙 **Local model support** | Ollama runs in Docker. `qwen3:8b` pulled automatically on install. No cloud required. |
 | 🔀 **Model routing** | Route tasks across Anthropic (Claude), OpenAI (GPT), Ollama (local), Ollama Cloud, and OpenRouter simultaneously. Per-tier routing with automatic fallbacks. Prompt caching reduces API costs on repeated context. |
 | ⚡ **Real-time streaming** | WebSocket chat with live token streaming, tool call cards, and full session history. Session search, prompt suggestions, and away-summary recaps when you return to an idle session. |
 | 🛠️ **Skills & profiles** | Modular agent capabilities and swappable behavior profiles. Attach different toolsets without reconfiguring everything. |
-| 🔧 **Tool registry** | Browse and manage the full set of agent tools by type: file, shell, browser, HTTP, code, memory, vault, messaging, and agent management. |
+| 🔧 **Tool registry** | Browse and manage the full set of agent tools by type: file, shell, browser, HTTP, code, memory, brain, messaging, and agent management. |
 | 🪝 **Event hooks** | Register shell commands that fire on platform events — session created, agent woke, tool called, and more. Blocking hooks can intercept and gate events before they proceed. |
 | 📬 **Messaging** | Structured inbound message queues per agent with priority, expiry, and delivery tracking. Agents send and receive typed messages. Monitor inbox depths and message history from the dashboard. |
 | 🕐 **Scheduled tasks** | Cron-style job scheduling per agent. Configure recurring tasks from the dashboard or CLI, with run history and human-readable schedule descriptions. |
@@ -73,7 +73,7 @@ graph TB
         subgraph Services["Services"]
             Orchestrator["🤝 Orchestrator<br/>Agent Coordination"]
             ModelRouter["🔀 Model Router<br/>Anthropic / OpenAI / Ollama / Ollama Cloud / OpenRouter"]
-            VaultSync["📚 Vault Sync<br/>Markdown → pgvector"]
+            TheBrain["🧠 The Brain<br/>Knowledge Graph · pgvector"]
         end
 
         subgraph Data["Data Layer"]
@@ -87,11 +87,11 @@ graph TB
     Dashboard <-->|"HTTP / WS"| Gateway
     Gateway --> Orchestrator
     Gateway --> ModelRouter
-    Gateway --> VaultSync
+    Gateway --> TheBrain
     Orchestrator --> Postgres
     Orchestrator --> Redis
     ModelRouter --> Ollama
-    VaultSync --> Postgres
+    TheBrain --> Postgres
 ```
 
 ### Visual Overview
@@ -104,7 +104,7 @@ graph TB
 
 | Port | Component | Role |
 |------|-----------|------|
-| **2001** | Dashboard | Web UI — chat, agents, groups, network map, vault, logs, approvals |
+| **2001** | Dashboard | Web UI — chat, agents, groups, network map, The Brain, logs, approvals |
 | **2002** | Gateway | Core API, WebSocket streaming, JWT auth, connectors |
 | **2003** | PostgreSQL + pgvector | Persistent storage + semantic vector search |
 | **2004** | Redis | Message queues, pub/sub, async task coordination |
@@ -143,7 +143,7 @@ The installer will:
 4. 🦙 Pull `qwen3:1.7b`, `qwen3:8b`, `nemotron-3-nano:4b`, and `gemma4:e4b` into Ollama automatically
 5. 🔨 Build the app
 6. 🤖 Create built-in agents: **Orchestrator** (system) + **Main** (personal assistant)
-7. 📁 Set up an [Obsidian](https://obsidian.md) vault at `~/.agency/vault/` — open it in Obsidian to browse your agent's knowledge base, proposals, and canon notes visually
+7. 🧠 Initialize **The Brain** — database-first knowledge graph with 3D visualization, semantic search, and agent-writable knowledge
 8. 🗂️ Create the **Agency System** group — the Orchestrator's primary group workspace, visible only to the Orchestrator
 
 ### Uninstall
@@ -189,7 +189,7 @@ Pulls latest changes, rebuilds, and restarts automatically.
 |------|---------|
 | `~/.agency/config.json` | App settings (no secrets) |
 | `~/.agency/credentials.json` | 🔐 API keys — never share |
-| `~/.agency/vault/` | 📖 Obsidian vault — canon, proposals, notes, templates |
+| `~/.agency/vault/` | 📁 Brain data directory — canon, proposals, notes, templates (mirrored to PostgreSQL) |
 | `~/.agency/workspaces/` | Agent workspaces |
 | `~/.agency/shared/` | Shared group workspaces and memory |
 
@@ -263,11 +263,11 @@ agency skills install <skill>
 agency skills remove <skill>
 agency skills update <skill>
 
-# Vault
-agency vault status        📚 Vault sync status
-agency vault sync          Trigger manual sync
-agency vault validate      Validate vault integrity
-agency vault init          Initialize vault
+# Brain
+agency brain status        🧠 Brain status
+agency brain sync          Trigger manual sync
+agency brain validate      Validate brain integrity
+agency brain init          Initialize The Brain
 
 # Schedules
 agency schedules list      🕐 List scheduled tasks
@@ -327,9 +327,9 @@ Open at **[http://localhost:2001](http://localhost:2001)**
 | 👥 Groups | Workspace group management — list view or canvas topology view |
 | 🗺️ Network | Full-system canvas: orchestrator → groups → agents with live edges |
 | 🛠️ Skills | View and manage agent skills |
-| 🔧 Tools | Browse the full tool registry by type — file, shell, browser, HTTP, code, memory, vault, messaging, and agent management |
+| 🔧 Tools | Browse the full tool registry by type — file, shell, browser, HTTP, code, memory, brain, messaging, and agent management |
 | 🪝 Hooks | Create and manage event hooks — shell commands that fire on platform events with blocking and non-blocking modes |
-| 📚 Vault | Knowledge base status, sync controls, graph view |
+| 🧠 Brain | Knowledge graph — 3D visualization, semantic search, node explorer, sync controls |
 | 📬 Messaging | Inter-agent message queues — inbox depths, recent messages, priority, and delivery status |
 | 📋 Logs | Filterable service logs with JSON parsing |
 | 🙋 Approvals | Human-in-the-loop approval queue with risk classification and reasoning traces |
@@ -368,7 +368,7 @@ Pre-1.0. Core platform is functional. Active development.
 - [x] 🗺️ Canvas views (per-agent, group topology, full-system network map)
 - [x] 🤖 Agent Architect — LLM-generated agent specs from plain-language descriptions
 - [x] 🔀 Model routing (Anthropic / OpenAI / Ollama / Ollama Cloud / OpenRouter) + prompt caching
-- [x] 📚 Vault sync (Markdown → PostgreSQL + pgvector)
+- [x] 🧠 The Brain (database-first knowledge graph, PostgreSQL + pgvector, 3D visualization, semantic search)
 - [x] 🌐 Dashboard (16 pages)
 - [x] 🔧 Tool registry with typed tool browsing
 - [x] 🪝 Event hooks (blocking and non-blocking)

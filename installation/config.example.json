@@ -36,7 +36,7 @@
   "daemons": {
     "orchestrator": { "enabled": true },
     "modelRouter": { "enabled": true },
-    "vaultSync": { "enabled": true, "vaultPath": "~/.agency/vault" }
+    "vaultSync": { "enabled": false, "_note": "Deprecated — The Brain (PostgreSQL knowledge graph) replaces file-based vault sync" }
   },
   "orchestrator": {
     "defaultAgent": "main",
