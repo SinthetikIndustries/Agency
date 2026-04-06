@@ -1042,7 +1042,7 @@ export class ModelRouter {
     if (ollamaCloud) {
       const cloudModels = await ollamaCloud.listModels()
       for (const name of cloudModels) {
-        result.push({ name, provider: 'ollamaCloud' })
+        result.push({ name: `${name}:cloud`, provider: 'ollamaCloud' })
       }
     }
 
@@ -1071,6 +1071,7 @@ export class ModelRouter {
     if (model.includes('/')) return 'openrouter'
     if (['claude-opus', 'claude-sonnet', 'claude-haiku'].some(p => model.includes(p))) return 'anthropic'
     if (['gpt-', 'o1-', 'o3-', 'o4-'].some(p => model.startsWith(p)) || model === 'o1' || model === 'o3') return 'openai'
+    if (model.endsWith(':cloud')) return 'ollamaCloud'
     return 'ollama'
   }
 
