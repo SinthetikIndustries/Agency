@@ -37,8 +37,7 @@ agency <command> [subcommand] [args] [flags]
 ### Bootstrap
 
 ```bash
-agency install --basic     # minimal setup, local Postgres only
-agency install --standard  # full stack with Docker Compose
+agency install             # full setup (Docker Compose + all services)
 agency uninstall           # remove Agency and all data
 agency update              # pull and apply the latest release
 agency repair              # re-run failed install steps
@@ -48,6 +47,9 @@ agency repair              # re-run failed install steps
 
 ```bash
 agency doctor              # check for missing dependencies and config issues
+agency health              # detailed health check for all services
+agency metrics             # Prometheus metrics snapshot
+agency status              # show health, uptime, PID, and service status
 ```
 
 ### Service control
@@ -56,7 +58,14 @@ agency doctor              # check for missing dependencies and config issues
 agency start               # start the Gateway and all sub-daemons
 agency stop                # stop the Gateway
 agency restart             # restart the Gateway
-agency status              # show health, uptime, PID, and service status
+```
+
+### Authentication
+
+```bash
+agency auth login          # log in with an API key
+agency auth logout         # log out
+agency auth me             # show current identity
 ```
 
 ### Chat
@@ -69,7 +78,7 @@ agency chat                # interactive terminal chat with the main agent
 
 ```bash
 agency logs                         # tail all service logs
-agency logs --service orchestrator  # filter by service name
+agency logs service <name>          # filter by service name
 agency logs --level warn            # filter by minimum log level
 ```
 
@@ -79,20 +88,53 @@ agency logs --level warn            # filter by minimum log level
 agency config get <key>             # read a value (dot notation, e.g. gateway.port)
 agency config set <key> <value>     # write a value
 agency config edit                  # open config.json in $EDITOR
-agency config validate              # validate config and credentials against schema
-agency config rotate-jwt            # regenerate JWT secret and restart gateway
 ```
 
 ### Agents
 
 ```bash
 agency agents list
+agency agents create -n <name>
 agency agents show <slug>
+agency agents update <slug>
 agency agents enable <slug>
 agency agents disable <slug>
+agency agents model-config <slug>
+agency agents workspace get <slug>
+agency agents workspace set <slug>
 agency agents profile list
 agency agents profile attach <slug> <profile>
-agency agents profile create           # interactive custom profile creator
+agency agents profile create        # interactive custom profile creator
+```
+
+### Groups
+
+```bash
+agency groups list
+agency groups create
+agency groups members <id>
+```
+
+### Sessions
+
+```bash
+agency sessions list
+agency sessions info <id>
+agency sessions messages <id>
+agency sessions send <id> <message>
+agency sessions pin <id>
+agency sessions unpin <id>
+agency sessions rename <id> <name>
+agency sessions delete <id>
+```
+
+### Models
+
+```bash
+agency models list
+agency models pull <model>          # pull an Ollama model
+agency models set-default <model>
+agency models test <model>          # send a test prompt
 ```
 
 ### Skills
@@ -101,7 +143,7 @@ agency agents profile create           # interactive custom profile creator
 agency skills list
 agency skills install <name>
 agency skills remove <name>
-agency skills update
+agency skills update <name>
 ```
 
 ### Vault
@@ -111,15 +153,48 @@ agency vault status
 agency vault sync
 agency vault validate
 agency vault graph-status
-agency vault init -p <path>            # set a custom vault path
+agency vault init
 ```
 
-### Models
+### Schedules
 
 ```bash
-agency models list
-agency models set-default <model>
-agency models test <model>
+agency schedules list
+agency schedules create
+agency schedules delete <id>
+agency schedules enable <id>
+agency schedules disable <id>
+agency schedules runs <id>
+agency schedules stats
+agency schedules workers
+```
+
+### MCP Servers
+
+```bash
+agency mcp connections
+agency mcp reconnect <id>
+```
+
+### Messaging
+
+```bash
+agency messaging status
+```
+
+### Queue
+
+```bash
+agency queue workers
+```
+
+### Connectors
+
+```bash
+agency connectors list
+agency connectors discord install
+agency connectors discord enable
+agency connectors discord disable
 ```
 
 ### Approvals
@@ -130,20 +205,10 @@ agency approvals approve <id>
 agency approvals reject <id>
 ```
 
-### Connectors
+### Audit
 
 ```bash
-agency connectors list
-agency connectors enable <name>
-agency connectors disable <name>
-```
-
-### Dev tools
-
-```bash
-agency dev scaffold        # scaffold config and directory structure
-agency dev reset           # reset database and config (destructive)
-agency dev seed            # seed database with test data
+agency audit list
 ```
 
 ---
@@ -157,13 +222,17 @@ All Agency config lives in `~/.agency/`:
 ├── config.json          # non-secret settings
 ├── credentials.json     # API keys and database URLs (600)
 ├── gateway.pid          # managed automatically
-├── vault/               # Agency's Obsidian vault
-└── workspaces/
-    └── main/            # main agent workspace
+├── vault/               # Obsidian-compatible knowledge base
+│   ├── canon/           # approved, human-reviewed notes
+│   ├── proposals/       # agent-drafted notes pending review
+│   ├── notes/           # general notes
+│   └── templates/       # note templates
+├── workspaces/          # per-agent private workspaces
+└── shared/              # shared group workspaces
 ```
 
-- Gateway: `http://localhost:7340`
-- Dashboard: `http://localhost:7341`
+- Gateway: `http://localhost:2002`
+- Dashboard: `http://localhost:2001`
 
 ---
 
@@ -189,7 +258,7 @@ User
   ↓
 AgencyCLI  (install · manage · chat)
   ↓
-Gateway  (http://localhost:7340)
+Gateway  (http://localhost:2002)
   ├── Orchestrator
   ├── Model Router  (OpenAI · Anthropic · Ollama)
   ├── Tool Registry
@@ -202,4 +271,4 @@ Gateway  (http://localhost:7340)
        └── ingestion-worker
 ```
 
-Full platform documentation: `../build/`
+Full platform documentation: see the [main README](../README.md).
