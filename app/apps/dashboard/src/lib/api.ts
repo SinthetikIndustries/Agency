@@ -247,6 +247,25 @@ export interface Agent {
   lockedWorkspacePaths?: string[]
 }
 
+export interface AgentWorkspaceSecondary {
+  path: string
+  agentName: string
+  agentSlug: string
+}
+
+export interface AgentWorkspaceGroup {
+  path: string
+  groupId: string
+  groupName: string
+  isSystemGroup: boolean
+}
+
+export interface AgentWorkspaceContext {
+  primary: { path: string }
+  secondary: AgentWorkspaceSecondary[]
+  groupWorkspaces: AgentWorkspaceGroup[]
+}
+
 export const agents = {
   list: () => request<{ agents: Agent[] }>('/agents'),
   get: (slug: string) => request<{ agent: Agent }>(`/agents/${slug}`),
@@ -274,6 +293,9 @@ export const agents = {
       `/agents/${slug}/model-config`,
       { method: 'PATCH', body: JSON.stringify(config) }
     ),
+
+  workspaces: (slug: string) =>
+    request<AgentWorkspaceContext>(`/agents/${slug}/workspaces`),
 
   addWorkspace: (slug: string, path: string) =>
     request<{ ok: boolean; additionalWorkspacePaths: string[] }>(
