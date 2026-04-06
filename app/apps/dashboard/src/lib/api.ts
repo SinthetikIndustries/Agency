@@ -483,6 +483,124 @@ export const vault = {
     request<{ nodes: number; edges: number; unresolvedLinks: number }>('/vault/graph-status'),
 }
 
+// ─── Brain types ─────────────────────────────────────────────────────────────
+
+export interface BrainNode {
+  id: string
+  type: string
+  label: string
+  content: string | null
+  metadata: Record<string, unknown>
+  confidence: number
+  source: string
+  created_at: string
+  updated_at: string
+  version: number
+  degree?: number   // included in graph payload
+}
+
+export interface BrainEdge {
+  id: string
+  from_id: string
+  to_id: string
+  type: string
+  weight: number
+  bidirectional: boolean
+  metadata: Record<string, unknown>
+  source: string
+  created_at: string
+}
+
+export interface BrainGraphNode extends BrainNode {
+  degree: number
+}
+
+// ─── Brain API ───────────────────────────────────────────────────────────────
+
+export const brain = {
+  status: () =>
+    request<{ nodeCount: number; edgeCount: number; lastUpdated: string | null }>('/brain/status'),
+
+  graph: () =>
+    request<{ nodes: BrainGraphNode[]; edges: BrainEdge[] }>('/brain/graph'),
+
+  nodes: (params?: { type?: string; source?: string; limit?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.type) q.set('type', params.type)
+    if (params?.source) q.set('source', params.source)
+    if (params?.limit) q.set('limit', String(params.limit))
+    const qs = q.toString()
+    return request<{ nodes: BrainNode[]; count: number }>(`/brain/nodes${qs ? '?' + qs : ''}`)
+  },
+
+  getNode: (id: string) =>
+    request<BrainNode>(`/brain/nodes/${id}`),
+
+  createNode: (data: {
+    label: string; type?: string; content?: string
+    metadata?: Record<string, unknown>; confidence?: number; source?: string
+  }) =>
+    request<BrainNode>('/brain/nodes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+
+  updateNode: (id: string, data: Partial<BrainNode>) =>
+    request<BrainNode>(`/brain/nodes/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+
+  deleteNode: (id: string) =>
+    request<{ ok: boolean }>(`/brain/nodes/${id}`, { method: 'DELETE' }),
+
+  createEdge: (data: {
+    from_id: string; to_id: string; type?: string
+    weight?: number; bidirectional?: boolean
+  }) =>
+    request<BrainEdge>('/brain/edges', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+
+  deleteEdge: (id: string) =>
+    request<{ ok: boolean }>(`/brain/edges/${id}`, { method: 'DELETE' }),
+
+  search: (q: string, options?: { limit?: number; type?: string }) => {
+    const params = new URLSearchParams({ q })
+    if (options?.limit) params.set('limit', String(options.limit))
+    if (options?.type) params.set('type', options.type)
+    return request<{
+      results: Array<BrainNode & { score: number }>
+      count: number
+      semantic: boolean
+    }>(`/brain/search?${params}`)
+  },
+
+  traverse: (id: string, depth = 2) =>
+    request<{
+      nodes: Array<BrainNode & { depth: number; via_edge_type: string | null }>
+      count: number
+      rootId: string
+    }>(`/brain/traverse/${id}?depth=${depth}`),
+
+  history: (id: string) =>
+    request<{ history: Array<{
+      id: string; content: string | null; confidence: number
+      changed_by: string; changed_at: string; version: number
+    }>; nodeId: string }>(`/brain/nodes/${id}/history`),
+
+  candidates: () =>
+    request<{ candidates: Array<{
+      node_a_id: string; node_a_label: string
+      node_b_id: string; node_b_label: string
+      shared_neighbors: number
+    }>; count: number }>('/brain/candidates'),
+}
+
 // ─── Connectors ───────────────────────────────────────────────────────────────
 
 export interface ConnectorStatus {
