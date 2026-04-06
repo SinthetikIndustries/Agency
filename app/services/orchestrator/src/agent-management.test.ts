@@ -173,6 +173,13 @@ describe('Orchestrator.createAgent()', () => {
     const mainPaths = orchestrator.getAgent('main')!.identity.additionalWorkspacePaths
     expect(mainPaths).toContain(newAgentWorkspace)
   })
+
+  it('auto-adds new agent workspace to orchestrator additionalWorkspacePaths', async () => {
+    const result = await orchestrator.createAgent({ name: 'New Bot' })
+    const newAgentWorkspace = orchestrator.getAgent(result.agent.slug)!.identity.workspacePath
+    const orchestratorPaths = orchestrator.getAgent('orchestrator')!.identity.additionalWorkspacePaths
+    expect(orchestratorPaths).toContain(newAgentWorkspace)
+  })
 })
 
 describe('Orchestrator.deleteAgent()', () => {
@@ -245,6 +252,13 @@ describe('Orchestrator.deleteAgent()', () => {
     expect(result.success).toBe(true)
     expect(result.message).toContain('archived')
     expect(result.message).toContain('.archive/')
+  })
+
+  it('removes deleted agent workspace from orchestrator additionalWorkspacePaths', async () => {
+    const deletedWorkspace = orchestrator.getAgent('to-delete')!.identity.workspacePath
+    await orchestrator.deleteAgent({ slug: 'to-delete' })
+    const orchestratorPaths = orchestrator.getAgent('orchestrator')!.identity.additionalWorkspacePaths
+    expect(orchestratorPaths).not.toContain(deletedWorkspace)
   })
 })
 

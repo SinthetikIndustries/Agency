@@ -757,8 +757,9 @@ export class Orchestrator {
     await this.provisionWorkspace(identity, profileSlug)
     this.agents.set(slug, { identity, profile })
 
-    // Auto-grant main agent access to new agent's workspace
+    // Auto-grant main and orchestrator access to new agent's workspace
     await this.addWorkspacePath('main', workspacePath)
+    await this.addWorkspacePath('orchestrator', workspacePath).catch(() => {})
 
     void this.hookFire?.('agent.created', { agentSlug: identity.slug, agentName: identity.name })
 
@@ -793,8 +794,9 @@ export class Orchestrator {
       [slug]
     )
 
-    // Revoke main agent's access to this workspace
+    // Revoke main and orchestrator access to this workspace
     await this.removeWorkspacePath('main', identity.workspacePath).catch(() => {})
+    await this.removeWorkspacePath('orchestrator', identity.workspacePath).catch(() => {})
 
     // Archive workspace
     const workspaceSrc = identity.workspacePath
