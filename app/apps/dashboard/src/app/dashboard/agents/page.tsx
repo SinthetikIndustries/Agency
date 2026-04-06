@@ -220,7 +220,7 @@ export default function AgentsPage() {
                       >
                         Configure →
                       </Link>
-                      {agent.identity.slug !== 'main' && (
+                      {agent.identity.slug !== 'main' && agent.identity.slug !== 'orchestrator' && (
                         <button
                           onClick={e => { e.stopPropagation(); void toggle(agent) }}
                           className={`text-xs transition-colors ${

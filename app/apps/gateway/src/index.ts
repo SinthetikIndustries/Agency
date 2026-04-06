@@ -1459,6 +1459,7 @@ export async function createGateway(): Promise<void> {
 
   app.post('/agents/:slug/disable', async (request, reply) => {
     const { slug } = request.params as { slug: string }
+    if (BUILT_IN_AGENTS.includes(slug as BuiltInAgentSlug)) return reply.status(400).send({ error: 'Cannot disable a built-in agent' })
     await orchestrator.disableAgent(slug)
     void services.hooksManager.fire('agent.disabled', { agentSlug: slug })
     return { ok: true }
