@@ -348,7 +348,9 @@ Agency supports **three providers simultaneously**:
 |----------|--------|-------|
 | 🟠 **Anthropic** | Claude Sonnet, Haiku, Opus | Default provider |
 | 🟢 **OpenAI** | GPT-4.1, GPT-4.1 mini | Optional |
-| 🦙 **Ollama** | `qwen3:1.7b`, `qwen3:8b`, `nemotron-3-nano:4b`, `gemma4:e4b` + any Ollama model | Local inference in Docker — no cloud required |
+| 🦙 **Ollama (local)** | `qwen3:1.7b`, `qwen3:8b`, `nemotron-3-nano:4b`, `gemma4:e4b` + any Ollama model | Local inference in Docker — no cloud required |
+| ☁️ **Ollama Cloud** | All cloud-enabled Ollama models (browse at [ollama.com/search?c=cloud](https://ollama.com/search?c=cloud)) | Remote inference via Ollama's cloud — no local GPU needed |
+| 🔀 **OpenRouter** | 200+ models across providers | Single API key for Anthropic, OpenAI, Meta, Mistral, and more |
 
 The model router handles **per-tier routing**: configure a `cheap` model for lightweight tasks and a `strong` model for complex reasoning, with automatic fallbacks.
 

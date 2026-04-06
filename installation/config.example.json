@@ -26,7 +26,9 @@
     "providers": {
       "anthropic": { "enabled": true },
       "openai": { "enabled": false },
-      "ollama": { "enabled": true, "endpoint": "http://localhost:2005" }
+      "ollama": { "enabled": true, "endpoint": "http://localhost:2005" },
+      "ollamaCloud": { "enabled": false, "endpoint": "https://ollama.com" },
+      "openrouter": { "enabled": false }
     },
     "fallback": { "cheap": null, "strong": "claude-sonnet-4-6" },
     "embedding": { "provider": "openai", "model": "text-embedding-3-small" }
