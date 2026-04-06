@@ -27,6 +27,7 @@ import { BUILT_IN_AGENTS } from '@agency/shared-types'
 import { runMigrations } from './migrate.js'
 import { loadRoutingProfiles, registerRoutingProfileRoutes, type RoutingProfile } from './routing-profiles.js'
 import { registerVaultRoutes } from './vault-routes.js'
+import { registerBrainRoutes } from './brain-routes.js'
 import { registerMeRoutes } from './me-routes.js'
 import { registerOnboardingRoutes } from './onboarding-routes.js'
 import { SkillsManager } from './skills-manager.js'
@@ -267,26 +268,27 @@ export async function createGateway(): Promise<void> {
   }
 
   // ── 4b. VaultSync (optional) ────────────────────────────────────────────────
-  let vaultSync: VaultSync | null = null
+  // vault-sync disabled — brain system replaces file-based vault
+  let vaultSync = null as VaultSync | null
   const rawVaultPath =
     process.env['AGENCY_VAULT_PATH'] ??
     config.daemons.vaultSync.vaultPath ??
     join(homedir(), '.agency', 'vault')
   const vaultPath = rawVaultPath.replace(/^~/, homedir())
-  if (config.daemons.vaultSync.enabled) {
-    try {
-      await mkdir(vaultPath, { recursive: true })
-      console.log('[Gateway] Initializing VaultSync daemon...')
-      vaultSync = await startVaultSync({
-        connectionString: postgresUrl,
-        vaultPath,
-        watchDebounceMs: 500,
-      })
-      console.log('[Gateway] VaultSync daemon started, watching:', vaultPath)
-    } catch (err) {
-      console.error('[Gateway] VaultSync initialization failed (continuing without vault sync):', err)
-    }
-  }
+  // if (config.daemons.vaultSync.enabled) {
+  //   try {
+  //     await mkdir(vaultPath, { recursive: true })
+  //     console.log('[Gateway] Initializing VaultSync daemon...')
+  //     vaultSync = await startVaultSync({
+  //       connectionString: postgresUrl,
+  //       vaultPath,
+  //       watchDebounceMs: 500,
+  //     })
+  //     console.log('[Gateway] VaultSync daemon started, watching:', vaultPath)
+  //   } catch (err) {
+  //     console.error('[Gateway] VaultSync initialization failed (continuing without vault sync):', err)
+  //   }
+  // }
 
   // ── 4c. MessagingService (init before createToolRegistry) ──────────────────
   let messagingService: MessagingService | null = null
@@ -723,6 +725,9 @@ export async function createGateway(): Promise<void> {
 
   // Vault routes plugin (registered after auth middleware)
   await app.register(registerVaultRoutes, { db, vaultSync })
+
+  // Brain routes plugin
+  await app.register(registerBrainRoutes, { db, ollamaUrl: config.modelRouter.providers.ollama.endpoint ?? `http://localhost:2005` })
 
   // Me route
   registerMeRoutes(app)
