@@ -40,6 +40,10 @@ const ModelRouterConfigSchema = z.object({
     openrouter: z.object({
       enabled: z.boolean().default(false),
     }).default({}),
+    ollamaCloud: z.object({
+      enabled:  z.boolean().default(false),
+      endpoint: z.string().default('https://ollama.com'),
+    }).default({}),
   }).default({}),
   fallback: z.object({
     cheap: z.string().nullable().default(null),
@@ -77,6 +81,7 @@ const AgencyCredentialsSchema = z.object({
   anthropic: z.object({ apiKey: z.string() }).optional(),
   openai: z.object({ apiKey: z.string() }).optional(),
   openrouter: z.object({ apiKey: z.string() }).optional(),
+  ollamaCloud: z.object({ apiKey: z.string() }).optional(),
   postgres: z.object({ url: z.string() }).optional(),
   redis: z.object({ url: z.string() }).optional(),
   gateway: z.object({ apiKey: z.string(), jwtSecret: z.string().optional() }).optional(),
@@ -155,6 +160,12 @@ export async function loadCredentials(): Promise<AgencyCredentials> {
   }
   if (process.env['AGENCY_OPENAI_API_KEY']) {
     (raw as Record<string, unknown>)['openai'] = { apiKey: process.env['AGENCY_OPENAI_API_KEY'] }
+  }
+  if (process.env['AGENCY_OPENROUTER_API_KEY']) {
+    (raw as Record<string, unknown>)['openrouter'] = { apiKey: process.env['AGENCY_OPENROUTER_API_KEY'] }
+  }
+  if (process.env['AGENCY_OLLAMA_CLOUD_API_KEY']) {
+    (raw as Record<string, unknown>)['ollamaCloud'] = { apiKey: process.env['AGENCY_OLLAMA_CLOUD_API_KEY'] }
   }
   if (process.env['AGENCY_POSTGRES_URL']) {
     (raw as Record<string, unknown>)['postgres'] = { url: process.env['AGENCY_POSTGRES_URL'] }
