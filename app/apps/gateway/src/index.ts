@@ -33,6 +33,7 @@ import { SkillsManager } from './skills-manager.js'
 import { registerSkillRoutes } from './skill-routes.js'
 import { registerAgentSkillRoutes } from './agent-skill-routes.js'
 import { registerGroupRoutes } from './groups-routes.js'
+import { registerWorkspaceRoutes } from './workspace-routes.js'
 import { registerToolRoutes } from './tool-routes.js'
 import { registerMcpRoutes } from './mcp-routes.js'
 import { HooksManager } from './hooks-manager.js'
@@ -1936,6 +1937,7 @@ export async function createGateway(): Promise<void> {
   registerSkillRoutes(app, services.skillsManager, services.auditLogger, services.hooksManager)
   registerAgentSkillRoutes(app, db, services.skillsManager, services.auditLogger, services.hooksManager)
   await registerGroupRoutes(app, db, services.auditLogger)
+  await registerWorkspaceRoutes(app, db)
 
   app.get('/skills', async () => {
     const skills = services.skillsManager.list()
