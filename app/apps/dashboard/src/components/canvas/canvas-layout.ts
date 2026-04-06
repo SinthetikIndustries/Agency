@@ -29,7 +29,11 @@ export function savePositions(surfaceId: string, nodes: Node[]): void {
   for (const node of nodes) {
     positions[node.id] = node.position
   }
-  localStorage.setItem(`canvas-positions-${surfaceId}`, JSON.stringify(positions))
+  try {
+    localStorage.setItem(`canvas-positions-${surfaceId}`, JSON.stringify(positions))
+  } catch {
+    // Quota exceeded or storage unavailable — silently skip persistence
+  }
 }
 
 export function clearSavedPositions(surfaceId: string): void {
@@ -220,6 +224,7 @@ export function computeNetworkLayout(
 
   groupsWithMembers.forEach(group => {
     const pos = g.node(`group-${group.id}`)
+    if (!pos) return
     const { w, h } = groupDimensions(group.members.length)
     const groupId = `group-${group.id}`
     nodes.push({
@@ -270,6 +275,7 @@ export function computeNetworkLayout(
     .filter(a => !assignedAgentIds.has(a.identity.id) && a.identity.slug !== 'orchestrator')
     .forEach(agent => {
       const pos = g.node(`agent-${agent.identity.id}`)
+      if (!pos) return
       nodes.push({
         id: `agent-${agent.identity.id}`,
         type: 'agentNode',
