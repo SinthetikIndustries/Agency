@@ -6,7 +6,9 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { groups, agents, type WorkspaceGroup, type Agent } from '@/lib/api'
+import { groups, agents, type WorkspaceGroup, type Agent, type GroupMember } from '@/lib/api'
+
+type GroupWithMembers = WorkspaceGroup & { members: GroupMember[] }
 
 const GroupsCanvas = dynamic(
   () => import('./GroupsCanvas').then(m => m.GroupsCanvas),
@@ -171,6 +173,7 @@ function CreateGroupModal({ onClose, onCreated }: { onClose: () => void; onCreat
 export default function GroupsPage() {
   const [groupList, setGroupList] = useState<WorkspaceGroup[]>([])
   const [agentList, setAgentList] = useState<Agent[]>([])
+  const [groupsWithMembers, setGroupsWithMembers] = useState<GroupWithMembers[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
@@ -179,9 +182,15 @@ export default function GroupsPage() {
   function load() {
     setLoading(true)
     Promise.all([groups.list(), agents.list()])
-      .then(([groupData, agentData]) => {
+      .then(async ([groupData, agentData]) => {
         setGroupList(groupData.groups)
         setAgentList(agentData.agents)
+        const withMembers: GroupWithMembers[] = await Promise.all(
+          groupData.groups.map(g =>
+            groups.get(g.id).then(d => ({ ...g, members: d.members }))
+          )
+        )
+        setGroupsWithMembers(withMembers)
       })
       .catch(err => setError(err instanceof Error ? err.message : 'Failed to load'))
       .finally(() => setLoading(false))
@@ -239,7 +248,7 @@ export default function GroupsPage() {
       {loading ? (
         <p className="text-sm text-gray-500">Loading...</p>
       ) : viewMode === 'canvas' ? (
-        <GroupsCanvas groups={groupList} allAgents={agentList} />
+        <GroupsCanvas groups={groupList} groupsWithMembers={groupsWithMembers} allAgents={agentList} />
       ) : groupList.length === 0 ? (
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center">
           <p className="text-sm text-gray-500">No groups yet.</p>
