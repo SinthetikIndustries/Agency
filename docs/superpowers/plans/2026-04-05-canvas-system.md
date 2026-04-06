@@ -10,6 +10,32 @@
 
 ---
 
+## Progress
+
+**Last updated:** 2026-04-05 | **Head commit:** `92bb99e`
+
+| Task | Status | Commits |
+|---|---|---|
+| Task 1: Install dagre + redesign node types | ✅ Complete | `de48ed8`, `2e3601a` |
+| Task 2: Create canvas-layout.ts | ✅ Complete | `04189c4`, `835ca74` |
+| Task 3: Update canvas-toolbar.tsx | ✅ Complete | `c42c26b` |
+| Task 4: Create CanvasSidePanel | ✅ Complete | `3120af9`, `92bb99e` |
+| Task 5: Create CanvasContextMenu | ⬜ Not started | — |
+| Task 6: Rebuild GroupsCanvas | ⬜ Not started | — |
+| Task 7: Rebuild Network Map | ⬜ Not started | — |
+| Task 8: Extract and rebuild AgentCanvas | ⬜ Not started | — |
+| Task 9: Full build verification + push | ⬜ Not started | — |
+
+**Files completed:**
+- `components/canvas/node-types.tsx` — 6 node types, NodeProps generics, HIERARCHY_COLOR hoisted ✅
+- `components/canvas/canvas-layout.ts` — Dagre + radial layout, localStorage persistence, null guards ✅
+- `components/canvas/canvas-toolbar.tsx` — Live Mode, Reset Layout, Add Group/Agent buttons ✅
+- `components/canvas/canvas-side-panel.tsx` — all 5 panel variants, error handling, Next.js Link ✅
+
+**Next task to execute: Task 5 — Create CanvasContextMenu**
+
+---
+
 ## File Map
 
 **Create:**
