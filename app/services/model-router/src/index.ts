@@ -586,6 +586,148 @@ export class OllamaAdapter implements ModelAdapter {
   }
 }
 
+// ─── Ollama Cloud Adapter ──────────────────────────────────────────────────────
+
+class OllamaCloudAdapter implements ModelAdapter {
+  id = 'ollamaCloud'
+  name = 'Ollama Cloud'
+  models: string[] = []
+  private endpoint: string
+  private apiKey: string
+
+  constructor(apiKey: string, endpoint = 'https://ollama.com') {
+    this.apiKey = apiKey
+    this.endpoint = endpoint
+  }
+
+  private get headers(): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${this.apiKey}`,
+    }
+  }
+
+  async isAvailable(): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.endpoint}/api/version`, {
+        headers: this.headers,
+        signal: AbortSignal.timeout(5000),
+      })
+      return res.ok
+    } catch {
+      return false
+    }
+  }
+
+  async listModels(): Promise<string[]> {
+    try {
+      const res = await fetch(`${this.endpoint}/api/tags`, { headers: this.headers })
+      if (!res.ok) return []
+      const data = await res.json() as { models?: { name: string }[] }
+      this.models = (data.models ?? []).map(m => m.name)
+      return this.models
+    } catch {
+      return []
+    }
+  }
+
+  async complete(request: CompletionRequest): Promise<CompletionResponse> {
+    const body = {
+      model: request.model,
+      messages: toOllamaMessages(request.messages),
+      stream: false,
+      ...(request.tools?.length ? { tools: toOllamaTools(request.tools) } : {}),
+    }
+    const res = await fetch(`${this.endpoint}/api/chat`, {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      throw new Error(`Ollama Cloud error ${res.status}: ${await res.text()}`)
+    }
+    const data = await res.json() as {
+      message?: { content?: string; tool_calls?: { function: { name: string; arguments: unknown } }[] }
+      prompt_eval_count?: number
+      eval_count?: number
+    }
+    const content: ContentBlock[] = []
+    if (data.message?.content) {
+      content.push({ type: 'text', text: data.message.content })
+    }
+    for (const tc of data.message?.tool_calls ?? []) {
+      content.push({
+        type: 'tool_use',
+        id: crypto.randomUUID(),
+        name: tc.function.name,
+        input: typeof tc.function.arguments === 'string'
+          ? JSON.parse(tc.function.arguments) as Record<string, unknown>
+          : tc.function.arguments as Record<string, unknown>,
+      })
+    }
+    return {
+      id: crypto.randomUUID(),
+      model: request.model,
+      content,
+      stopReason: 'end_turn',
+      inputTokens: data.prompt_eval_count ?? 0,
+      outputTokens: data.eval_count ?? 0,
+    }
+  }
+
+  async *stream(request: CompletionRequest): AsyncGenerator<CompletionChunk> {
+    const body = {
+      model: request.model,
+      messages: toOllamaMessages(request.messages),
+      stream: true,
+      ...(request.tools?.length ? { tools: toOllamaTools(request.tools) } : {}),
+    }
+    const res = await fetch(`${this.endpoint}/api/chat`, {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify(body),
+    })
+    if (!res.ok || !res.body) {
+      throw new Error(`Ollama Cloud stream error ${res.status}: ${await res.text()}`)
+    }
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    let inputTokens = 0
+    let outputTokens = 0
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const lines = buf.split('\n')
+      buf = lines.pop() ?? ''
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+        try {
+          const chunk = JSON.parse(trimmed) as {
+            message?: { content?: string }
+            done?: boolean
+            prompt_eval_count?: number
+            eval_count?: number
+          }
+          if (chunk.message?.content) {
+            yield { type: 'text_delta', text: chunk.message.content }
+          }
+          if (chunk.done) {
+            inputTokens = chunk.prompt_eval_count ?? 0
+            outputTokens = chunk.eval_count ?? 0
+            yield { type: 'usage', inputTokens, outputTokens }
+            yield { type: 'message_stop' }
+          }
+        } catch {
+          // Malformed chunk — skip
+        }
+      }
+    }
+  }
+}
+
 // ─── OpenRouter Adapter ───────────────────────────────────────────────────────
 
 /**
