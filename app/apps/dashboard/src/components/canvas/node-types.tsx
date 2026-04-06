@@ -2,7 +2,7 @@
 // https://www.sinthetix.com
 
 'use client'
-import { Handle, Position, NodeResizer, NodeToolbar, type NodeProps } from '@xyflow/react'
+import { Handle, Position, NodeResizer, NodeToolbar, type NodeProps, type Node } from '@xyflow/react'
 
 // ─── Shared node helpers ─────────────────────────────────────────────────────
 
@@ -30,7 +30,7 @@ function PermissionBadge({ level }: { level?: string }) {
 
 // ─── GroupNode ─────────────────────────────────────────────────────────────────
 
-export interface GroupNodeData {
+export interface GroupNodeData extends Record<string, unknown> {
   label: string
   hierarchyType: string
   memberCount: number
@@ -38,13 +38,14 @@ export interface GroupNodeData {
   onOpenPanel?: () => void
 }
 
-export function GroupNode({ data, selected }: NodeProps) {
-  const d = data as unknown as GroupNodeData
-  const hierarchyColor: Record<string, string> = {
-    flat:         'text-blue-300 bg-blue-900/60 border-blue-700/40',
-    hierarchical: 'text-purple-300 bg-purple-900/60 border-purple-700/40',
-    council:      'text-amber-300 bg-amber-900/60 border-amber-700/40',
-  }
+const HIERARCHY_COLOR: Record<string, string> = {
+  flat:         'text-blue-300 bg-blue-900/60 border-blue-700/40',
+  hierarchical: 'text-purple-300 bg-purple-900/60 border-purple-700/40',
+  council:      'text-amber-300 bg-amber-900/60 border-amber-700/40',
+}
+
+export function GroupNode({ data, selected }: NodeProps<Node<GroupNodeData>>) {
+  const d = data
   const borderSelected = selected ? 'border-blue-400' : 'border-blue-700/60'
 
   return (
@@ -78,7 +79,7 @@ export function GroupNode({ data, selected }: NodeProps) {
           G
         </div>
         <span className="text-blue-100 text-sm font-semibold truncate flex-1">{d.label}</span>
-        <span className={`text-xs px-1.5 py-0.5 rounded border ${hierarchyColor[d.hierarchyType] ?? hierarchyColor.flat}`}>
+        <span className={`text-xs px-1.5 py-0.5 rounded border ${HIERARCHY_COLOR[d.hierarchyType] ?? HIERARCHY_COLOR.flat}`}>
           {d.hierarchyType}
         </span>
       </div>
@@ -95,7 +96,7 @@ export function GroupNode({ data, selected }: NodeProps) {
 
 // ─── AgentNode ────────────────────────────────────────────────────────────────
 
-export interface AgentNodeData {
+export interface AgentNodeData extends Record<string, unknown> {
   label: string
   slug: string
   status: string
@@ -105,8 +106,8 @@ export interface AgentNodeData {
   onNavigate?: () => void
 }
 
-export function AgentNode({ data, selected }: NodeProps) {
-  const d = data as unknown as AgentNodeData
+export function AgentNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
+  const d = data
   const borderColor = d.isOrchestrator
     ? selected ? 'border-purple-400' : 'border-purple-600/70'
     : d.status === 'active'
@@ -155,13 +156,13 @@ export function AgentNode({ data, selected }: NodeProps) {
 
 // ─── OrchestratorNode ─────────────────────────────────────────────────────────
 
-export interface OrchestratorNodeData {
+export interface OrchestratorNodeData extends Record<string, unknown> {
   label: string
   status: string
 }
 
-export function OrchestratorNode({ data, selected }: NodeProps) {
-  const d = data as unknown as OrchestratorNodeData
+export function OrchestratorNode({ data, selected }: NodeProps<Node<OrchestratorNodeData>>) {
+  const d = data
   const borderColor = selected ? 'border-purple-400' : 'border-purple-500/80'
 
   return (
@@ -185,15 +186,14 @@ export function OrchestratorNode({ data, selected }: NodeProps) {
 
 // ─── SkillNode ────────────────────────────────────────────────────────────────
 
-export interface SkillNodeData {
+export interface SkillNodeData extends Record<string, unknown> {
   label: string
   version: string
-  skillType?: string
   onOpenPanel?: () => void
 }
 
-export function SkillNode({ data, selected }: NodeProps) {
-  const d = data as unknown as SkillNodeData
+export function SkillNode({ data, selected }: NodeProps<Node<SkillNodeData>>) {
+  const d = data
   const border = selected ? 'border-teal-400' : 'border-teal-700/60'
 
   return (
@@ -228,15 +228,15 @@ export function SkillNode({ data, selected }: NodeProps) {
 
 // ─── ToolNode ─────────────────────────────────────────────────────────────────
 
-export interface ToolNodeData {
+export interface ToolNodeData extends Record<string, unknown> {
   label: string
   toolType: string
   permissionLevel?: string
   onOpenPanel?: () => void
 }
 
-export function ToolNode({ data, selected }: NodeProps) {
-  const d = data as unknown as ToolNodeData
+export function ToolNode({ data, selected }: NodeProps<Node<ToolNodeData>>) {
+  const d = data
   const border = selected ? 'border-slate-400' : 'border-slate-600/60'
 
   return (
@@ -263,14 +263,14 @@ export function ToolNode({ data, selected }: NodeProps) {
 
 // ─── WorkspaceNode ────────────────────────────────────────────────────────────
 
-export interface WorkspaceNodeData {
+export interface WorkspaceNodeData extends Record<string, unknown> {
   label: string
   path: string
   onOpenPanel?: () => void
 }
 
-export function WorkspaceNode({ data, selected }: NodeProps) {
-  const d = data as unknown as WorkspaceNodeData
+export function WorkspaceNode({ data, selected }: NodeProps<Node<WorkspaceNodeData>>) {
+  const d = data
   const border = selected ? 'border-amber-400' : 'border-amber-700/60'
 
   return (
