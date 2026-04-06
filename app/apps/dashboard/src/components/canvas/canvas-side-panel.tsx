@@ -3,6 +3,7 @@
 
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import {
   agents, groups, agentSkills, workspace,
   type Agent, type WorkspaceGroup, type GroupMember, type WorkspaceFile,
@@ -158,21 +159,33 @@ function GroupPanel({
   }
 
   async function handleAddMember(agentId: string) {
-    await groups.addMember(groupId, { agentId })
-    const updated = await groups.get(groupId)
-    setMembers(updated.members)
-    onMemberAdded?.(groupId, agentId)
+    try {
+      await groups.addMember(groupId, { agentId })
+      const updated = await groups.get(groupId)
+      setMembers(updated.members)
+      onMemberAdded?.(groupId, agentId)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to add member')
+    }
   }
 
   async function handleRemoveMember(agentId: string) {
-    await groups.removeMember(groupId, agentId)
-    setMembers(prev => prev.filter(m => m.agentId !== agentId))
-    onMemberRemoved?.(groupId, agentId)
+    try {
+      await groups.removeMember(groupId, agentId)
+      setMembers(prev => prev.filter(m => m.agentId !== agentId))
+      onMemberRemoved?.(groupId, agentId)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to remove member')
+    }
   }
 
   async function handleDelete() {
-    await groups.delete(groupId)
-    onDeleted?.(groupId)
+    try {
+      await groups.delete(groupId)
+      onDeleted?.(groupId)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete group')
+    }
   }
 
   if (!group) return <p className="text-gray-500 text-sm">Loading...</p>
@@ -334,12 +347,12 @@ function AgentPanel({ slug }: { slug: string }) {
         ))}
       </div>
 
-      <a
+      <Link
         href={`/dashboard/agents/${slug}?tab=overview`}
         className="block text-center py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg mt-2"
       >
         Open Full Settings
-      </a>
+      </Link>
     </div>
   )
 }
@@ -393,12 +406,12 @@ function ToolPanel({ toolName, agentSlug }: { toolName: string; agentSlug: strin
       <p className="text-xs text-gray-400">
         Tool permissions and call history are managed in the agent settings.
       </p>
-      <a
+      <Link
         href={`/dashboard/agents/${agentSlug}?tab=tools`}
         className="block text-center py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg"
       >
         Open Tool Settings
-      </a>
+      </Link>
     </div>
   )
 }
@@ -412,7 +425,7 @@ function WorkspacePanel({ path, agentSlug }: { path: string; agentSlug?: string 
 
   useEffect(() => {
     if (!agentSlug) { setLoading(false); return }
-    workspace.list(agentSlug, '').then(d => {
+    workspace.list(agentSlug, path).then(d => {
       setFiles(d.files)
       setLoading(false)
     }).catch(() => setLoading(false))
@@ -420,9 +433,13 @@ function WorkspacePanel({ path, agentSlug }: { path: string; agentSlug?: string 
 
   async function openDir(dir: string) {
     if (!agentSlug) return
-    const data = await workspace.list(agentSlug, dir)
-    setFiles(data.files)
-    setCurrentPath(dir)
+    try {
+      const data = await workspace.list(agentSlug, dir)
+      setFiles(data.files)
+      setCurrentPath(dir)
+    } catch {
+      // silently ignore navigation failures
+    }
   }
 
   return (
