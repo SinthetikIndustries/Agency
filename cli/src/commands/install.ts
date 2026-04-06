@@ -76,6 +76,24 @@ export function buildDefaultConfig(opts: DefaultConfigOptions): Record<string, u
   }
 }
 
+export const OLLAMA_MODELS = ['qwen3:1.7b', 'qwen3:8b', 'nemotron-3-nano:4b', 'gemma4:e4b']
+
+export async function selectOllamaModels(
+  promptFn: (question: string) => Promise<string>,
+): Promise<string[]> {
+  console.log('')
+  console.log('Select Ollama models to pull:')
+  OLLAMA_MODELS.forEach((m, i) => console.log(`  ${i + 1}) ${m}`))
+  console.log('  a) All models')
+  console.log('  0) None — skip for now')
+  console.log('')
+  const choice = await promptFn('Choice [1/2/3/4/a/0]: ')
+  if (choice === 'a') return [...OLLAMA_MODELS]
+  const idx = parseInt(choice, 10)
+  if (idx >= 1 && idx <= OLLAMA_MODELS.length) return [OLLAMA_MODELS[idx - 1]]
+  return []
+}
+
 export async function seedVault(vaultPath: string, userName: string): Promise<void> {
   const today = new Date().toISOString().slice(0, 10)
 

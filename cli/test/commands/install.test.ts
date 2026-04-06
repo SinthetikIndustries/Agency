@@ -2,7 +2,7 @@
 // https://www.sinthetix.com
 
 import { describe, it, expect } from 'vitest'
-import { buildDefaultConfig } from '../../src/commands/install.js'
+import { buildDefaultConfig, selectOllamaModels, OLLAMA_MODELS } from '../../src/commands/install.js'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 
@@ -49,6 +49,48 @@ describe('buildDefaultConfig', () => {
     const ollama = (cfg.modelRouter as { providers: { ollama: { enabled: boolean; endpoint: string } } }).providers.ollama
     expect(ollama.enabled).toBe(true)
     expect(ollama.endpoint).toBe('http://localhost:2005')
+  })
+})
+
+describe('selectOllamaModels', () => {
+  it('returns all models when user enters "a"', async () => {
+    const result = await selectOllamaModels(async () => 'a')
+    expect(result).toEqual(OLLAMA_MODELS)
+  })
+
+  it('returns first model when user enters "1"', async () => {
+    const result = await selectOllamaModels(async () => '1')
+    expect(result).toEqual(['qwen3:1.7b'])
+  })
+
+  it('returns second model when user enters "2"', async () => {
+    const result = await selectOllamaModels(async () => '2')
+    expect(result).toEqual(['qwen3:8b'])
+  })
+
+  it('returns third model when user enters "3"', async () => {
+    const result = await selectOllamaModels(async () => '3')
+    expect(result).toEqual(['nemotron-3-nano:4b'])
+  })
+
+  it('returns fourth model when user enters "4"', async () => {
+    const result = await selectOllamaModels(async () => '4')
+    expect(result).toEqual(['gemma4:e4b'])
+  })
+
+  it('returns empty array when user enters "0"', async () => {
+    const result = await selectOllamaModels(async () => '0')
+    expect(result).toEqual([])
+  })
+
+  it('returns empty array when user enters blank', async () => {
+    const result = await selectOllamaModels(async () => '')
+    expect(result).toEqual([])
+  })
+
+  it('returns empty array when user enters invalid input', async () => {
+    const result = await selectOllamaModels(async () => 'x')
+    expect(result).toEqual([])
   })
 })
 
