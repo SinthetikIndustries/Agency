@@ -661,6 +661,27 @@ async function seedAgents(mainAgentName: string): Promise<void> {
   })
 }
 
+async function seedSystemGroup(): Promise<void> {
+  // Create the system-wide group — orchestrator-only visibility
+  const data = await gatewayFetch<{ group?: { workspacePath?: string; workspace_path?: string } }>('/groups', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: 'Agency System',
+      slug: 'system',
+      description: 'System-wide workspace managed by the orchestrator. Not visible to other agents.',
+      isSystem: true,
+    }),
+  })
+  const workspacePath = data.group?.workspacePath ?? data.group?.workspace_path
+  if (workspacePath) {
+    // Grant orchestrator file access to the system group workspace
+    await gatewayFetch('/agents/orchestrator/workspaces', {
+      method: 'POST',
+      body: JSON.stringify({ path: workspacePath }),
+    })
+  }
+}
+
 // ─── Command ─────────────────────────────────────────────────────────────────
 
 export default class Install extends Command {
@@ -813,6 +834,11 @@ export default class Install extends Command {
       // Seed agents via API
       process.stdout.write(chalk.gray('  Creating default agents... '))
       await seedAgents(agentName)
+      this.log(chalk.green('done'))
+
+      // Create system workspace group
+      process.stdout.write(chalk.gray('  Creating system workspace group... '))
+      await seedSystemGroup()
       this.log(chalk.green('done'))
 
       // Write initial context files for all agents
