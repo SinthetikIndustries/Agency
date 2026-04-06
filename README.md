@@ -33,9 +33,9 @@ Your agents maintain **persistent memory** across all sessions — stored in Pos
 | Feature | Description |
 |---------|-------------|
 | 🤝 **Multi-agent orchestration** | Orchestrator agent (system) + personal assistant (main) + any number of specialized sub-agents. Coordinator mode breaks complex tasks into phases with worker delegation. |
-| 🔀 **Orchestrator / PA split** | Two protected built-in agents: the **Orchestrator** (full autonomy, system-level permissions) and **Main** (your personal assistant, human-approval gates). Each has its own workspace, memory, and permission profile. |
-| 👥 **Workspace groups** | Organize agents into named groups with shared workspaces and shared memory. Agents in a group automatically see group-level context alongside their own. Create, manage, and delete groups from the dashboard or CLI. |
-| 🗺️ **Canvas views** | Interactive ReactFlow canvases throughout the dashboard: per-agent capability map, group topology, and a full-system Network map showing orchestrator → groups → agents at a glance. |
+| 🔀 **Orchestrator / PA split** | Two protected built-in agents: the **Orchestrator** (full autonomy, system-level permissions) and **Main** (your personal assistant, human-approval gates). Each has its own workspace, memory, and permission profile. The Orchestrator's name and profile are locked — it automatically inherits every other agent's workspace as a secondary workspace when agents are created or removed. |
+| 👥 **Workspace groups** | Organize agents into named groups with shared workspaces and shared memory. Agents in a group automatically see group-level context alongside their own. Every agent page shows a Group Workspaces card listing its groups. The Orchestrator sees all groups including the system-only **Agency System** group (its primary group workspace); other agents only see groups they belong to. |
+| 🗺️ **Canvas views** | Interactive ReactFlow canvases throughout the dashboard: per-agent radial capability map (agent → skills, tools, workspaces), group topology canvas with drag-and-drop agent assignment, and a full-system Network map with live mode (auto-refresh every 5s). All canvases support edit mode, right-click context menus, a slide-in side panel, position persistence across sessions, and one-click layout reset. |
 | 🤖 **Agent Architect** | Describe what you want an agent to do in plain language — Agency generates a complete agent spec (name, slug, system prompt, tools, permissions) using the LLM. One click to accept and create. |
 | 🔐 **Per-agent permissions** | Fine-grained `AgencyPermissions` model: set `agentCreate`, `agentDelete`, `agentUpdate`, `groupCreate`, `groupUpdate`, `groupDelete`, and `shellRun` independently to `deny`, `request` (human approval), or `autonomous`. Plus per-agent allow/deny rule lists. |
 | 💾 **Persistent memory** | Conversations and knowledge stored in PostgreSQL with pgvector for semantic vector search. Context retrieved automatically across sessions. Agents in a group share a group memory layer. |
@@ -144,6 +144,7 @@ The installer will:
 5. 🔨 Build the app
 6. 🤖 Create built-in agents: **Orchestrator** (system) + **Main** (personal assistant)
 7. 📁 Set up an [Obsidian](https://obsidian.md) vault at `~/.agency/vault/` — open it in Obsidian to browse your agent's knowledge base, proposals, and canon notes visually
+8. 🗂️ Create the **Agency System** group — the Orchestrator's primary group workspace, visible only to the Orchestrator
 
 ### Uninstall
 
