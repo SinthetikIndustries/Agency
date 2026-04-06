@@ -40,7 +40,7 @@ Your agents maintain **persistent memory** across all sessions — stored in Pos
 | 🔐 **Per-agent permissions** | Fine-grained `AgencyPermissions` model: set `agentCreate`, `agentDelete`, `agentUpdate`, `groupCreate`, `groupUpdate`, `groupDelete`, and `shellRun` independently to `deny`, `request` (human approval), or `autonomous`. Plus per-agent allow/deny rule lists. |
 | 💾 **Persistent memory** | Conversations and knowledge stored in PostgreSQL with pgvector for semantic vector search. Context retrieved automatically across sessions. Agents in a group share a group memory layer. |
 | 🧠 **The Brain** | Database-first knowledge graph backed by PostgreSQL + pgvector. A 3D interactive graph view lets you visually explore your agent's knowledge, drafted proposals, and approved canon notes. Semantic search across everything. Agent-writable — agents can draft and update knowledge directly. |
-| 🦙 **Local model support** | Ollama runs in Docker. `qwen3:8b` pulled automatically on install. No cloud required. |
+| 🦙 **Local model support** | Ollama runs in Docker. Choose which models to pull during install — or skip and pull later with `agency models pull <model>`. No cloud required. |
 | 🔀 **Model routing** | Route tasks across Anthropic (Claude), OpenAI (GPT), Ollama (local), Ollama Cloud, and OpenRouter simultaneously. Per-tier routing with automatic fallbacks. Prompt caching reduces API costs on repeated context. |
 | ⚡ **Real-time streaming** | WebSocket chat with live token streaming, tool call cards, and full session history. Session search, prompt suggestions, and away-summary recaps when you return to an idle session. |
 | 🛠️ **Skills & profiles** | Modular agent capabilities and swappable behavior profiles. Attach different toolsets without reconfiguring everything. |
@@ -108,7 +108,7 @@ graph TB
 | **2002** | Gateway | Core API, WebSocket streaming, JWT auth, connectors |
 | **2003** | PostgreSQL + pgvector | Persistent storage + semantic vector search |
 | **2004** | Redis | Message queues, pub/sub, async task coordination |
-| **2005** | Ollama | Local model inference (`qwen3:8b` included) |
+| **2005** | Ollama | Local model inference (models pulled on demand) |
 
 > All services run on non-standard ports to avoid conflicts with existing local services.
 
@@ -140,7 +140,7 @@ The installer will:
 1. 👤 Ask for your name and your main agent's name
 2. 🔑 Ask for your AI API key (Anthropic or OpenAI, plus optional OpenRouter / Ollama Cloud keys)
 3. 🐳 Start PostgreSQL, Redis, and Ollama in Docker
-4. 🦙 Pull `qwen3:1.7b`, `qwen3:8b`, `nemotron-3-nano:4b`, and `gemma4:e4b` into Ollama automatically
+4. 🦙 Offer a model selection menu — choose one of `qwen3:1.7b`, `qwen3:8b`, `nemotron-3-nano:4b`, `gemma4:e4b`, all of them, or none (pull later with `agency models pull <model>`)
 5. 🔨 Build the app
 6. 🤖 Create built-in agents: **Orchestrator** (system) + **Main** (personal assistant)
 7. 🧠 Initialize **The Brain** — database-first knowledge graph with 3D visualization, semantic search, and agent-writable knowledge
