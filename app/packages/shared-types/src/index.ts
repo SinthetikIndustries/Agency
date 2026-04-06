@@ -421,6 +421,7 @@ export interface ModelRouterConfig {
     openai: { enabled: boolean }
     ollama: { enabled: boolean; endpoint: string }
     openrouter: { enabled: boolean }
+    ollamaCloud?: { enabled: boolean; endpoint?: string }
   }
   fallback: {
     cheap: string | null
@@ -455,6 +456,7 @@ export interface AgencyCredentials {
   anthropic?: { apiKey: string } | undefined
   openai?: { apiKey: string } | undefined
   openrouter?: { apiKey: string } | undefined
+  ollamaCloud?: { apiKey: string } | undefined
   postgres?: { url: string } | undefined
   redis?: { url: string } | undefined
   gateway?: { apiKey: string } | undefined

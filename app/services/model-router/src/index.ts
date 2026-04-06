@@ -949,6 +949,11 @@ export class ModelRouter {
     if (config.providers.openrouter.enabled && credentials.openrouter?.apiKey) {
       this.adapters.set('openrouter', new OpenRouterAdapter(credentials.openrouter.apiKey))
     }
+
+    if (config.providers.ollamaCloud?.enabled && credentials.ollamaCloud?.apiKey) {
+      const endpoint = config.providers.ollamaCloud.endpoint ?? 'https://ollama.com'
+      this.adapters.set('ollamaCloud', new OllamaCloudAdapter(credentials.ollamaCloud.apiKey, endpoint))
+    }
   }
 
   /** Resolve a model name → adapter */
@@ -973,6 +978,12 @@ export class ModelRouter {
     if (model.includes('/')) {
       const openrouterAdapter = this.adapters.get('openrouter')
       if (openrouterAdapter) return openrouterAdapter
+    }
+
+    // Ollama Cloud: models tagged with ':cloud' suffix
+    const ollamaCloudAdapter = this.adapters.get('ollamaCloud')
+    if (ollamaCloudAdapter && model.endsWith(':cloud')) {
+      return ollamaCloudAdapter
     }
 
     // Ollama: anything not recognized as a cloud model
@@ -1027,7 +1038,16 @@ export class ModelRouter {
   /** List all available models across all configured providers */
   async listAllModels(): Promise<Array<{ name: string; provider: string; tier?: string }>> {
     const result: Array<{ name: string; provider: string; tier?: string }> = []
+    const ollamaCloud = this.adapters.get('ollamaCloud') as OllamaCloudAdapter | undefined
+    if (ollamaCloud) {
+      const cloudModels = await ollamaCloud.listModels()
+      for (const name of cloudModels) {
+        result.push({ name, provider: 'ollamaCloud' })
+      }
+    }
+
     for (const [providerId, adapter] of this.adapters) {
+      if (providerId === 'ollamaCloud') continue  // already handled above
       let modelNames: string[]
       if (providerId === 'ollama') {
         modelNames = await (adapter as OllamaAdapter).listModels()
@@ -1079,6 +1099,7 @@ export class ModelRouter {
     if (!this.config.providers.openai.enabled) result['openai'] = 'disabled'
     if (!this.config.providers.ollama.enabled) result['ollama'] = 'disabled'
     if (!this.config.providers.openrouter.enabled) result['openrouter'] = 'disabled'
+    if (!this.config.providers.ollamaCloud?.enabled) result['ollamaCloud'] = 'disabled'
     return result
   }
 }
