@@ -733,6 +733,16 @@ export default class Install extends Command {
         }
       }
 
+      const openrouterKey = await prompt(
+        rl,
+        chalk.cyan('OpenRouter API key') + chalk.gray(' (optional — press Enter to skip): '),
+      )
+
+      const ollamaCloudKey = await prompt(
+        rl,
+        chalk.cyan('Ollama Cloud API key') + chalk.gray(' (optional — press Enter to skip): '),
+      )
+
       // Repo path
       const detected = await findRepoRoot(process.cwd())
       const defaultRepoDir = detected ?? join(homedir(), 'agency')
@@ -813,8 +823,15 @@ export default class Install extends Command {
       const apiKey = 'agency-key-' + randomUUID()
       const provider = useOllama ? 'ollama' : useOpenAI ? 'openai' : 'anthropic'
       const config = buildDefaultConfig({ profile: 'basic', repoDir, userName, provider })
+      const modelRouterProviders = (config.modelRouter as Record<string, unknown>).providers as Record<string, { enabled: boolean }>
+      if (openrouterKey) {
+        modelRouterProviders.openrouter = { enabled: true }
+      }
+      if (ollamaCloudKey) {
+        modelRouterProviders.ollamaCloud = { enabled: true }
+      }
       await writeConfig(config)
-      await writeCredentials({
+      const credentials: Record<string, unknown> = {
         gateway: { apiKey },
         ...(useOllama
           ? {}
@@ -823,7 +840,14 @@ export default class Install extends Command {
             : { anthropic: { apiKey: aiApiKey } }),
         postgres: { url: `postgresql://agency:agency@localhost:${PORTS.POSTGRES}/agency` },
         redis: { url: `redis://localhost:${PORTS.REDIS}` },
-      })
+      }
+      if (openrouterKey) {
+        credentials.openrouter = { apiKey: openrouterKey }
+      }
+      if (ollamaCloudKey) {
+        credentials.ollamaCloud = { apiKey: ollamaCloudKey }
+      }
+      await writeCredentials(credentials)
 
       // Start gateway (runs DB migrations on startup, creates main agent)
       process.stdout.write(chalk.gray('  Starting gateway... '))
