@@ -41,7 +41,7 @@ Your agents maintain **persistent memory** across all sessions — stored in Pos
 | 💾 **Persistent memory** | Conversations and knowledge stored in PostgreSQL with pgvector for semantic vector search. Context retrieved automatically across sessions. Agents in a group share a group memory layer. |
 | 📚 **Structured knowledge base** | An [Obsidian](https://obsidian.md) vault at `~/.agency/vault/` synced in real-time to PostgreSQL. Open it in Obsidian to visually browse your agent's default brain, explore agent-drafted proposals, and review canon notes you've approved. Obsidian is free and optional — the vault is plain Markdown files that work in any editor. |
 | 🦙 **Local model support** | Ollama runs in Docker. `qwen3:8b` pulled automatically on install. No cloud required. |
-| 🔀 **Model routing** | Route tasks across Anthropic (Claude), OpenAI (GPT), and Ollama simultaneously. Per-tier routing with automatic fallbacks. Prompt caching reduces API costs on repeated context. |
+| 🔀 **Model routing** | Route tasks across Anthropic (Claude), OpenAI (GPT), Ollama (local), Ollama Cloud, and OpenRouter simultaneously. Per-tier routing with automatic fallbacks. Prompt caching reduces API costs on repeated context. |
 | ⚡ **Real-time streaming** | WebSocket chat with live token streaming, tool call cards, and full session history. Session search, prompt suggestions, and away-summary recaps when you return to an idle session. |
 | 🛠️ **Skills & profiles** | Modular agent capabilities and swappable behavior profiles. Attach different toolsets without reconfiguring everything. |
 | 🔧 **Tool registry** | Browse and manage the full set of agent tools by type: file, shell, browser, HTTP, code, memory, vault, messaging, and agent management. |
@@ -72,7 +72,7 @@ graph TB
 
         subgraph Services["Services"]
             Orchestrator["🤝 Orchestrator<br/>Agent Coordination"]
-            ModelRouter["🔀 Model Router<br/>Anthropic / OpenAI / Ollama"]
+            ModelRouter["🔀 Model Router<br/>Anthropic / OpenAI / Ollama / Ollama Cloud / OpenRouter"]
             VaultSync["📚 Vault Sync<br/>Markdown → pgvector"]
         end
 
@@ -138,7 +138,7 @@ agency install
 The installer will:
 
 1. 👤 Ask for your name and your main agent's name
-2. 🔑 Ask for your AI API key (Anthropic or OpenAI)
+2. 🔑 Ask for your AI API key (Anthropic or OpenAI, plus optional OpenRouter / Ollama Cloud keys)
 3. 🐳 Start PostgreSQL, Redis, and Ollama in Docker
 4. 🦙 Pull `qwen3:1.7b`, `qwen3:8b`, `nemotron-3-nano:4b`, and `gemma4:e4b` into Ollama automatically
 5. 🔨 Build the app
@@ -342,7 +342,7 @@ Open at **[http://localhost:2001](http://localhost:2001)**
 
 ## 🤖 Models
 
-Agency supports **three providers simultaneously**:
+Agency supports **five providers simultaneously**:
 
 | Provider | Models | Notes |
 |----------|--------|-------|
@@ -367,7 +367,7 @@ Pre-1.0. Core platform is functional. Active development.
 - [x] 👥 Workspace groups with shared workspaces and group memory
 - [x] 🗺️ Canvas views (per-agent, group topology, full-system network map)
 - [x] 🤖 Agent Architect — LLM-generated agent specs from plain-language descriptions
-- [x] 🔀 Model routing (Anthropic / OpenAI / Ollama) + prompt caching
+- [x] 🔀 Model routing (Anthropic / OpenAI / Ollama / Ollama Cloud / OpenRouter) + prompt caching
 - [x] 📚 Vault sync (Markdown → PostgreSQL + pgvector)
 - [x] 🌐 Dashboard (16 pages)
 - [x] 🔧 Tool registry with typed tool browsing
