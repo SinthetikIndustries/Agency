@@ -129,6 +129,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   openai: 'OpenAI',
   ollama: 'Ollama (local)',
   openrouter: 'OpenRouter',
+  ollamaCloud: 'Ollama Cloud',
 }
 
 function GeneralPanel() {
