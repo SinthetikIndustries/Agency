@@ -9,7 +9,7 @@ import Link from 'next/link'
 import '@xyflow/react/dist/style.css'
 import { ReactFlow, Background, Controls, useNodesState, useEdgesState, type Node, type Edge } from '@xyflow/react'
 import { NODE_TYPES } from '@/components/canvas/node-types'
-import { agents, workspace, models, routingProfiles, skills, agentSkills, tools, mcp, agentMcp, type Agent, type WorkspaceFile, type AgentModelConfig, type RoutingProfile, type Skill, type AgentSkill, type Tool, type McpServer, type AgentMcpServer } from '@/lib/api'
+import { agents, workspace, models, routingProfiles, skills, agentSkills, tools, mcp, agentMcp, type Agent, type AgentWorkspaceContext, type AgentWorkspaceSecondary, type AgentWorkspaceGroup, type WorkspaceFile, type AgentModelConfig, type RoutingProfile, type Skill, type AgentSkill, type Tool, type McpServer, type AgentMcpServer } from '@/lib/api'
 
 type Tab = 'overview' | 'model' | 'files' | 'tools' | 'skills' | 'mcp' | 'canvas'
 const CONTEXT_FILES = ['config/identity.md', 'config/soul.md', 'config/user.md', 'config/heartbeat.md', 'config/capabilities.md', 'config/scratch.md']
@@ -171,9 +171,57 @@ function SelectRow({ label, value, options, onChange, disabled }: {
   )
 }
 
+// ─── Group Workspaces Section ─────────────────────────────────────────────────
+
+function GroupWorkspacesSection({ workspaceCtx, isOrchestrator }: {
+  workspaceCtx: AgentWorkspaceContext | null
+  isOrchestrator: boolean
+}) {
+  const groupList = workspaceCtx?.groupWorkspaces ?? []
+
+  return (
+    <Section title="Group Workspaces">
+      {groupList.length === 0 ? (
+        <div className="px-4 py-3">
+          <span className="text-xs text-gray-600">No group workspaces</span>
+        </div>
+      ) : (
+        groupList.map((gw: AgentWorkspaceGroup) => (
+          <div key={gw.groupId} className="flex items-center justify-between px-4 py-2.5 gap-4">
+            <div className="flex-1 min-w-0">
+              <a
+                href={`/dashboard/groups/${gw.groupId}`}
+                className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                {gw.groupName}
+              </a>
+              <div className="font-mono text-xs text-gray-600 truncate mt-0.5">{gw.path}</div>
+            </div>
+            <div className="shrink-0">
+              {gw.isSystemGroup ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/30 text-blue-400 border border-blue-800/40">primary group</span>
+              ) : isOrchestrator ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 border border-gray-700">tertiary</span>
+              ) : (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/30 text-purple-400 border border-purple-800/40">group workspace</span>
+              )}
+            </div>
+          </div>
+        ))
+      )}
+    </Section>
+  )
+}
+
 // ─── Workspace Section ────────────────────────────────────────────────────────
 
-function WorkspaceSection({ agent, slug, onReload }: { agent: Agent; slug: string; onReload: () => void }) {
+function WorkspaceSection({ agent, slug, onReload, workspaceCtx }: {
+  agent: Agent
+  slug: string
+  onReload: () => void
+  workspaceCtx: AgentWorkspaceContext | null
+}) {
+  const isOrchestrator = slug === 'orchestrator'
   const [newPath, setNewPath] = useState('')
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<Set<string>>(new Set())
@@ -227,45 +275,60 @@ function WorkspaceSection({ agent, slug, onReload }: { agent: Agent; slug: strin
         </div>
       </div>
 
-      {/* Additional workspaces */}
-      {additional.map(path => (
-        <div key={path} className="flex items-center justify-between px-4 py-2.5 gap-4">
-          <span className="font-mono text-xs text-gray-400 flex-1 truncate">{path}</span>
-          <div className="shrink-0 flex items-center gap-2">
-            {locked.has(path) ? (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 border border-gray-700">locked</span>
-            ) : (
-              <button
-                onClick={() => void handleRemove(path)}
-                disabled={removing.has(path)}
-                className="text-xs text-red-500 hover:text-red-400 transition-colors disabled:opacity-40"
-                title="Remove workspace"
-              >
-                {removing.has(path) ? '…' : '✕'}
-              </button>
-            )}
+      {isOrchestrator ? (
+        /* Orchestrator: secondary (agent) workspaces — labeled, locked, no remove */
+        (workspaceCtx?.secondary ?? []).map((ws: AgentWorkspaceSecondary) => (
+          <div key={ws.path} className="flex items-center justify-between px-4 py-2.5 gap-4">
+            <span className="font-mono text-xs text-gray-400 flex-1 truncate">{ws.path}</span>
+            <div className="shrink-0 flex items-center gap-2">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 border border-gray-700">secondary</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-900/30 text-indigo-400 border border-indigo-800/40">{ws.agentName}</span>
+            </div>
           </div>
-        </div>
-      ))}
+        ))
+      ) : (
+        /* Other agents: additional paths with remove buttons */
+        additional.map(path => (
+          <div key={path} className="flex items-center justify-between px-4 py-2.5 gap-4">
+            <span className="font-mono text-xs text-gray-400 flex-1 truncate">{path}</span>
+            <div className="shrink-0 flex items-center gap-2">
+              {locked.has(path) ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 border border-gray-700">locked</span>
+              ) : (
+                <button
+                  onClick={() => void handleRemove(path)}
+                  disabled={removing.has(path)}
+                  className="text-xs text-red-500 hover:text-red-400 transition-colors disabled:opacity-40"
+                  title="Remove workspace"
+                >
+                  {removing.has(path) ? '…' : '✕'}
+                </button>
+              )}
+            </div>
+          </div>
+        ))
+      )}
 
-      {/* Add row */}
-      <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-800">
-        <input
-          value={newPath}
-          onChange={e => setNewPath(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') void handleAdd() }}
-          placeholder="/absolute/path/to/workspace"
-          className="flex-1 bg-gray-800 border border-gray-700 text-xs text-gray-200 font-mono rounded px-2.5 py-1.5 focus:outline-none focus:border-blue-600 placeholder:text-gray-600"
-        />
-        <button
-          onClick={() => void handleAdd()}
-          disabled={adding || !newPath.trim()}
-          style={{ background: '#2563eb', color: '#fff', border: 'none', cursor: 'pointer' }}
-          className="text-xs px-3 py-1.5 rounded disabled:opacity-40 transition-opacity hover:opacity-90 shrink-0"
-        >
-          {adding ? '…' : '+ Add'}
-        </button>
-      </div>
+      {/* Add row — hidden for orchestrator (workspaces are auto-managed) */}
+      {!isOrchestrator && (
+        <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-800">
+          <input
+            value={newPath}
+            onChange={e => setNewPath(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') void handleAdd() }}
+            placeholder="/absolute/path/to/workspace"
+            className="flex-1 bg-gray-800 border border-gray-700 text-xs text-gray-200 font-mono rounded px-2.5 py-1.5 focus:outline-none focus:border-blue-600 placeholder:text-gray-600"
+          />
+          <button
+            onClick={() => void handleAdd()}
+            disabled={adding || !newPath.trim()}
+            style={{ background: '#2563eb', color: '#fff', border: 'none', cursor: 'pointer' }}
+            className="text-xs px-3 py-1.5 rounded disabled:opacity-40 transition-opacity hover:opacity-90 shrink-0"
+          >
+            {adding ? '…' : '+ Add'}
+          </button>
+        </div>
+      )}
 
       {(msg || err) && (
         <div className="px-4 pb-2">
@@ -294,6 +357,11 @@ function OverviewTab({ agent, slug, onReload }: { agent: Agent; slug: string; on
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
+  const [workspaceCtx, setWorkspaceCtx] = useState<AgentWorkspaceContext | null>(null)
+
+  useEffect(() => {
+    agents.workspaces(slug).then(setWorkspaceCtx).catch(() => {})
+  }, [slug])
 
   async function save() {
     setSaving(true); setErr(''); setMsg('')
@@ -335,11 +403,15 @@ function OverviewTab({ agent, slug, onReload }: { agent: Agent; slug: string; on
       {/* Identity */}
       <Section title="Identity">
         <Row label="Name">
-          <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            className="bg-gray-800 border border-gray-700 text-sm text-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-blue-600 min-w-[220px]"
-          />
+          {isOrchestrator ? (
+            <span className="text-sm text-gray-300 min-w-[220px]">{agent.identity.name}</span>
+          ) : (
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              className="bg-gray-800 border border-gray-700 text-sm text-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-blue-600 min-w-[220px]"
+            />
+          )}
         </Row>
         <Row label="Slug">
           <span className="font-mono text-sm text-gray-500">{agent.identity.slug}</span>
@@ -350,22 +422,24 @@ function OverviewTab({ agent, slug, onReload }: { agent: Agent; slug: string; on
         </Row>
       </Section>
 
-      {/* Profile */}
-      <Section title="Profile">
-        <Row label="Active profile">
-          {profiles.length > 0 ? (
-            <select
-              defaultValue={agent.profile?.slug ?? ''}
-              onChange={e => void switchProfile(e.target.value)}
-              className="bg-gray-800 border border-gray-700 text-sm text-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-blue-600 min-w-[220px]"
-            >
-              {profiles.map(p => <option key={p.slug} value={p.slug}>{p.name}</option>)}
-            </select>
-          ) : (
-            <span className="text-sm text-gray-400">{agent.profile?.name ?? '—'}</span>
-          )}
-        </Row>
-      </Section>
+      {/* Profile — hidden for orchestrator */}
+      {!isOrchestrator && (
+        <Section title="Profile">
+          <Row label="Active profile">
+            {profiles.length > 0 ? (
+              <select
+                defaultValue={agent.profile?.slug ?? ''}
+                onChange={e => void switchProfile(e.target.value)}
+                className="bg-gray-800 border border-gray-700 text-sm text-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-blue-600 min-w-[220px]"
+              >
+                {profiles.map(p => <option key={p.slug} value={p.slug}>{p.name}</option>)}
+              </select>
+            ) : (
+              <span className="text-sm text-gray-400">{agent.profile?.name ?? '—'}</span>
+            )}
+          </Row>
+        </Section>
+      )}
 
       {/* Lifecycle */}
       <Section title="Lifecycle">
@@ -400,7 +474,10 @@ function OverviewTab({ agent, slug, onReload }: { agent: Agent; slug: string; on
       </Section>
 
       {/* Workspace */}
-      <WorkspaceSection agent={agent} slug={slug} onReload={onReload} />
+      <WorkspaceSection agent={agent} slug={slug} onReload={onReload} workspaceCtx={workspaceCtx} />
+
+      {/* Group Workspaces */}
+      <GroupWorkspacesSection workspaceCtx={workspaceCtx} isOrchestrator={isOrchestrator} />
 
       {/* Permissions */}
       <Section title="Permissions">
