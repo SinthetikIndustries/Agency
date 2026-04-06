@@ -765,25 +765,30 @@ export default class Install extends Command {
         this.warn('Ollama daemon did not start in time — pull models manually after install: docker exec agency-ollama ollama pull <model>')
       } else {
         this.log(chalk.green(' ready'))
-        const ollamaModels = ['qwen3:1.7b', 'qwen3:8b', 'nemotron-3-nano:4b', 'gemma4:e4b']
-        const modelCheck = spawnSync(
-          'docker', ['exec', 'agency-ollama', 'ollama', 'list'],
-          { stdio: 'pipe' }
-        )
-        const modelList = modelCheck.stdout?.toString() ?? ''
-        for (const model of ollamaModels) {
-          if (modelList.includes(model)) {
-            this.log(chalk.gray(`  Ollama model ${model} already present, skipping download.`))
-          } else {
-            this.log(chalk.gray(`  Pulling Ollama model ${model} (this may take a moment)...`))
-            const ollamaPullResult = spawnSync(
-              'docker', ['exec', 'agency-ollama', 'ollama', 'pull', model],
-              { stdio: 'inherit' }
-            )
-            if (ollamaPullResult.status !== 0) {
-              this.warn(`Ollama model pull failed — run \`docker exec agency-ollama ollama pull ${model}\` manually after install.`)
+        const selectedModels = await selectOllamaModels((q) => prompt(rl, q))
+        if (selectedModels.length === 0) {
+          this.log(chalk.gray('  Skipping model pulls. Pull any time: agency models pull <model>'))
+          this.log(chalk.gray('  Available: ' + OLLAMA_MODELS.join(', ')))
+        } else {
+          const modelCheck = spawnSync(
+            'docker', ['exec', 'agency-ollama', 'ollama', 'list'],
+            { stdio: 'pipe' }
+          )
+          const modelList = modelCheck.stdout?.toString() ?? ''
+          for (const model of selectedModels) {
+            if (modelList.includes(model)) {
+              this.log(chalk.gray(`  Ollama model ${model} already present, skipping download.`))
             } else {
-              this.log(chalk.green(`  ${model} ready.`))
+              this.log(chalk.gray(`  Pulling Ollama model ${model} (this may take a moment)...`))
+              const ollamaPullResult = spawnSync(
+                'docker', ['exec', 'agency-ollama', 'ollama', 'pull', model],
+                { stdio: 'inherit' }
+              )
+              if (ollamaPullResult.status !== 0) {
+                this.warn(`Ollama model pull failed — run \`docker exec agency-ollama ollama pull ${model}\` manually after install.`)
+              } else {
+                this.log(chalk.green(`  ${model} ready.`))
+              }
             }
           }
         }
