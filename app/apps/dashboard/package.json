@@ -11,6 +11,8 @@
   "dependencies": {
     "@codesandbox/sandpack-react": "^2.20.0",
     "@dagrejs/dagre": "^3.0.0",
+    "@types/three": "^0.183.1",
+    "@uiw/react-md-editor": "^4.1.0",
     "@xyflow/react": "^12.10.2",
     "cronstrue": "^3.14.0",
     "diff": "^8.0.3",
@@ -20,9 +22,11 @@
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-force-graph-3d": "^1.29.1",
     "react-markdown": "^10.1.0",
     "rehype-highlight": "^7.0.2",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
