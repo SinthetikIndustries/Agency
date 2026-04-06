@@ -377,6 +377,10 @@ export async function createGateway(): Promise<void> {
     invokeService,
     discordService: connectorRegistry,
     vaultStore,
+    brainStore: {
+      gatewayUrl: `http://localhost:${gwPort}`,
+      apiKey: gatewayApiKey,
+    },
     diagnosticsProvider: () => {
       if (!resolvedDiagnosticsProvider) {
         return Promise.resolve({

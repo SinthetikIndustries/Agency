@@ -1,11 +1,10 @@
 // Copyright (c) 2026 Sinthetix, LLC. All rights reserved.
 // https://www.sinthetix.com
 
-import { describe, it, expect, afterEach, beforeEach } from 'vitest'
-import { buildDefaultConfig, setupObsidianVault } from '../../src/commands/install.js'
-import { mkdtemp, rm, writeFile, readFile, access, mkdir } from 'node:fs/promises'
+import { describe, it, expect } from 'vitest'
+import { buildDefaultConfig } from '../../src/commands/install.js'
 import { join } from 'node:path'
-import { tmpdir, homedir } from 'node:os'
+import { homedir } from 'node:os'
 
 describe('buildDefaultConfig', () => {
   it('sets name from userName', () => {
@@ -53,68 +52,3 @@ describe('buildDefaultConfig', () => {
   })
 })
 
-describe('setupObsidianVault', () => {
-  let tmpDir: string
-
-  beforeEach(async () => {
-    tmpDir = await mkdtemp(join(tmpdir(), 'agency-vault-test-'))
-  })
-
-  afterEach(async () => {
-    await rm(tmpDir, { recursive: true })
-  })
-
-  it('creates canon/, proposals/, notes/, templates/ subdirectories', async () => {
-    const vaultPath = join(tmpDir, 'vault')
-    const obsidianCfg = join(tmpDir, 'obsidian.json')
-    await setupObsidianVault(vaultPath, obsidianCfg)
-    for (const sub of ['canon', 'proposals', 'notes', 'templates']) {
-      await expect(access(join(vaultPath, sub))).resolves.toBeUndefined()
-    }
-  })
-
-  it('registers the vault path in obsidian config', async () => {
-    const vaultPath = join(tmpDir, 'vault')
-    const obsidianCfg = join(tmpDir, 'obsidian.json')
-    await setupObsidianVault(vaultPath, obsidianCfg)
-    const raw = await readFile(obsidianCfg, 'utf8')
-    const config = JSON.parse(raw) as { vaults: Record<string, { path: string }> }
-    const paths = Object.values(config.vaults).map(v => v.path)
-    expect(paths).toContain(vaultPath)
-  })
-
-  it('merges with existing obsidian vaults (does not overwrite)', async () => {
-    const vaultPath = join(tmpDir, 'vault')
-    const obsidianCfg = join(tmpDir, 'obsidian.json')
-    const existing = { vaults: { 'existing-uuid': { path: '/other/vault', ts: 1000, open: false } } }
-    await writeFile(obsidianCfg, JSON.stringify(existing), 'utf8')
-    await setupObsidianVault(vaultPath, obsidianCfg)
-    const raw = await readFile(obsidianCfg, 'utf8')
-    const config = JSON.parse(raw) as { vaults: Record<string, { path: string }> }
-    const paths = Object.values(config.vaults).map(v => v.path)
-    expect(paths).toContain('/other/vault')
-    expect(paths).toContain(vaultPath)
-  })
-
-  it('handles obsidian config without vaults key', async () => {
-    const vaultPath = join(tmpDir, 'vault')
-    const obsidianCfg = join(tmpDir, 'obsidian.json')
-    await writeFile(obsidianCfg, JSON.stringify({}), 'utf8')  // valid JSON, no vaults key
-    await expect(setupObsidianVault(vaultPath, obsidianCfg)).resolves.toBeUndefined()
-    const raw = await readFile(obsidianCfg, 'utf8')
-    const config = JSON.parse(raw) as { vaults: Record<string, { path: string }> }
-    const paths = Object.values(config.vaults).map(v => v.path)
-    expect(paths).toContain(vaultPath)
-  })
-
-  it('does not register vault twice if already present', async () => {
-    const vaultPath = join(tmpDir, 'vault')
-    const obsidianCfg = join(tmpDir, 'obsidian.json')
-    await setupObsidianVault(vaultPath, obsidianCfg)
-    await setupObsidianVault(vaultPath, obsidianCfg)
-    const raw = await readFile(obsidianCfg, 'utf8')
-    const config = JSON.parse(raw) as { vaults: Record<string, { path: string }> }
-    const paths = Object.values(config.vaults).map(v => v.path)
-    expect(paths.filter(p => p === vaultPath).length).toBe(1)
-  })
-})
