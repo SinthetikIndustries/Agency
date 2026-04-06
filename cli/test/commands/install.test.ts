@@ -55,7 +55,8 @@ describe('buildDefaultConfig', () => {
 describe('selectOllamaModels', () => {
   it('returns all models when user enters "a"', async () => {
     const result = await selectOllamaModels(async () => 'a')
-    expect(result).toEqual(OLLAMA_MODELS)
+    expect(result).toEqual(['qwen3:1.7b', 'qwen3:8b', 'nemotron-3-nano:4b', 'gemma4:e4b'])
+    expect(result).not.toBe(OLLAMA_MODELS)
   })
 
   it('returns first model when user enters "1"', async () => {

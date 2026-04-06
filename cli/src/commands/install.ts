@@ -87,7 +87,7 @@ export async function selectOllamaModels(
   console.log('  a) All models')
   console.log('  0) None — skip for now')
   console.log('')
-  const choice = await promptFn('Choice [1/2/3/4/a/0]: ')
+  const choice = (await promptFn('Choice [1/2/3/4/a/0]: ')).trim()
   if (choice === 'a') return [...OLLAMA_MODELS]
   const idx = parseInt(choice, 10)
   if (idx >= 1 && idx <= OLLAMA_MODELS.length) return [OLLAMA_MODELS[idx - 1]]
