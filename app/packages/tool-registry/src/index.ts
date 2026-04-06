@@ -25,6 +25,8 @@ import { createDiscordHandlers } from './tools/discord-handlers.js'
 import type { DiscordService } from './tools/discord-handlers.js'
 import { createVaultHandlers } from './tools/vault-handlers.js'
 import type { VaultStore } from './tools/vault-handlers.js'
+import { createBrainHandlers } from './tools/brain-handlers.js'
+import type { BrainStore } from './tools/brain-handlers.js'
 
 // ─── Tool Registry ────────────────────────────────────────────────────────────
 
@@ -696,6 +698,99 @@ const VAULT_PROPOSE_MANIFEST: ToolManifest = {
   timeout: 10_000,
 }
 
+// ─── Brain Tool Manifests ─────────────────────────────────────────────────────
+
+export const BRAIN_READ_MANIFEST: ToolManifest = {
+  name: 'brain_read',
+  type: 'code',
+  description: 'Read a specific node from the Brain by its ID. Returns full node content, metadata, confidence, and version.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      node_id: { type: 'string', description: 'UUID of the brain node to read' },
+    },
+    required: ['node_id'],
+  },
+  permissions: [],
+  sandboxed: false,
+  timeout: 10_000,
+}
+
+export const BRAIN_WRITE_MANIFEST: ToolManifest = {
+  name: 'brain_write',
+  type: 'code',
+  description: 'Create a new node in the Brain, or update an existing one. Provide node_id to update. Embeddings are generated automatically.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      node_id:    { type: 'string', description: 'UUID of existing node to update (omit to create)' },
+      label:      { type: 'string', description: 'Short name or title of the node' },
+      type:       { type: 'string', description: 'Node type: concept, fact, memory, procedure, insight, pattern, agent, code' },
+      content:    { type: 'string', description: 'Full markdown content of the node' },
+      confidence: { type: 'number', description: 'Confidence 0.0–1.0 (default 1.0)' },
+      metadata:   { type: 'object', description: 'Arbitrary key-value metadata' },
+    },
+  },
+  permissions: [],
+  sandboxed: false,
+  timeout: 15_000,
+}
+
+export const BRAIN_RELATE_MANIFEST: ToolManifest = {
+  name: 'brain_relate',
+  type: 'code',
+  description: 'Create a typed, weighted edge between two brain nodes. Use to record discovered relationships.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      from_id:       { type: 'string', description: 'Source node UUID' },
+      to_id:         { type: 'string', description: 'Target node UUID' },
+      type:          { type: 'string', description: 'Edge type: references, implements, contradicts, supports, causes, derives_from, overrides' },
+      weight:        { type: 'number', description: 'Relationship strength 0.0–∞ (default 1.0)' },
+      bidirectional: { type: 'boolean', description: 'Whether the relationship goes both ways (default false)' },
+    },
+    required: ['from_id', 'to_id'],
+  },
+  permissions: [],
+  sandboxed: false,
+  timeout: 10_000,
+}
+
+export const BRAIN_SEARCH_MANIFEST: ToolManifest = {
+  name: 'brain_search',
+  type: 'code',
+  description: 'Semantic search across Brain nodes using vector similarity. Returns ranked results by relevance.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Natural language search query' },
+      limit: { type: 'number', description: 'Max results (default 20, max 50)' },
+      type:  { type: 'string', description: 'Filter by node type (optional)' },
+    },
+    required: ['query'],
+  },
+  permissions: [],
+  sandboxed: false,
+  timeout: 15_000,
+}
+
+export const BRAIN_TRAVERSE_MANIFEST: ToolManifest = {
+  name: 'brain_traverse',
+  type: 'code',
+  description: 'Explore the Brain graph from a starting node, following edges up to N hops. Reveals connections agents may not have anticipated.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      node_id: { type: 'string', description: 'Starting node UUID' },
+      depth:   { type: 'number', description: 'Max hops to traverse (default 2, max 5)' },
+    },
+    required: ['node_id'],
+  },
+  permissions: [],
+  sandboxed: false,
+  timeout: 15_000,
+}
+
 // ─── Built-in Handlers ────────────────────────────────────────────────────────
 
 async function handleFileRead(
@@ -977,7 +1072,7 @@ const SYSTEM_DIAGNOSE_MANIFEST: ToolManifest = {
 
 // ─── Tool Registry Factory ────────────────────────────────────────────────────
 
-export function createToolRegistry(queueClient?: QueueClient, options?: { memoryStore?: MemoryStore; messagingService?: MessagingService; invokeService?: InvokeService; discordService?: DiscordService; vaultStore?: VaultStore; diagnosticsProvider?: DiagnosticsProvider }): ToolRegistry {
+export function createToolRegistry(queueClient?: QueueClient, options?: { memoryStore?: MemoryStore; messagingService?: MessagingService; invokeService?: InvokeService; discordService?: DiscordService; vaultStore?: VaultStore; brainStore?: BrainStore; diagnosticsProvider?: DiagnosticsProvider }): ToolRegistry {
   const registry = new ToolRegistry(queueClient)
 
   registry.register(FILE_READ_MANIFEST, handleFileRead)
@@ -1064,6 +1159,22 @@ export function createToolRegistry(queueClient?: QueueClient, options?: { memory
     registry.register(VAULT_PROPOSE_MANIFEST, async () => ({ error: 'Vault not configured' }))
   }
 
+  // Brain tools
+  if (options?.brainStore) {
+    const brainHandlers = createBrainHandlers(options.brainStore)
+    registry.register(BRAIN_READ_MANIFEST, (input, ctx) => brainHandlers.brain_read(input, ctx))
+    registry.register(BRAIN_WRITE_MANIFEST, (input, ctx) => brainHandlers.brain_write(input, ctx))
+    registry.register(BRAIN_RELATE_MANIFEST, (input, ctx) => brainHandlers.brain_relate(input, ctx))
+    registry.register(BRAIN_SEARCH_MANIFEST, (input, ctx) => brainHandlers.brain_search(input, ctx))
+    registry.register(BRAIN_TRAVERSE_MANIFEST, (input, ctx) => brainHandlers.brain_traverse(input, ctx))
+  } else {
+    registry.register(BRAIN_READ_MANIFEST, async () => ({ error: 'Brain not configured' }))
+    registry.register(BRAIN_WRITE_MANIFEST, async () => ({ error: 'Brain not configured' }))
+    registry.register(BRAIN_RELATE_MANIFEST, async () => ({ error: 'Brain not configured' }))
+    registry.register(BRAIN_SEARCH_MANIFEST, async () => ({ error: 'Brain not configured' }))
+    registry.register(BRAIN_TRAVERSE_MANIFEST, async () => ({ error: 'Brain not configured' }))
+  }
+
   // System diagnostics — main agent only
   if (options?.diagnosticsProvider) {
     const provider = options.diagnosticsProvider
@@ -1124,5 +1235,6 @@ export const ToolHandlers: Record<string, ToolHandler> = {
 
 export type { ToolManifest, ToolContext, ToolDispatchResult, ToolType }
 export type { VaultStore, VaultDb } from './tools/vault-handlers.js'
+export type { BrainStore } from './tools/brain-handlers.js'
 export type { DiscordService } from './tools/discord-handlers.js'
 export type { InvokeService } from './tools/messaging-handlers.js'
