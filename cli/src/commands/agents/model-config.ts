@@ -5,6 +5,8 @@ import { Command, Args, Flags } from '@oclif/core'
 import chalk from 'chalk'
 import { gatewayFetch } from '../../lib/gateway.js'
 
+const PROVIDERS = ['anthropic', 'openai', 'ollama', 'openrouter', 'ollamaCloud'] as const
+
 export default class AgentsModelConfig extends Command {
   static summary = 'Set model routing config for an agent'
 
