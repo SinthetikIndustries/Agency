@@ -1884,12 +1884,15 @@ export async function createGateway(): Promise<void> {
     const body = request.body as { model: string } | undefined
     if (!body?.model) return reply.status(400).send({ error: 'model is required' })
     services.config.modelRouter.defaultModel = body.model
+    services.config.modelRouter.tiers.cheap = body.model
+    services.config.modelRouter.tiers.strong = body.model
     // Persist to config.json so the change survives restart
     const configPath = join(homedir(), '.agency', 'config.json')
     try {
       const raw = JSON.parse(await readFile(configPath, 'utf-8'))
       raw.modelRouter = raw.modelRouter ?? {}
       raw.modelRouter.defaultModel = body.model
+      raw.modelRouter.tiers = { ...raw.modelRouter.tiers, cheap: body.model, strong: body.model }
       await writeFile(configPath, JSON.stringify(raw, null, 2), 'utf-8')
     } catch (err) {
       console.error('[Gateway] Failed to persist default model to config:', err)
