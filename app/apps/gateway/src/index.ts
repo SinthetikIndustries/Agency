@@ -28,6 +28,10 @@ import { runMigrations } from './migrate.js'
 import { loadRoutingProfiles, registerRoutingProfileRoutes, type RoutingProfile } from './routing-profiles.js'
 import { registerVaultRoutes } from './vault-routes.js'
 import { registerBrainRoutes } from './brain-routes.js'
+import { registerAgentConfigRoutes } from './agent-config-routes.js'
+import { registerMemoryRoutes } from './memory-routes.js'
+import { registerSubprogramRoutes } from './subprograms-routes.js'
+import { SubprogramRunner } from '@agency/orchestrator/subprograms/runner'
 import { registerMeRoutes } from './me-routes.js'
 import { registerOnboardingRoutes } from './onboarding-routes.js'
 import { SkillsManager } from './skills-manager.js'
@@ -626,6 +630,14 @@ export async function createGateway(): Promise<void> {
     schedulerService = undefined
   }
 
+  // ── Subprogram runner intervals ───────────────────────────────────────────
+  const subprogramRunner = new SubprogramRunner(db)
+  await subprogramRunner.scheduleAll()
+  const monInterval    = setInterval(() => { void subprogramRunner.run('MON').catch(e => console.error('[MON]', e))  },  5 * 60 * 1000)
+  const sensInterval   = setInterval(() => { void subprogramRunner.run('SENS').catch(e => console.error('[SENS]', e)) }, 15 * 60 * 1000)
+  const lifeInterval   = setInterval(() => { void subprogramRunner.run('LIFE').catch(e => console.error('[LIFE]', e)) }, 60 * 60 * 1000)
+  monInterval.unref(); sensInterval.unref(); lifeInterval.unref()
+
   const services: AppServices = {
     config,
     credentials,
@@ -732,6 +744,15 @@ export async function createGateway(): Promise<void> {
 
   // Brain routes plugin
   await app.register(registerBrainRoutes, { db, ollamaUrl: config.modelRouter.providers.ollama.endpoint ?? `http://localhost:2005` })
+
+  // Agent config routes
+  await app.register(registerAgentConfigRoutes, { db })
+
+  // Memory lifecycle routes
+  await app.register(registerMemoryRoutes, { db })
+
+  // Subprogram routes
+  await app.register(registerSubprogramRoutes, { db })
 
   // Me route
   registerMeRoutes(app)
@@ -2184,6 +2205,9 @@ export async function createGateway(): Promise<void> {
     console.log(`[Gateway] Received ${signal}, shutting down...`)
     clearInterval(approvalCleanupInterval)
     clearInterval(sessionCleanupInterval)
+    clearInterval(monInterval)
+    clearInterval(sensInterval)
+    clearInterval(lifeInterval)
     void hooksManager.fire('gateway.stop', { signal })
     await connectorRegistry.stopAll().catch((err: unknown) => console.error('[Gateway] Error stopping connectors:', err))
     await app.close().catch((err: unknown) => console.error('[Gateway] Error closing app:', err))

@@ -512,7 +512,10 @@ export interface BrainEdge {
 }
 
 export interface BrainGraphNode extends BrainNode {
-  degree: number
+  degree?: number
+  grid_path?: string | null
+  grid_tier?: number
+  grid_locked?: boolean
 }
 
 // ─── Brain API ───────────────────────────────────────────────────────────────
@@ -934,4 +937,51 @@ export const architect = {
       '/agents/architect',
       { method: 'POST', body: JSON.stringify({ description }) }
     ),
+}
+
+// ─── Agent config files ───────────────────────────────────────────────────────
+
+export const agentConfig = {
+  list: (slug: string) =>
+    request<{ files: Array<{ file_type: string; content: string; updated_at: string; updated_by: string }> }>(
+      `/agents/${slug}/config`
+    ),
+  get: (slug: string, type: string) =>
+    request<{ content: string; updated_at: string; updated_by: string }>(`/agents/${slug}/config/${type}`),
+  update: (slug: string, type: string, content: string) =>
+    request<{ ok: boolean; type: string; updated_at: string }>(`/agents/${slug}/config/${type}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    }),
+}
+
+// ─── Subprograms ──────────────────────────────────────────────────────────────
+
+export interface SubprogramRecord {
+  id: string
+  label: string
+  description: string
+  responsibility: string
+  status: 'inactive' | 'running' | 'idle' | 'error'
+  enabled: boolean
+  last_run_at: string | null
+  next_run_at: string | null
+  last_error: string | null
+  run_count: number
+}
+
+export const subprograms = {
+  list: () =>
+    request<{ subprograms: SubprogramRecord[]; count: number }>('/subprograms'),
+  get: (id: string) =>
+    request<SubprogramRecord & { config: Record<string, unknown>; brain_node_id: string | null; created_at: string; updated_at: string }>(`/subprograms/${id}`),
+  run: (id: string) =>
+    request<{ queued: boolean; id: string }>(`/subprograms/${id}/run`, { method: 'POST' }),
+  update: (id: string, patch: { enabled?: boolean; config?: Record<string, unknown> }) =>
+    request<{ ok: boolean; id: string }>(`/subprograms/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }),
 }

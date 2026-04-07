@@ -64,14 +64,16 @@ export async function registerBrainRoutes(
     const nodes = await db.query<{
       id: string; type: string; label: string; confidence: number
       source: string; created_at: string; degree: number
+      grid_path: string | null; grid_tier: number; grid_locked: boolean
     }>(
       `SELECT bn.id, bn.type, bn.label, bn.confidence, bn.source, bn.created_at,
+              bn.grid_path, bn.grid_tier, bn.grid_locked,
               (COUNT(be_out.id) + COUNT(be_in.id))::int AS degree
        FROM brain_nodes bn
        LEFT JOIN brain_edges be_out ON be_out.from_id = bn.id
        LEFT JOIN brain_edges be_in  ON be_in.to_id = bn.id
        GROUP BY bn.id
-       ORDER BY bn.type, bn.label`
+       ORDER BY bn.grid_tier DESC, bn.type, bn.label`
     )
 
     const edges = await db.query<{
@@ -199,7 +201,14 @@ export async function registerBrainRoutes(
 
   app.delete('/brain/nodes/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
-    await db.query('DELETE FROM brain_nodes WHERE id = $1', [id])
+    const node = await db.queryOne<{ grid_locked: boolean }>(
+      'SELECT grid_locked FROM brain_nodes WHERE id = $1', [id]
+    )
+    if (!node) return reply.status(404).send({ error: 'Node not found' })
+    if (node.grid_locked) {
+      return reply.status(403).send({ error: 'Cannot delete a locked Grid structural node' })
+    }
+    await db.execute('DELETE FROM brain_nodes WHERE id = $1', [id])
     return reply.send({ ok: true })
   })
 

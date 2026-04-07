@@ -22,6 +22,7 @@ const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), {
 // ─── Node type → brain region + color ────────────────────────────────────────
 
 const NODE_CONFIG: Record<string, { color: number; region: { x: number; y: number; z: number } }> = {
+  // ── Existing types ────────────────────────────────────────────────────────
   agent:     { color: 0x6366f1, region: { x: 0,    y: 120,  z: 0    } },
   insight:   { color: 0xf59e0b, region: { x: -120, y: 80,   z: -80  } },
   pattern:   { color: 0x10b981, region: { x: 120,  y: 80,   z: -80  } },
@@ -30,9 +31,34 @@ const NODE_CONFIG: Record<string, { color: number; region: { x: number; y: numbe
   procedure: { color: 0xec4899, region: { x: 0,    y: 40,   z: 160  } },
   memory:    { color: 0x06b6d4, region: { x: 0,    y: -40,  z: -160 } },
   code:      { color: 0x84cc16, region: { x: 0,    y: -120, z: 0    } },
+
+  // ── Grid tier-1: layers ───────────────────────────────────────────────────
+  'grid-root':         { color: 0xffffff, region: { x: 0,    y: 0,    z: 0    } },
+  'grid-system':       { color: 0xef4444, region: { x: 0,    y: 350,  z: 0    } },
+  'grid-programs':     { color: 0x6366f1, region: { x: -250, y: 180,  z: 0    } },
+  'grid-memory':       { color: 0x06b6d4, region: { x: 0,    y: -50,  z: 320  } },
+  'grid-history':      { color: 0xf59e0b, region: { x: 320,  y: 50,   z: 0    } },
+  'grid-interfaces':   { color: 0x10b981, region: { x: 0,    y: -300, z: 0    } },
+  'grid-views':        { color: 0xa855f7, region: { x: -180, y: -120, z: -220 } },
+  'grid-state-models': { color: 0x64748b, region: { x: 180,  y: 50,   z: -220 } },
+  'grid-archive':      { color: 0x374151, region: { x: -150, y: -180, z: 220  } },
+
+  // ── Grid tier-2: sections ─────────────────────────────────────────────────
+  'ctrl':          { color: 0xdc2626, region: { x: 0,    y: 420,  z: 0    } },
+  'control-plane': { color: 0xfca5a5, region: { x: -80,  y: 370,  z: 0    } },
+  'subprogram':    { color: 0xf97316, region: { x: 100,  y: 310,  z: 80   } },
+  'runtime':       { color: 0xfbd38d, region: { x: -60,  y: 310,  z: -60  } },
+  'program':       { color: 0x818cf8, region: { x: -280, y: 200,  z: 0    } },
+  'zone':          { color: 0xa78bfa, region: { x: -360, y: 100,  z: 0    } },
+  'memory-tier':   { color: 0x22d3ee, region: { x: 0,    y: -60,  z: 380  } },
+  'history-tier':  { color: 0xfde68a, region: { x: 380,  y: 60,   z: 0    } },
+
+  // ── Grid tier-3: endpoints ────────────────────────────────────────────────
+  'agent-config':  { color: 0x6d28d9, region: { x: -300, y: 240,  z: 60   } },
 }
 
 const EDGE_COLORS: Record<string, string> = {
+  // ── Existing ──────────────────────────────────────────────────────────────
   references:    '#374151',
   implements:    '#4ade80',
   contradicts:   '#f87171',
@@ -40,6 +66,17 @@ const EDGE_COLORS: Record<string, string> = {
   causes:        '#fb923c',
   derives_from:  '#a78bfa',
   overrides:     '#facc15',
+
+  // ── Grid structural ───────────────────────────────────────────────────────
+  contains:         '#1e293b',  // structural containment — dark, subtle
+  owns:             '#4f46e5',  // program → config file
+  'member-of':      '#7c3aed',  // program → zone
+  'delegates-to':   '#dc2626',  // CTRL → program
+  'emitted-by':     '#d97706',  // event → program that emitted it
+  'promoted-from':  '#059669',  // canon ← proposal
+  reads:            '#0891b2',  // program → memory scope
+  writes:           '#0d9488',  // program → memory scope
+  triggers:         '#b45309',  // event → subprogram
 }
 
 function configFor(type: string) {
@@ -52,25 +89,43 @@ function configFor(type: string) {
 function makeNodeObject(rawNode: any) {
   const node = rawNode as BrainGraphNode & { x?: number; y?: number; z?: number }
   const cfg = configFor(node.type)
-  const radius = Math.max(3, Math.min(14, 3 + (node.degree ?? 0) * 0.8))
+  const gridTier = node.grid_tier ?? 0
 
-  const geo = new THREE.SphereGeometry(radius, 16, 16)
+  // Tier-1 Grid nodes are larger; tier-2 slightly above average; others scale with degree
+  let radius: number
+  if (gridTier === 1) {
+    radius = 16
+  } else if (gridTier === 2) {
+    radius = 10
+  } else {
+    radius = Math.max(3, Math.min(14, 3 + (node.degree ?? 0) * 0.8))
+  }
+
+  const geo = new THREE.SphereGeometry(radius, 20, 20)
   const mat = new THREE.MeshLambertMaterial({
     color: cfg.color,
     emissive: cfg.color,
-    emissiveIntensity: 0.2 + (node.confidence ?? 1) * 0.5,
+    emissiveIntensity: gridTier >= 1 ? 0.6 : (0.2 + (node.confidence ?? 1) * 0.5),
     transparent: true,
-    opacity: 0.88,
+    opacity: gridTier >= 1 ? 0.95 : 0.88,
   })
   const mesh = new THREE.Mesh(geo, mat)
 
-  const hitGeo = new THREE.SphereGeometry(radius * 1.6, 8, 8)
-  const hitMat = new THREE.MeshBasicMaterial({ visible: false })
-  const hitMesh = new THREE.Mesh(hitGeo, hitMat)
-
+  // Locked structural nodes get a wireframe ring to indicate immutability
   const group = new THREE.Group()
   group.add(mesh)
-  group.add(hitMesh)
+
+  if (node.grid_locked) {
+    const ringGeo = new THREE.TorusGeometry(radius * 1.3, 0.4, 8, 32)
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: 0.3, transparent: true })
+    group.add(new THREE.Mesh(ringGeo, ringMat))
+  }
+
+  // Hit target
+  const hitGeo = new THREE.SphereGeometry(radius * 1.6, 8, 8)
+  const hitMat = new THREE.MeshBasicMaterial({ visible: false })
+  group.add(new THREE.Mesh(hitGeo, hitMat))
+
   return group
 }
 
@@ -138,9 +193,14 @@ export function BrainGraph3D({ nodes, edges, onNodeClick, className }: BrainGrap
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         nodeLabel={(rawNode: any) => {
           const n = rawNode as BrainGraphNode
-          return `<div style="background:#1f2937;color:#f3f4f6;padding:6px 10px;border-radius:6px;font-size:12px;max-width:240px">
-            <strong>${n.label}</strong><br/>
+          const gridInfo = n.grid_path
+            ? `<br/><span style="color:#6366f1;font-size:10px">${n.grid_path}</span>`
+            : ''
+          const lockIcon = n.grid_locked ? ' 🔒' : ''
+          return `<div style="background:#1f2937;color:#f3f4f6;padding:6px 10px;border-radius:6px;font-size:12px;max-width:280px">
+            <strong>${n.label}${lockIcon}</strong><br/>
             <span style="color:#9ca3af;font-size:11px">${n.type} · confidence ${((n.confidence ?? 1) * 100).toFixed(0)}%</span>
+            ${gridInfo}
           </div>`
         }}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

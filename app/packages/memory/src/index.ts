@@ -6,7 +6,7 @@ import type { Pool } from 'pg'
 
 const { Pool: PgPool } = pg
 
-export type MemoryType = 'episodic' | 'semantic' | 'working'
+export type MemoryType = 'episodic' | 'semantic' | 'working' | 'procedural' | 'reflective'
 
 export interface MemoryEntry {
   id: string
@@ -26,6 +26,15 @@ export interface MemoryWriteInput {
   embedding?: number[]  // pre-computed embedding, or leave undefined to auto-generate
 }
 
+// Scope filter for read() — when provided, replaces the simple agent_id filter
+// with full Grid scope-aware access logic
+export interface ScopeFilter {
+  ownedByAgent: string          // include private memories owned by this agent
+  zoneIds?: string[]            // include zone-visibility memories for these zones
+  includeGlobal?: boolean       // include global-visibility memories
+  minTrustLevel?: number        // minimum trust_level (default 1)
+}
+
 export interface MemoryQuery {
   agentId: string
   query?: string           // natural language query for semantic search
@@ -33,6 +42,7 @@ export interface MemoryQuery {
   limit?: number           // default 10
   minScore?: number        // cosine similarity threshold, default 0.7
   queryEmbedding?: number[] // pre-computed query embedding
+  scopeFilter?: ScopeFilter // when provided, applies Grid scope-aware access rules
 }
 
 export interface MemoryGroupQuery {
@@ -78,21 +88,48 @@ export class MemoryStore {
     const types = query.types ?? ['episodic', 'semantic', 'working']
     const typePlaceholders = types.map((_, i) => `$${i + 2}`).join(', ')
 
+    // Build scope clause when scopeFilter is provided
+    const scopeFilter = query.scopeFilter
+    let scopeClause = `agent_id = $1`
+    const params: unknown[] = [query.agentId, ...types]
+
+    if (scopeFilter) {
+      const minTrust = scopeFilter.minTrustLevel ?? 1
+      const clauses: string[] = [
+        // Private memories owned by this agent
+        `(scope_type = 'agent' AND scope_id = $1 AND visibility = 'private')`,
+      ]
+      if (scopeFilter.zoneIds && scopeFilter.zoneIds.length > 0) {
+        const zoneParam = `$${params.length + 1}`
+        params.push(scopeFilter.zoneIds)
+        clauses.push(`(visibility = 'zone' AND scope_id = ANY(${zoneParam}::text[]))`)
+      }
+      if (scopeFilter.includeGlobal) {
+        const trustParam = `$${params.length + 1}`
+        params.push(minTrust)
+        clauses.push(`(visibility = 'global' AND trust_level >= ${trustParam})`)
+      }
+      scopeClause = `(${clauses.join(' OR ')}) AND memory_status IN ('active', 'canon')`
+    }
+
     // If we have a query embedding, do semantic search
     if (query.queryEmbedding && query.queryEmbedding.length > 0) {
       const minScore = query.minScore ?? 0.7
       const embeddingStr = `[${query.queryEmbedding.join(',')}]`
+      const embParam = `$${params.length + 1}`
+      const limitParam = `$${params.length + 2}`
+      params.push(embeddingStr, limit)
       const result = await this.pool.query(
         `SELECT id, agent_id, type, content, created_at, expires_at,
-                1 - (embedding <=> $${types.length + 2}::vector) as score
+                1 - (embedding <=> ${embParam}::vector) as score
          FROM memory_entries
-         WHERE agent_id = $1
+         WHERE ${scopeClause}
            AND type = ANY(ARRAY[${typePlaceholders}]::text[])
            AND (expires_at IS NULL OR expires_at > NOW())
            AND embedding IS NOT NULL
-         ORDER BY embedding <=> $${types.length + 2}::vector ASC
-         LIMIT $${types.length + 3}`,
-        [query.agentId, ...types, embeddingStr, limit]
+         ORDER BY embedding <=> ${embParam}::vector ASC
+         LIMIT ${limitParam}`,
+        params
       )
       const minScoreVal = minScore
       return result.rows
@@ -101,15 +138,17 @@ export class MemoryStore {
     }
 
     // Fallback: return most recent entries
+    const limitParam = `$${params.length + 1}`
+    params.push(limit)
     const result = await this.pool.query(
       `SELECT id, agent_id, type, content, created_at, expires_at
        FROM memory_entries
-       WHERE agent_id = $1
+       WHERE ${scopeClause}
          AND type = ANY(ARRAY[${typePlaceholders}]::text[])
          AND (expires_at IS NULL OR expires_at > NOW())
        ORDER BY created_at DESC
-       LIMIT $${types.length + 2}`,
-      [query.agentId, ...types, limit]
+       LIMIT ${limitParam}`,
+      params
     )
     return result.rows.map(rowToEntry)
   }

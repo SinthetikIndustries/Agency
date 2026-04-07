@@ -13,6 +13,10 @@
     "./db": {
       "import": "./dist/db.js",
       "types": "./dist/db.d.ts"
+    },
+    "./subprograms/runner": {
+      "import": "./dist/subprograms/runner.js",
+      "types": "./dist/subprograms/runner.d.ts"
     }
   },
   "scripts": {

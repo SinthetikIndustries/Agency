@@ -33,6 +33,7 @@ import type { DatabaseClient } from './db.js'
 import { buildCompactionPrompt, parseCompactionSummary, pruneToolResults } from './compaction.js'
 import { DestructiveActionService } from './destructive-action.js'
 import { AgentArchitect } from './agent-architect.js'
+import { GridSeeder } from './grid-seeder.js'
 import { type MemoryStore, formatMemoriesForContext } from '@agency/memory'
 export { buildCoordinatorSystemPrompt, isCoordinatorMessage } from './coordinator.js'
 export { buildVerificationPrompt, parseVerdict } from './verification-agent.js'
@@ -261,6 +262,7 @@ export class Orchestrator {
     this.agentArchitect = new AgentArchitect(this.modelRouter)
     await this.ensureDirectories()
     await this.seedBuiltInProfiles()
+    await new GridSeeder(this.db).seed()
     await this.loadAgentRegistry()
     await this.ensureOrchestratorAgent()
     await this.ensureMainAgent()
@@ -338,6 +340,10 @@ export class Orchestrator {
       if (!existsSync(agent.identity.workspacePath)) {
         await this.provisionWorkspace(agent.identity, row.profile_slug ?? 'default')
       }
+      // Ensure brain node and config DB rows exist for this agent
+      const parentPath = agent.identity.slug === 'main' ? 'GRID/PROGRAMS/PRIM' : 'GRID/PROGRAMS/instances'
+      const brainNodeId = await this.createAgentBrainNode(agent.identity, parentPath as 'GRID/PROGRAMS/PRIM' | 'GRID/PROGRAMS/instances')
+      await this.syncAgentConfigToDB(agent.identity, brainNodeId)
     }
 
     // Sync: ensure orchestrator has all other agents' workspace paths
@@ -398,6 +404,8 @@ export class Orchestrator {
     )
 
     await this.provisionWorkspace(identity, profile.slug)
+    const brainNodeId = await this.createAgentBrainNode(identity, 'GRID/PROGRAMS/instances')
+    await this.syncAgentConfigToDB(identity, brainNodeId)
     this.agents.set('orchestrator', { identity, profile })
     console.log('[Orchestrator] Orchestrator agent ready.')
   }
@@ -445,33 +453,126 @@ export class Orchestrator {
     )
 
     await this.provisionWorkspace(identity, profile.slug)
+    const brainNodeId = await this.createAgentBrainNode(identity, 'GRID/PROGRAMS/PRIM')
+    await this.syncAgentConfigToDB(identity, brainNodeId)
     this.agents.set('main', { identity, profile })
     console.log('[Orchestrator] Main agent ready.')
   }
 
+  private async getAgentZoneIds(agentId: string): Promise<string[]> {
+    const rows = await this.db.query<{ group_id: string }>(
+      'SELECT group_id FROM workspace_group_members WHERE agent_id = $1',
+      [agentId]
+    )
+    return rows.map(r => r.group_id)
+  }
+
+  // ─── Brain Node Provisioning ──────────────────────────────────────────────
+
+  private async createAgentBrainNode(
+    agent: AgentIdentity,
+    parentGridPath: 'GRID/PROGRAMS/PRIM' | 'GRID/PROGRAMS/instances'
+  ): Promise<string> {
+    const gridPath = parentGridPath === 'GRID/PROGRAMS/PRIM'
+      ? 'GRID/PROGRAMS/PRIM'
+      : `GRID/PROGRAMS/instances/${agent.slug}`
+
+    const existing = await this.db.queryOne<{ id: string }>(
+      'SELECT id FROM brain_nodes WHERE grid_path = $1', [gridPath]
+    )
+    if (existing) return existing.id
+
+    const node = await this.db.queryOne<{ id: string }>(
+      `INSERT INTO brain_nodes (type, label, content, grid_path, grid_tier, grid_locked, confidence, source)
+       VALUES ('program', $1, $2, $3, 2, false, 1.0, 'system')
+       RETURNING id`,
+      [
+        agent.name,
+        `Program: ${agent.name}. Agent slug: ${agent.slug}.`,
+        gridPath,
+      ]
+    )
+    if (!node) throw new Error(`Failed to create brain node for agent: ${agent.slug}`)
+
+    const parentNode = await this.db.queryOne<{ id: string }>(
+      'SELECT id FROM brain_nodes WHERE grid_path = $1', [parentGridPath]
+    )
+    if (parentNode) {
+      await this.db.execute(
+        `INSERT INTO brain_edges (from_id, to_id, type, weight, source)
+         VALUES ($1, $2, 'contains', 1.0, 'system')
+         ON CONFLICT (from_id, to_id, type) DO NOTHING`,
+        [parentNode.id, node.id]
+      )
+    }
+
+    await this.db.execute(
+      'UPDATE agent_identities SET brain_node_id = $1 WHERE id = $2',
+      [node.id, agent.id]
+    )
+
+    return node.id
+  }
+
+  private async syncAgentConfigToDB(agent: AgentIdentity, agentBrainNodeId: string): Promise<void> {
+    const CONFIG_FILES = ['identity', 'soul', 'user', 'heartbeat', 'capabilities', 'scratch'] as const
+    type ConfigFileType = typeof CONFIG_FILES[number]
+
+    const configDir = join(agent.workspacePath, 'config')
+
+    for (const fileType of CONFIG_FILES) {
+      const existing = await this.db.queryOne<{ id: string }>(
+        'SELECT id FROM agent_config_files WHERE agent_id = $1 AND file_type = $2',
+        [agent.id, fileType]
+      )
+      if (existing) continue
+
+      let content = ''
+      try {
+        content = await readFile(join(configDir, `${fileType}.md`), 'utf-8')
+      } catch { /* file doesn't exist, use empty string */ }
+
+      const gridPath = `GRID/PROGRAMS/instances/${agent.slug}/${fileType}`
+      const configNode = await this.db.queryOne<{ id: string }>(
+        `INSERT INTO brain_nodes (type, label, content, grid_path, grid_tier, grid_locked, confidence, source)
+         VALUES ('agent-config', $1, $2, $3, 3, false, 1.0, 'system')
+         ON CONFLICT (grid_path) WHERE grid_path IS NOT NULL DO NOTHING
+         RETURNING id`,
+        [
+          `${agent.name} / ${fileType}`,
+          content.trim() || `${fileType} config for ${agent.name}`,
+          gridPath,
+        ]
+      )
+
+      const configNodeId = configNode?.id ?? null
+
+      if (configNodeId) {
+        await this.db.execute(
+          `INSERT INTO brain_edges (from_id, to_id, type, weight, source)
+           VALUES ($1, $2, 'owns', 1.0, 'system')
+           ON CONFLICT (from_id, to_id, type) DO NOTHING`,
+          [agentBrainNodeId, configNodeId]
+        )
+      }
+
+      await this.db.execute(
+        `INSERT INTO agent_config_files (agent_id, file_type, content, updated_by, brain_node_id)
+         VALUES ($1, $2, $3, 'system', $4)
+         ON CONFLICT (agent_id, file_type) DO NOTHING`,
+        [agent.id, fileType, content, configNodeId]
+      )
+    }
+  }
+
   // ─── Workspace Provisioning ────────────────────────────────────────────────
 
-  async provisionWorkspace(identity: AgentIdentity, profileSlug: string): Promise<void> {
+  async provisionWorkspace(identity: AgentIdentity, _profileSlug: string): Promise<void> {
     const ws = identity.workspacePath
     await mkdir(join(ws, 'files'), { recursive: true, mode: 0o700 })
-    await mkdir(join(ws, 'logs'), { recursive: true, mode: 0o700 })
-    await mkdir(join(ws, 'tmp'), { recursive: true, mode: 0o700 })
-    await mkdir(join(ws, 'config'), { recursive: true, mode: 0o700 })
-
-    // Copy context files from template
-    const templateDir = join(this.templatesDir, profileSlug)
-    const fallbackDir = join(this.templatesDir, 'default')
-    const srcDir = existsSync(templateDir) ? templateDir : fallbackDir
-
-    for (const file of ['identity.md', 'soul.md', 'user.md', 'heartbeat.md', 'capabilities.md', 'scratch.md']) {
-      const srcFile = join(srcDir, file)
-      const destFile = join(ws, 'config', file)
-      if (existsSync(srcFile) && !existsSync(destFile)) {
-        let content = await readFile(srcFile, 'utf-8')
-        content = content.replace(/\[Agent Name\]/g, identity.name)
-        await writeFile(destFile, content, 'utf-8')
-      }
-    }
+    await mkdir(join(ws, 'logs'),  { recursive: true, mode: 0o700 })
+    await mkdir(join(ws, 'tmp'),   { recursive: true, mode: 0o700 })
+    // config/ directory is no longer created — all agent config lives in agent_config_files table
   }
 
   // ─── Agent Registry ────────────────────────────────────────────────────────
@@ -1186,108 +1287,136 @@ export class Orchestrator {
 
   // ─── Context Builder ───────────────────────────────────────────────────────
 
+  // ── Relevance-based config selection ─────────────────────────────────────────
+  // identity/soul/user always load; heartbeat only for autonomous; capabilities
+  // only on first turn; scratch only on subsequent turns when non-empty.
+
+  private async buildConfigContext(
+    agent: AgentWithProfile,
+    messages: CompletionMessage[],
+    isAutonomous: boolean
+  ): Promise<string[]> {
+    const parts: string[] = []
+    const isFirstTurn = messages.length === 0
+
+    const configRows = await this.db.query<{ file_type: string; content: string }>(
+      `SELECT file_type, content FROM agent_config_files WHERE agent_id = $1`,
+      [agent.identity.id]
+    )
+    const configMap = new Map(configRows.map(r => [r.file_type, r.content]))
+
+    // Always-loaded
+    for (const key of ['identity', 'soul', 'user'] as const) {
+      const content = configMap.get(key)
+      if (content?.trim()) parts.push(content.trim())
+    }
+
+    // Conditional
+    if (isAutonomous) {
+      const hb = configMap.get('heartbeat')
+      if (hb?.trim()) parts.push(hb.trim())
+    }
+
+    if (isFirstTurn) {
+      const cap = configMap.get('capabilities')
+      if (cap?.trim()) parts.push(cap.trim())
+    }
+
+    const scratch = configMap.get('scratch')
+    if (!isFirstTurn && scratch?.trim()) parts.push(scratch.trim())
+
+    return parts
+  }
+
+  // ── Memory context ────────────────────────────────────────────────────────────
+
+  private async buildMemoryContext(
+    agent: AgentWithProfile,
+    messages: Message[]
+  ): Promise<string[]> {
+    const parts: string[] = []
+    if (!this.memoryStore || messages.length === 0) return parts
+
+    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
+    if (!lastUserMsg) return parts
+
+    const queryText = typeof lastUserMsg.content === 'string'
+      ? lastUserMsg.content
+      : (lastUserMsg.content as Array<{ type: string; text?: string }>).map(b => b.text ?? '').join(' ')
+
+    try {
+      const memories = await this.memoryStore.read({
+        agentId: agent.identity.id,
+        query: queryText,
+        types: ['semantic', 'episodic'],
+        limit: 5,
+        minScore: 0.7,
+        scopeFilter: {
+          ownedByAgent: agent.identity.id,
+          zoneIds: await this.getAgentZoneIds(agent.identity.id),
+          includeGlobal: true,
+          minTrustLevel: 1,
+        },
+      })
+      const memoryContext = formatMemoriesForContext(memories)
+      if (memoryContext) parts.push(memoryContext)
+    } catch { /* memory query failure is non-fatal */ }
+
+    try {
+      const memberships = await this.db.query<{ group_id: string; group_name: string }>(
+        `SELECT m.group_id, g.name as group_name
+         FROM workspace_group_members m
+         JOIN workspace_groups g ON g.id = m.group_id
+         WHERE m.agent_id = $1`,
+        [agent.identity.id]
+      )
+      for (const { group_id, group_name } of memberships) {
+        const groupMemories = await this.memoryStore.readGroup({
+          groupId: group_id,
+          query: queryText,
+          types: ['semantic', 'episodic'],
+          limit: 3,
+          minScore: 0.7,
+        })
+        if (groupMemories.length > 0) {
+          const formatted = formatMemoriesForContext(groupMemories)
+          if (formatted) parts.push(`## Shared Group Memories (${group_name})\n\n${formatted}`)
+        }
+      }
+    } catch { /* group memory failure is non-fatal */ }
+
+    return parts
+  }
+
   private async buildContext(
     agent: AgentWithProfile,
     messages: Message[],
     options?: { systemInjection?: string }
   ): Promise<{ systemBlocks: Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }>; history: CompletionMessage[] }> {
-    const configDir = join(agent.identity.workspacePath, 'config')
-    const contextParts: string[] = []
+    const isAutonomous = agent.identity.autonomousMode
 
-    // Reset ephemeral files to blank slate at the start of each session invocation
-    const heartbeatBlank = `# Heartbeat\n\n## Current Session\n_No active tasks_\n\n## Tasks\n<!-- Write your tasks here at the start of each request. Check them off as you complete them. -->\n`
-    const scratchBlank = `# Scratch\n\n<!-- Temporary working notes. Cleared at session end or on /clear. -->\n`
-    const heartbeatPath = join(configDir, 'heartbeat.md')
-    const scratchPath = join(configDir, 'scratch.md')
-    try {
-      await writeFile(heartbeatPath, heartbeatBlank, 'utf-8')
-      await writeFile(scratchPath, scratchBlank, 'utf-8')
-    } catch { /* workspace may not exist yet, skip */ }
+    // Build completion-message history first so we can pass it to buildConfigContext
+    let history: CompletionMessage[] = messages.map(m => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    }))
+    history = await this.maybeCompactHistory(history)
 
-    // Load context files in order: identity.md, soul.md, user.md, heartbeat.md, capabilities.md, scratch.md, then any others
-    const ORDERED_FILES = ['identity.md', 'soul.md', 'user.md', 'heartbeat.md', 'capabilities.md', 'scratch.md']
-    for (const file of ORDERED_FILES) {
-      const path = join(configDir, file)
-      try {
-        const content = await readFile(path, 'utf-8')
-        if (content.trim()) contextParts.push(content.trim())
-      } catch { /* skip missing files */ }
-    }
+    // Config context — relevance-based selection
+    const configParts = await this.buildConfigContext(agent, history, isAutonomous)
 
-    // Load any additional .md files alphabetically
-    try {
-      const entries = (await readdir(configDir)).filter(
-        f => f.endsWith('.md') && !ORDERED_FILES.includes(f)
-      ).sort()
-      for (const file of entries) {
-        try {
-          const content = await readFile(join(configDir, file), 'utf-8')
-          if (content.trim()) contextParts.push(content.trim())
-        } catch { /* skip */ }
-      }
-    } catch { /* no config dir */ }
-
-    // Inject relevant memories for the current query (last user message)
-    if (this.memoryStore && messages.length > 0) {
-      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
-      if (lastUserMsg) {
-        const queryText = typeof lastUserMsg.content === 'string'
-          ? lastUserMsg.content
-          : (lastUserMsg.content as Array<{ type: string; text?: string }>).map(b => b.text ?? '').join(' ')
-        try {
-          const memories = await this.memoryStore.read({
-            agentId: agent.identity.id,
-            query: queryText,
-            types: ['semantic', 'episodic'],
-            limit: 5,
-            minScore: 0.7,
-          })
-          const memoryContext = formatMemoriesForContext(memories)
-          if (memoryContext) contextParts.push(memoryContext)
-        } catch { /* memory query failure is non-fatal */ }
-      }
-    }
-
-    // Load group memories for all groups this agent belongs to
-    if (this.memoryStore && messages.length > 0) {
-      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
-      if (lastUserMsg) {
-        const queryText = typeof lastUserMsg.content === 'string'
-          ? lastUserMsg.content
-          : (lastUserMsg.content as Array<{ type: string; text?: string }>).map(b => b.text ?? '').join(' ')
-        try {
-          const memberships = await this.db.query<{ group_id: string; group_name: string }>(
-            `SELECT m.group_id, g.name as group_name
-             FROM workspace_group_members m
-             JOIN workspace_groups g ON g.id = m.group_id
-             WHERE m.agent_id = $1`,
-            [agent.identity.id]
-          )
-          for (const { group_id, group_name } of memberships) {
-            const groupMemories = await this.memoryStore.readGroup({
-              groupId: group_id,
-              query: queryText,
-              types: ['semantic', 'episodic'],
-              limit: 3,
-              minScore: 0.7,
-            })
-            if (groupMemories.length > 0) {
-              const formatted = formatMemoriesForContext(groupMemories)
-              if (formatted) contextParts.push(`## Shared Group Memories (${group_name})\n\n${formatted}`)
-            }
-          }
-        } catch { /* group memory failure is non-fatal */ }
-      }
-    }
+    // Memory context
+    const memoryParts = await this.buildMemoryContext(agent, messages)
 
     // Static block: profile system prompt — stable across turns, eligible for caching
-    const systemBlocks: Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }> = [
-      { type: 'text', text: agent.profile.systemPrompt, cache_control: { type: 'ephemeral' } },
-    ]
+    const staticBlock = {
+      type: 'text' as const,
+      text: agent.profile.systemPrompt,
+      cache_control: { type: 'ephemeral' as const },
+    }
 
-    // Dynamic block: workspace context + injection — rebuilt each turn, no cache flag
-    const dynamicParts: string[] = []
-    if (contextParts.length > 0) dynamicParts.push(contextParts.join('\n\n---\n\n'))
+    // Dynamic block: config + memory + workspace paths + injection — rebuilt each turn
+    const dynamicParts: string[] = [...configParts, ...memoryParts]
 
     // Inform the agent of additional workspace paths it has access to
     const extraPaths = agent.identity.additionalWorkspacePaths ?? []
@@ -1299,16 +1428,11 @@ export class Orchestrator {
     }
 
     if (options?.systemInjection) dynamicParts.push(options.systemInjection)
-    if (dynamicParts.length > 0) {
-      systemBlocks.push({ type: 'text', text: dynamicParts.join('\n\n---\n\n') })
-    }
 
-    // Convert DB messages to completion messages, then compact if needed
-    let history: CompletionMessage[] = messages.map(m => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    }))
-    history = await this.maybeCompactHistory(history)
+    const dynamicText = dynamicParts.join('\n\n---\n\n')
+    const systemBlocks: Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }> = dynamicText.trim()
+      ? [staticBlock, { type: 'text', text: dynamicText }]
+      : [staticBlock]
 
     return { systemBlocks, history }
   }
