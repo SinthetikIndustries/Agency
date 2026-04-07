@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { agents, type Agent } from '@/lib/api'
+import { agents, subprograms, type Agent, type SubprogramRecord } from '@/lib/api'
 
 const LIFECYCLE_LABELS: Record<string, string> = {
   always_on: 'Always-on',
@@ -81,9 +81,12 @@ export default function AgentsPage() {
   const [actionMsg, setActionMsg] = useState('')
   const [sortCol, setSortCol] = useState<SortCol>('name')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [spList, setSpList] = useState<SubprogramRecord[]>([])
+  const [spLoading, setSpLoading] = useState(true)
+  const [spMsg, setSpMsg] = useState('')
   const router = useRouter()
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); loadSubprograms() }, [])
 
   function load() {
     setLoading(true)
@@ -91,6 +94,36 @@ export default function AgentsPage() {
       .then(r => setAgentList(r.agents))
       .catch(err => setError(err instanceof Error ? err.message : 'Failed to load'))
       .finally(() => setLoading(false))
+  }
+
+  function loadSubprograms() {
+    setSpLoading(true)
+    subprograms.list()
+      .then(r => setSpList(r.subprograms))
+      .catch(() => {})
+      .finally(() => setSpLoading(false))
+  }
+
+  async function runSubprogram(id: string) {
+    try {
+      await subprograms.run(id)
+      setSpMsg(`${id} triggered`)
+      setTimeout(() => setSpMsg(''), 2500)
+      setTimeout(() => loadSubprograms(), 1000)
+    } catch (err) {
+      setSpMsg(err instanceof Error ? err.message : 'Run failed')
+    }
+  }
+
+  async function toggleSubprogram(sp: SubprogramRecord) {
+    try {
+      await subprograms.update(sp.id, { enabled: !sp.enabled })
+      setSpMsg(`${sp.id} ${sp.enabled ? 'disabled' : 'enabled'}`)
+      setTimeout(() => setSpMsg(''), 2500)
+      loadSubprograms()
+    } catch (err) {
+      setSpMsg(err instanceof Error ? err.message : 'Update failed')
+    }
   }
 
   async function toggle(agent: Agent) {
@@ -240,6 +273,89 @@ export default function AgentsPage() {
           </table>
         </div>
       )}
+
+      {/* System Programs */}
+      <div className="mt-10">
+        <div className="mb-4">
+          <h2 className="text-base font-semibold text-white">System Programs</h2>
+          <p className="text-sm text-gray-500 mt-0.5">Background workers that maintain Grid integrity</p>
+        </div>
+
+        {spMsg && <p className="text-sm text-green-400 mb-3">{spMsg}</p>}
+
+        {spLoading ? (
+          <p className="text-sm text-gray-500">Loading...</p>
+        ) : spList.length === 0 ? (
+          <p className="text-sm text-gray-600">No system programs found.</p>
+        ) : (
+          <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-800 bg-gray-900/80">
+                  <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium uppercase tracking-wider">Program</th>
+                  <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium uppercase tracking-wider">Responsibility</th>
+                  <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium uppercase tracking-wider">Status</th>
+                  <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium uppercase tracking-wider">Last run</th>
+                  <th className="text-left px-4 py-3 text-xs text-gray-500 font-medium uppercase tracking-wider">Runs</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {spList.map(sp => {
+                  const statusColor =
+                    sp.status === 'running' ? 'bg-blue-900/40 text-blue-300 border border-blue-800/50' :
+                    sp.status === 'error'   ? 'bg-red-900/40 text-red-400 border border-red-800/50' :
+                    sp.status === 'idle'    ? 'bg-green-900/40 text-green-400 border border-green-800/50' :
+                                             'bg-gray-800 text-gray-500 border border-gray-700'
+                  return (
+                    <tr key={sp.id} className="hover:bg-gray-800/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-semibold text-orange-400">{sp.id}</span>
+                          <span className="text-white text-sm">{sp.label}</span>
+                        </div>
+                        <div className="text-xs text-gray-600 mt-0.5 max-w-xs truncate">{sp.description}</div>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-400 max-w-xs">{sp.responsibility}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor}`}>
+                          {sp.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-400">
+                        {sp.last_run_at
+                          ? new Date(sp.last_run_at).toLocaleString()
+                          : <span className="text-gray-600">never</span>}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-500">{sp.run_count}</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <button
+                            onClick={() => void runSubprogram(sp.id)}
+                            className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                          >
+                            Run now
+                          </button>
+                          <button
+                            onClick={() => void toggleSubprogram(sp)}
+                            className={`text-xs transition-colors ${
+                              sp.enabled
+                                ? 'text-red-500 hover:text-red-400'
+                                : 'text-gray-400 hover:text-gray-300'
+                            }`}
+                          >
+                            {sp.enabled ? 'Disable' : 'Enable'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
