@@ -207,11 +207,13 @@ agency stop                ⏹️  Stop gateway
 agency status              💚 Service health
 agency restart             🔄 Restart gateway
 agency doctor              🩺 Run diagnostics
+agency diagnostics         🔍 Detailed system diagnostics report
 agency repair              🔨 Repair installation
 agency update              ↑  Update to latest
 agency uninstall           🗑️  Remove everything
 agency metrics             📊 Prometheus metrics
 agency health              🏥 Detailed health check
+agency key                 🔑 Show the dashboard API key
 
 # Authentication
 agency auth login          🔑 Log in with API key
@@ -264,11 +266,14 @@ agency skills install <skill>
 agency skills remove <skill>
 agency skills update <skill>
 
-# Brain
-agency brain status        🧠 Brain status
-agency brain sync          Trigger manual sync
-agency brain validate      Validate brain integrity
-agency brain init          Initialize The Brain
+# Vault
+agency vault status        🧠 Vault sync status
+agency vault sync          Trigger manual vault sync
+agency vault validate      Validate vault integrity
+agency vault graph-status  Show knowledge graph link status
+agency vault init          Initialize vault directory
+agency vault search <query>  Full-text search across vault documents
+agency vault related <slug>  Show documents linked to/from a vault document
 
 # Schedules
 agency schedules list      🕐 List scheduled tasks
@@ -289,6 +294,7 @@ agency messaging status    📬 Messaging system status
 
 # Queue
 agency queue workers       ⚙️  Queue worker status
+agency queue stats         📊 Queue statistics
 
 # Connectors
 agency connectors list
