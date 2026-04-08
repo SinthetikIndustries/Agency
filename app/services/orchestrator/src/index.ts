@@ -2,7 +2,7 @@
 // https://www.sinthetix.com
 
 import { readFile, writeFile, mkdir, copyFile, readdir, rename, cp, rm } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve, isAbsolute } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -287,10 +287,10 @@ export class Orchestrator {
       const dest = join(this.templatesDir, profileSlug)
       if (!existsSync(src) || existsSync(dest)) continue
       await mkdir(dest, { recursive: true })
-      for (const file of ['identity.md', 'soul.md', 'user.md', 'heartbeat.md', 'capabilities.md', 'scratch.md']) {
-        const srcFile = join(src, file)
-        if (existsSync(srcFile)) {
-          await copyFile(srcFile, join(dest, file))
+      const files = readdirSync(src)
+      for (const file of files) {
+        if (file.endsWith('.md')) {
+          await copyFile(join(src, file), join(dest, file))
         }
       }
     }
@@ -528,7 +528,6 @@ export class Orchestrator {
       ? ['identity', 'soul', 'user', 'state', 'directives', 'decisions', 'coordination', 'governance', 'memory', 'history', 'permissions', 'profile', 'prompt', 'links'] as const
       : ['identity', 'soul', 'user', 'heartbeat', 'capabilities', 'scratch'] as const
 
-    const configDir = join(agent.workspacePath, 'config')
     const templateDir = join(this.templatesDir, profileSlug)
     const fallbackTemplateDir = join(this.templatesDir, 'default')
 
@@ -541,16 +540,11 @@ export class Orchestrator {
 
       let content = ''
       try {
-        content = await readFile(join(configDir, `${fileType}.md`), 'utf-8')
+        content = await readFile(join(templateDir, `${fileType}.md`), 'utf-8')
       } catch {
-        // No filesystem config — seed from profile template, then default template
         try {
-          content = await readFile(join(templateDir, `${fileType}.md`), 'utf-8')
-        } catch {
-          try {
-            content = await readFile(join(fallbackTemplateDir, `${fileType}.md`), 'utf-8')
-          } catch { /* no template either, leave empty */ }
-        }
+          content = await readFile(join(fallbackTemplateDir, `${fileType}.md`), 'utf-8')
+        } catch { /* no template, leave empty */ }
       }
 
       const agentGridBase = agent.slug === 'system'
