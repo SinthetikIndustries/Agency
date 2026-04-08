@@ -24,7 +24,14 @@ export type BehaviorVerbosity = 'concise' | 'normal' | 'detailed'
 
 // ─── Built-In Agents ─────────────────────────────────────────────────────────
 
-export const BUILT_IN_AGENTS = ['system', 'main'] as const;
+export const BUILT_IN_AGENTS = [
+  // Tier 1 — System Programs
+  'system', 'ctrl',
+  // Tier 2 — System Workers
+  'mon', 'comp', 'indx', 'retr', 'anly', 'secr', 'ward', 'exec', 'life', 'sens',
+  // Tier 3 — Built-in Program
+  'main',
+] as const;
 export type BuiltInAgentSlug = typeof BUILT_IN_AGENTS[number];
 
 export type PermissionLevel = 'deny' | 'request' | 'autonomous';
