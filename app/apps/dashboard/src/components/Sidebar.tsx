@@ -68,11 +68,15 @@ function IconPuzzle() {
   )
 }
 
-function IconBrain() {
+function IconGridView() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <path d="M6 2.5C4.067 2.5 2.5 4.067 2.5 6c0 .95.37 1.81.97 2.45A2.5 2.5 0 0 0 3 9.5a2.5 2.5 0 0 0 2 2.45V13h6v-1.05A2.5 2.5 0 0 0 13 9.5a2.5 2.5 0 0 0-.47-1.05C13.13 7.81 13.5 6.95 13.5 6c0-1.933-1.567-3.5-3.5-3.5A3.49 3.49 0 0 0 8 3.18 3.49 3.49 0 0 0 6 2.5Z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"/>
-      <path d="M8 3.18V13M5.5 7H3M10.5 7H13M5.5 10H4M10.5 10H12" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+      <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+      <circle cx="3" cy="3" r="1.25" stroke="currentColor" strokeWidth="1.1"/>
+      <circle cx="13" cy="3" r="1.25" stroke="currentColor" strokeWidth="1.1"/>
+      <circle cx="3" cy="13" r="1.25" stroke="currentColor" strokeWidth="1.1"/>
+      <circle cx="13" cy="13" r="1.25" stroke="currentColor" strokeWidth="1.1"/>
+      <path d="M3 4.25v5.5M13 4.25v5.5M4.25 3h5.5M4.25 13h5.5M6.5 6.5l-2.1-2.1M9.5 9.5l2.1 2.1M9.5 6.5l2.1-2.1M6.5 9.5l-2.1 2.1" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
     </svg>
   )
 }
@@ -194,7 +198,7 @@ function IconChevronLeft() {
   )
 }
 
-// ── Match spec exactly: Overview, Agents, Skills, Brain, Connectors, Logs, Approvals, Audit
+// ── Navigation: Overview, Agents, Skills, Grid, Connectors, Logs, Approvals, Audit
 // Settings is handled separately (opens modal, not a route)
 const DASHBOARD_NAV = [
   { href: '/dashboard/overview',   label: 'Overview',    Icon: IconGrid     },
@@ -204,7 +208,7 @@ const DASHBOARD_NAV = [
   { href: '/dashboard/skills',     label: 'Skills',      Icon: IconPuzzle   },
   { href: '/dashboard/tools',      label: 'Tools',       Icon: IconWrench   },
   { href: '/dashboard/hooks',      label: 'Hooks',       Icon: IconHook     },
-  { href: '/dashboard/brain',      label: 'Brain',       Icon: IconBrain    },
+  { href: '/dashboard/grid',       label: 'Grid',        Icon: IconGridView },
   { href: '/dashboard/messaging',  label: 'Messaging',   Icon: IconMessage  },
   { href: '/dashboard/logs',       label: 'Logs',        Icon: IconScroll   },
   { href: '/dashboard/approvals',  label: 'Approvals',   Icon: IconShield   },

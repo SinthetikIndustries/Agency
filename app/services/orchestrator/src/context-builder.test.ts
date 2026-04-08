@@ -63,10 +63,16 @@ function makeAgent(systemPrompt = 'You are helpful.'): AgentWithProfile {
   }
 }
 
-async function makeBuildContext(memoryStore?: { read: ReturnType<typeof vi.fn> }) {
+async function makeBuildContext(
+  memoryStore?: { read: ReturnType<typeof vi.fn> },
+  configRows?: Array<{ file_type: string; content: string }>
+) {
   const { Orchestrator } = await import('./index.js')
   const db = {
-    query: vi.fn().mockResolvedValue([]),
+    query: vi.fn().mockImplementation(async (sql: string) => {
+      if (sql.includes('agent_config_files') && configRows) return configRows
+      return []
+    }),
     execute: vi.fn().mockResolvedValue(undefined),
     close: vi.fn(),
   }
@@ -121,12 +127,9 @@ describe('buildContext() — systemBlocks', () => {
     expect(result.systemBlocks).toHaveLength(1)
   })
 
-  it('adds a second dynamic block when workspace context files are present', async () => {
-    mockReadFile.mockImplementation((path: string) => {
-      if (String(path).endsWith('identity.md')) return Promise.resolve('# Identity\nI am the main agent.')
-      return Promise.reject(new Error('ENOENT'))
-    })
-    const buildContext = await makeBuildContext()
+  it('adds a second dynamic block when agent config files are present in DB', async () => {
+    const configRows = [{ file_type: 'identity', content: '# Identity\nI am the main agent.' }]
+    const buildContext = await makeBuildContext(undefined, configRows)
     const result = await buildContext(makeAgent(), [])
     expect(result.systemBlocks).toHaveLength(2)
     expect(result.systemBlocks[1]!.text).toContain('I am the main agent.')

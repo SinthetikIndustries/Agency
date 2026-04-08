@@ -483,9 +483,9 @@ export const vault = {
     request<{ nodes: number; edges: number; unresolvedLinks: number }>('/vault/graph-status'),
 }
 
-// ─── Brain types ─────────────────────────────────────────────────────────────
+// ─── Grid types ──────────────────────────────────────────────────────────────
 
-export interface BrainNode {
+export interface GridNode {
   id: string
   type: string
   label: string
@@ -499,7 +499,7 @@ export interface BrainNode {
   degree?: number   // included in graph payload
 }
 
-export interface BrainEdge {
+export interface GridEdge {
   id: string
   from_id: string
   to_id: string
@@ -511,21 +511,21 @@ export interface BrainEdge {
   created_at: string
 }
 
-export interface BrainGraphNode extends BrainNode {
+export interface GridGraphNode extends GridNode {
   degree?: number
   grid_path?: string | null
   grid_tier?: number
   grid_locked?: boolean
 }
 
-// ─── Brain API ───────────────────────────────────────────────────────────────
+// ─── Grid API ─────────────────────────────────────────────────────────────────
 
-export const brain = {
+export const grid = {
   status: () =>
     request<{ nodeCount: number; edgeCount: number; lastUpdated: string | null }>('/brain/status'),
 
   graph: () =>
-    request<{ nodes: BrainGraphNode[]; edges: BrainEdge[] }>('/brain/graph'),
+    request<{ nodes: GridGraphNode[]; edges: GridEdge[] }>('/brain/graph'),
 
   nodes: (params?: { type?: string; source?: string; limit?: number }) => {
     const q = new URLSearchParams()
@@ -533,24 +533,24 @@ export const brain = {
     if (params?.source) q.set('source', params.source)
     if (params?.limit) q.set('limit', String(params.limit))
     const qs = q.toString()
-    return request<{ nodes: BrainNode[]; count: number }>(`/brain/nodes${qs ? '?' + qs : ''}`)
+    return request<{ nodes: GridNode[]; count: number }>(`/brain/nodes${qs ? '?' + qs : ''}`)
   },
 
   getNode: (id: string) =>
-    request<BrainNode>(`/brain/nodes/${id}`),
+    request<GridNode>(`/brain/nodes/${id}`),
 
   createNode: (data: {
     label: string; type?: string; content?: string
     metadata?: Record<string, unknown>; confidence?: number; source?: string
   }) =>
-    request<BrainNode>('/brain/nodes', {
+    request<GridNode>('/brain/nodes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     }),
 
-  updateNode: (id: string, data: Partial<BrainNode>) =>
-    request<BrainNode>(`/brain/nodes/${id}`, {
+  updateNode: (id: string, data: Partial<GridNode>) =>
+    request<GridNode>(`/brain/nodes/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -563,7 +563,7 @@ export const brain = {
     from_id: string; to_id: string; type?: string
     weight?: number; bidirectional?: boolean
   }) =>
-    request<BrainEdge>('/brain/edges', {
+    request<GridEdge>('/brain/edges', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -577,7 +577,7 @@ export const brain = {
     if (options?.limit) params.set('limit', String(options.limit))
     if (options?.type) params.set('type', options.type)
     return request<{
-      results: Array<BrainNode & { score: number }>
+      results: Array<GridNode & { score: number }>
       count: number
       semantic: boolean
     }>(`/brain/search?${params}`)
@@ -585,7 +585,7 @@ export const brain = {
 
   traverse: (id: string, depth = 2) =>
     request<{
-      nodes: Array<BrainNode & { depth: number; via_edge_type: string | null }>
+      nodes: Array<GridNode & { depth: number; via_edge_type: string | null }>
       count: number
       rootId: string
     }>(`/brain/traverse/${id}?depth=${depth}`),

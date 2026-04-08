@@ -48,9 +48,9 @@ export async function registerWorkspaceRoutes(
         return { path: p, agentName: a.name, agentSlug: a.slug }
       })
 
-    // Group workspaces: orchestrator sees all groups, others see only their memberships (system excluded)
+    // Group workspaces: system agent sees all groups, others see only their memberships
     let groupRows: GroupRow[]
-    if (slug === 'orchestrator') {
+    if (slug === 'system') {
       groupRows = await db.query<GroupRow>(
         'SELECT id, name, workspace_path, is_system FROM workspace_groups ORDER BY is_system DESC, created_at ASC'
       )

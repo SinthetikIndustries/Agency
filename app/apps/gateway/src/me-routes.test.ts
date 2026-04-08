@@ -12,6 +12,10 @@ vi.mock('@agency/config', () => ({
 import { promises as fs } from 'fs'
 import { join } from 'path'
 
+const mockDb = {
+  queryOne: vi.fn().mockResolvedValue(null),
+}
+
 async function buildApp(configOverrides = {}) {
   const app = Fastify()
   // mock auth: inject preHandler that sets request.user
@@ -24,7 +28,7 @@ async function buildApp(configOverrides = {}) {
     '/tmp/test-agency/config.json',
     JSON.stringify({ firstRun: false, name: 'Dan', ...configOverrides })
   )
-  registerMeRoutes(app)
+  registerMeRoutes(app, { db: mockDb as any })
   return app
 }
 
@@ -53,7 +57,7 @@ describe('GET /me', () => {
   it('treats missing config.json as first-run (onboarded=false)', async () => {
     await fs.rm('/tmp/test-agency/config.json', { force: true })
     const app = Fastify()
-    registerMeRoutes(app)
+    registerMeRoutes(app, { db: mockDb as any })
     const res = await app.inject({ method: 'GET', url: '/me' })
     expect(res.statusCode).toBe(200)
     expect(res.json().onboarded).toBe(false)

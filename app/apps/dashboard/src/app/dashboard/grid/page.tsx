@@ -4,24 +4,24 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { brain, type BrainGraphNode, type BrainEdge, type BrainNode } from '@/lib/api'
-import { BrainGraph3D } from './BrainGraph3D'
+import { grid, type GridGraphNode, type GridEdge, type GridNode } from '@/lib/api'
+import { GridGraph3D } from './GridGraph3D'
 import { NodeEditorPanel } from './NodeEditorPanel'
 
 type Tab = 'graph' | 'nodes' | 'status'
 
-export default function BrainPage() {
+export default function GridPage() {
   const [tab, setTab] = useState<Tab>('graph')
 
   // Graph data
-  const [nodes, setNodes] = useState<BrainGraphNode[]>([])
-  const [edges, setEdges] = useState<BrainEdge[]>([])
+  const [nodes, setNodes] = useState<GridGraphNode[]>([])
+  const [edges, setEdges] = useState<GridEdge[]>([])
   const [graphLoading, setGraphLoading] = useState(true)
 
   // Node list
-  const [nodeList, setNodeList] = useState<BrainNode[]>([])
+  const [nodeList, setNodeList] = useState<GridNode[]>([])
   const [searchQ, setSearchQ] = useState('')
-  const [searchResults, setSearchResults] = useState<Array<BrainNode & { score: number }> | null>(null)
+  const [searchResults, setSearchResults] = useState<Array<GridNode & { score: number }> | null>(null)
   const [searching, setSearching] = useState(false)
 
   // Status
@@ -36,11 +36,11 @@ export default function BrainPage() {
   const loadGraph = useCallback(async () => {
     setGraphLoading(true)
     try {
-      const data = await brain.graph()
+      const data = await grid.graph()
       setNodes(data.nodes)
       setEdges(data.edges)
     } catch {
-      // brain not yet populated
+      // grid not yet populated
     } finally {
       setGraphLoading(false)
     }
@@ -52,15 +52,15 @@ export default function BrainPage() {
 
   useEffect(() => {
     if (tab !== 'nodes') return
-    brain.nodes({ limit: 200 }).then(r => setNodeList(r.nodes)).catch(() => {})
+    grid.nodes({ limit: 200 }).then(r => setNodeList(r.nodes)).catch(() => {})
   }, [tab])
 
   // ─── Load status + candidates ──────────────────────────────────────────────
 
   useEffect(() => {
     if (tab !== 'status') return
-    brain.status().then(setStatus).catch(() => {})
-    brain.candidates().then(r => setCandidates(r.candidates)).catch(() => {})
+    grid.status().then(setStatus).catch(() => {})
+    grid.candidates().then(r => setCandidates(r.candidates)).catch(() => {})
   }, [tab])
 
   // ─── Search ────────────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ export default function BrainPage() {
     if (!searchQ.trim()) { setSearchResults(null); return }
     setSearching(true)
     try {
-      const r = await brain.search(searchQ.trim(), { limit: 30 })
+      const r = await grid.search(searchQ.trim(), { limit: 30 })
       setSearchResults(r.results)
     } finally {
       setSearching(false)
@@ -81,7 +81,7 @@ export default function BrainPage() {
   async function handleNewNode() {
     const label = prompt('Node label:')
     if (!label?.trim()) return
-    const node = await brain.createNode({ label: label.trim(), type: 'concept', source: 'user' })
+    const node = await grid.createNode({ label: label.trim(), type: 'concept', source: 'user' })
     await loadGraph()
     setSelectedNodeId(node.id)
   }
@@ -92,7 +92,7 @@ export default function BrainPage() {
       {/* Header */}
       <div className="flex items-center justify-between px-8 pt-6 pb-3 flex-shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-white">The Brain</h1>
+          <h1 className="text-xl font-bold text-white">The Grid</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             {nodes.length} nodes · {edges.length} edges
           </p>
@@ -129,10 +129,10 @@ export default function BrainPage() {
         {tab === 'graph' && (
           graphLoading ? (
             <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-              Loading brain…
+              Loading Grid…
             </div>
           ) : (
-            <BrainGraph3D
+            <GridGraph3D
               nodes={nodes}
               edges={edges}
               onNodeClick={n => setSelectedNodeId(n.id)}
@@ -184,7 +184,7 @@ export default function BrainPage() {
                   <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                     {'score' in n && (
                       <span className="text-xs text-gray-600">
-                        {((n as BrainNode & { score: number }).score * 100).toFixed(0)}%
+                        {((n as GridNode & { score: number }).score * 100).toFixed(0)}%
                       </span>
                     )}
                     <span className="text-xs text-gray-600">

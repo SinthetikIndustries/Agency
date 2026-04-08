@@ -4,7 +4,18 @@
 import type { FastifyInstance } from 'fastify'
 import type { DatabaseClient } from '@agency/orchestrator/db'
 
-const CONFIG_FILE_TYPES = ['identity', 'soul', 'user', 'heartbeat', 'capabilities', 'scratch'] as const
+const CONFIG_FILE_TYPES = [
+  // ── Core (all programs) ───────────────────────────────────────────────────
+  'identity', 'soul', 'user', 'state',
+  'memory', 'history', 'permissions', 'profile',
+  'prompt', 'links',
+  // ── SYST-specific ─────────────────────────────────────────────────────────
+  'directives', 'decisions', 'coordination', 'governance',
+  // ── CTRL-specific (reserved for when CTRL is implemented) ─────────────────
+  'authority', 'routing', 'tasking', 'safeguards', 'subprogram-management',
+  // ── Legacy (general agent conventions, kept for backward compat) ──────────
+  'heartbeat', 'capabilities', 'scratch',
+] as const
 type ConfigFileType = typeof CONFIG_FILE_TYPES[number]
 
 export async function registerAgentConfigRoutes(

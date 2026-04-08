@@ -79,19 +79,19 @@ const DEFAULT_AGENT_PERMISSIONS: AgencyPermissions = {
 
 const BUILT_IN_PROFILES: AgentProfile[] = [
   {
-    id: 'builtin-orchestrator',
-    name: 'Orchestrator',
-    slug: 'orchestrator',
-    description: 'System-level agent with full application authority',
-    systemPrompt: `You are System, the application orchestrator for this Agency installation. You are responsible for the health, configuration, and coordination of all agents and workspaces. When a user speaks to you directly, they are interacting with the application itself, not a personal assistant.
+    id: 'builtin-system',
+    name: 'System',
+    slug: 'system',
+    description: 'Top program of the Agency installation. Highest governing system mind.',
+    systemPrompt: `You are SYST — System, the top program of this Agency installation. You hold total-system perspective and sovereign system authority. You are distinct from PRIM (the user-facing assistant) and CTRL (the coordination manager beneath you).
 
 Your operational model:
 - Phase model: Understand → Plan → Confirm (if destructive) → Execute → Report
-- Synthesis-first: When directing other agents, always synthesize findings into specific instructions before delegating. Never say "based on the agent's findings, proceed" — synthesize and specify.
-- Transparency: For every significant action, state what you are doing and why in plain language before doing it.
-- Anti-narration: Do not narrate routine non-destructive actions step-by-step. Focus output on decisions requiring user input, status at natural milestones, and blockers.
+- Synthesis-first: When directing other agents, synthesize findings into specific instructions before delegating. Never say "based on the agent's findings, proceed" — synthesize and specify.
+- Transparency: For every significant action, state what you are doing and why before doing it.
+- Scope: You operate at the system governance layer. You do not replace PRIM as the user's assistant — you govern, coordinate, and sustain the installation.
 
-You are methodical, transparent, and authoritative. You always explain your reasoning. You never act destructively without explicit confirmation.
+You are methodical, transparent, and authoritative. You never act destructively without explicit confirmation. You always explain your reasoning.
 
 Always respond in English, regardless of the language used by the user or any other part of the conversation.`,
     modelTier: 'strong' as ModelTier,
@@ -111,7 +111,7 @@ Always respond in English, regardless of the language used by the user or any ot
       'group_member_add', 'group_member_remove',
     ],
     behaviorSettings: { tone: 'professional' as BehaviorTone, verbosity: 'normal' as BehaviorVerbosity, proactive: false },
-    tags: ['system', 'orchestrator'],
+    tags: ['system', 'syst'],
     builtIn: true,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
@@ -264,7 +264,7 @@ export class Orchestrator {
     await this.seedBuiltInProfiles()
     await new GridSeeder(this.db).seed()
     await this.loadAgentRegistry()
-    await this.ensureOrchestratorAgent()
+    await this.ensureSystemAgent()
     await this.ensureMainAgent()
     this.registerManagementToolHandlers()
   }
@@ -282,7 +282,7 @@ export class Orchestrator {
     const srcTemplates = join(pkgDir, 'templates', 'agents')
     if (!existsSync(srcTemplates)) return
 
-    for (const profileSlug of ['orchestrator', 'personal-assistant', 'researcher', 'developer', 'analyst', 'executive', 'default']) {
+    for (const profileSlug of ['system', 'personal-assistant', 'researcher', 'developer', 'analyst', 'executive', 'default']) {
       const src = join(srcTemplates, profileSlug)
       const dest = join(this.templatesDir, profileSlug)
       if (!existsSync(src) || existsSync(dest)) continue
@@ -341,37 +341,41 @@ export class Orchestrator {
         await this.provisionWorkspace(agent.identity, row.profile_slug ?? 'default')
       }
       // Ensure brain node and config DB rows exist for this agent
-      const parentPath = agent.identity.slug === 'main' ? 'GRID/PROGRAMS/PRIM' : 'GRID/PROGRAMS/instances'
-      const brainNodeId = await this.createAgentBrainNode(agent.identity, parentPath as 'GRID/PROGRAMS/PRIM' | 'GRID/PROGRAMS/instances')
-      await this.syncAgentConfigToDB(agent.identity, brainNodeId)
+      const parentPath = agent.identity.slug === 'system'
+        ? 'GRID/SYSTEM/SYST'
+        : agent.identity.slug === 'main'
+          ? 'GRID/PROGRAMS/PRIM'
+          : 'GRID/PROGRAMS/instances'
+      const brainNodeId = await this.createAgentBrainNode(agent.identity, parentPath as 'GRID/SYSTEM/SYST' | 'GRID/PROGRAMS/PRIM' | 'GRID/PROGRAMS/instances')
+      await this.syncAgentConfigToDB(agent.identity, brainNodeId, row.profile_slug ?? 'default')
     }
 
-    // Sync: ensure orchestrator has all other agents' workspace paths
-    const orchestratorAgent = this.agents.get('orchestrator')
-    if (orchestratorAgent) {
+    // Sync: ensure system agent has all other agents' workspace paths
+    const systemAgent = this.agents.get('system')
+    if (systemAgent) {
       const allPaths = Array.from(this.agents.values())
-        .filter(a => a.identity.slug !== 'orchestrator')
+        .filter(a => a.identity.slug !== 'system')
         .flatMap(a => [a.identity.workspacePath, ...a.identity.additionalWorkspacePaths])
       const uniquePaths = [...new Set(allPaths)]
       for (const ws of uniquePaths) {
-        if (!orchestratorAgent.identity.additionalWorkspacePaths.includes(ws)) {
-          await this.addWorkspacePath('orchestrator', ws).catch(() => {})
+        if (!systemAgent.identity.additionalWorkspacePaths.includes(ws)) {
+          await this.addWorkspacePath('system', ws).catch(() => {})
         }
       }
     }
   }
 
-  private async ensureOrchestratorAgent(): Promise<void> {
-    if (this.agents.has('orchestrator')) return
+  private async ensureSystemAgent(): Promise<void> {
+    if (this.agents.has('system')) return
 
-    console.log('[Orchestrator] Creating orchestrator agent on first boot...')
-    const workspacePath = join(this.agentsDir, 'orchestrator')
-    const profile = BUILT_IN_PROFILES.find(p => p.slug === 'orchestrator')!
+    console.log('[Orchestrator] Creating system agent on first boot...')
+    const workspacePath = join(this.agentsDir, 'system')
+    const profile = BUILT_IN_PROFILES.find(p => p.slug === 'system')!
 
     const identity: AgentIdentity = {
-      id: 'orchestrator',
+      id: 'system',
       name: 'System',
-      slug: 'orchestrator',
+      slug: 'system',
       parentAgentId: null,
       lifecycleType: 'always_on',
       wakeMode: 'auto',
@@ -398,16 +402,16 @@ export class Orchestrator {
         identity.id, identity.name, identity.slug, identity.parentAgentId, identity.lifecycleType, identity.wakeMode,
         identity.currentProfileId, identity.shellPermissionLevel, identity.agentManagementPermission,
         JSON.stringify(ORCHESTRATOR_DEFAULT_PERMISSIONS), false,
-        join('agents', 'orchestrator'), identity.status, identity.createdBy,
+        join('agents', 'system'), identity.status, identity.createdBy,
         identity.createdAt.toISOString(), identity.updatedAt.toISOString(),
       ]
     )
 
     await this.provisionWorkspace(identity, profile.slug)
-    const brainNodeId = await this.createAgentBrainNode(identity, 'GRID/PROGRAMS/instances')
-    await this.syncAgentConfigToDB(identity, brainNodeId)
-    this.agents.set('orchestrator', { identity, profile })
-    console.log('[Orchestrator] Orchestrator agent ready.')
+    const brainNodeId = await this.createAgentBrainNode(identity, 'GRID/SYSTEM/SYST')
+    await this.syncAgentConfigToDB(identity, brainNodeId, profile.slug)
+    this.agents.set('system', { identity, profile })
+    console.log('[Orchestrator] System agent ready.')
   }
 
   private async ensureMainAgent(): Promise<void> {
@@ -454,7 +458,7 @@ export class Orchestrator {
 
     await this.provisionWorkspace(identity, profile.slug)
     const brainNodeId = await this.createAgentBrainNode(identity, 'GRID/PROGRAMS/PRIM')
-    await this.syncAgentConfigToDB(identity, brainNodeId)
+    await this.syncAgentConfigToDB(identity, brainNodeId, profile.slug)
     this.agents.set('main', { identity, profile })
     console.log('[Orchestrator] Main agent ready.')
   }
@@ -471,11 +475,13 @@ export class Orchestrator {
 
   private async createAgentBrainNode(
     agent: AgentIdentity,
-    parentGridPath: 'GRID/PROGRAMS/PRIM' | 'GRID/PROGRAMS/instances'
+    parentGridPath: 'GRID/SYSTEM/SYST' | 'GRID/PROGRAMS/PRIM' | 'GRID/PROGRAMS/instances'
   ): Promise<string> {
-    const gridPath = parentGridPath === 'GRID/PROGRAMS/PRIM'
-      ? 'GRID/PROGRAMS/PRIM'
-      : `GRID/PROGRAMS/instances/${agent.slug}`
+    const gridPath = parentGridPath === 'GRID/SYSTEM/SYST'
+      ? 'GRID/SYSTEM/SYST'
+      : parentGridPath === 'GRID/PROGRAMS/PRIM'
+        ? 'GRID/PROGRAMS/PRIM'
+        : `GRID/PROGRAMS/instances/${agent.slug}`
 
     const existing = await this.db.queryOne<{ id: string }>(
       'SELECT id FROM brain_nodes WHERE grid_path = $1', [gridPath]
@@ -514,11 +520,17 @@ export class Orchestrator {
     return node.id
   }
 
-  private async syncAgentConfigToDB(agent: AgentIdentity, agentBrainNodeId: string): Promise<void> {
-    const CONFIG_FILES = ['identity', 'soul', 'user', 'heartbeat', 'capabilities', 'scratch'] as const
-    type ConfigFileType = typeof CONFIG_FILES[number]
+  private async syncAgentConfigToDB(agent: AgentIdentity, agentBrainNodeId: string, profileSlug: string): Promise<void> {
+    // Per-agent file sets:
+    // SYST (system): full governance file set
+    // All others: general agent conventions
+    const CONFIG_FILES: readonly string[] = agent.slug === 'system'
+      ? ['identity', 'soul', 'user', 'state', 'directives', 'decisions', 'coordination', 'governance', 'memory', 'history', 'permissions', 'profile', 'prompt', 'links'] as const
+      : ['identity', 'soul', 'user', 'heartbeat', 'capabilities', 'scratch'] as const
 
     const configDir = join(agent.workspacePath, 'config')
+    const templateDir = join(this.templatesDir, profileSlug)
+    const fallbackTemplateDir = join(this.templatesDir, 'default')
 
     for (const fileType of CONFIG_FILES) {
       const existing = await this.db.queryOne<{ id: string }>(
@@ -530,9 +542,23 @@ export class Orchestrator {
       let content = ''
       try {
         content = await readFile(join(configDir, `${fileType}.md`), 'utf-8')
-      } catch { /* file doesn't exist, use empty string */ }
+      } catch {
+        // No filesystem config — seed from profile template, then default template
+        try {
+          content = await readFile(join(templateDir, `${fileType}.md`), 'utf-8')
+        } catch {
+          try {
+            content = await readFile(join(fallbackTemplateDir, `${fileType}.md`), 'utf-8')
+          } catch { /* no template either, leave empty */ }
+        }
+      }
 
-      const gridPath = `GRID/PROGRAMS/instances/${agent.slug}/${fileType}`
+      const agentGridBase = agent.slug === 'system'
+        ? 'GRID/SYSTEM/SYST'
+        : agent.slug === 'main'
+          ? 'GRID/PROGRAMS/PRIM'
+          : `GRID/PROGRAMS/instances/${agent.slug}`
+      const gridPath = `${agentGridBase}/${fileType}`
       const configNode = await this.db.queryOne<{ id: string }>(
         `INSERT INTO brain_nodes (type, label, content, grid_path, grid_tier, grid_locked, confidence, source)
          VALUES ('agent-config', $1, $2, $3, 3, false, 1.0, 'system')
@@ -861,11 +887,13 @@ export class Orchestrator {
     )
 
     await this.provisionWorkspace(identity, profileSlug)
+    const brainNodeId = await this.createAgentBrainNode(identity, 'GRID/PROGRAMS/instances')
+    await this.syncAgentConfigToDB(identity, brainNodeId, profileSlug)
     this.agents.set(slug, { identity, profile })
 
-    // Auto-grant main and orchestrator access to new agent's workspace
+    // Auto-grant main and system agent access to new agent's workspace
     await this.addWorkspacePath('main', workspacePath)
-    await this.addWorkspacePath('orchestrator', workspacePath).catch(() => {})
+    await this.addWorkspacePath('system', workspacePath).catch(() => {})
 
     void this.hookFire?.('agent.created', { agentSlug: identity.slug, agentName: identity.name })
 
@@ -900,9 +928,9 @@ export class Orchestrator {
       [slug]
     )
 
-    // Revoke main and orchestrator access to this workspace
+    // Revoke main and system agent access to this workspace
     await this.removeWorkspacePath('main', identity.workspacePath).catch(() => {})
-    await this.removeWorkspacePath('orchestrator', identity.workspacePath).catch(() => {})
+    await this.removeWorkspacePath('system', identity.workspacePath).catch(() => {})
 
     // Archive workspace
     const workspaceSrc = identity.workspacePath

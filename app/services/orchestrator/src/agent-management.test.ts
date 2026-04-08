@@ -31,7 +31,11 @@ import type { ToolContext } from '@agency/shared-types'
 function makeMockDb(): DatabaseClient {
   return {
     query: vi.fn().mockResolvedValue([]),
-    queryOne: vi.fn().mockResolvedValue(null),
+    queryOne: vi.fn().mockImplementation(async (sql: string) => {
+      // INSERT...RETURNING queries need a fake id so callers don't throw
+      if (sql.trim().toUpperCase().startsWith('INSERT')) return { id: randomUUID() }
+      return null
+    }),
     execute: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
   }
@@ -174,11 +178,11 @@ describe('Orchestrator.createAgent()', () => {
     expect(mainPaths).toContain(newAgentWorkspace)
   })
 
-  it('auto-adds new agent workspace to orchestrator additionalWorkspacePaths', async () => {
+  it('auto-adds new agent workspace to system agent additionalWorkspacePaths', async () => {
     const result = await orchestrator.createAgent({ name: 'New Bot' })
     const newAgentWorkspace = orchestrator.getAgent(result.agent.slug)!.identity.workspacePath
-    const orchestratorPaths = orchestrator.getAgent('orchestrator')!.identity.additionalWorkspacePaths
-    expect(orchestratorPaths).toContain(newAgentWorkspace)
+    const systemPaths = orchestrator.getAgent('system')!.identity.additionalWorkspacePaths
+    expect(systemPaths).toContain(newAgentWorkspace)
   })
 })
 
@@ -254,11 +258,11 @@ describe('Orchestrator.deleteAgent()', () => {
     expect(result.message).toContain('.archive/')
   })
 
-  it('removes deleted agent workspace from orchestrator additionalWorkspacePaths', async () => {
+  it('removes deleted agent workspace from system agent additionalWorkspacePaths', async () => {
     const deletedWorkspace = orchestrator.getAgent('to-delete')!.identity.workspacePath
     await orchestrator.deleteAgent({ slug: 'to-delete' })
-    const orchestratorPaths = orchestrator.getAgent('orchestrator')!.identity.additionalWorkspacePaths
-    expect(orchestratorPaths).not.toContain(deletedWorkspace)
+    const systemPaths = orchestrator.getAgent('system')!.identity.additionalWorkspacePaths
+    expect(systemPaths).not.toContain(deletedWorkspace)
   })
 })
 

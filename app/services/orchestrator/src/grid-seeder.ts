@@ -99,6 +99,15 @@ const GRID_STRUCTURE: GridNodeDef[] = [
 
   // ── Tier 2: SYSTEM sub-sections ──────────────────────────────────────────────
   {
+    grid_path: 'GRID/SYSTEM/SYST',
+    type: 'system_program',
+    label: 'SYST',
+    content: 'System program. Top program of the Agency installation. Highest governing system mind. Owns total-system perspective, sovereign system identity, and system-level state.',
+    grid_tier: 2,
+    parent_path: 'GRID/SYSTEM',
+    edge_type: 'contains',
+  },
+  {
     grid_path: 'GRID/SYSTEM/CTRL',
     type: 'ctrl',
     label: 'CTRL',

@@ -755,7 +755,7 @@ export async function createGateway(): Promise<void> {
   await app.register(registerSubprogramRoutes, { db })
 
   // Me route
-  registerMeRoutes(app)
+  registerMeRoutes(app, { db })
 
   // Onboarding route
   registerOnboardingRoutes(app)

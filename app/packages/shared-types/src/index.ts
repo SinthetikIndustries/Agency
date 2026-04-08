@@ -24,7 +24,7 @@ export type BehaviorVerbosity = 'concise' | 'normal' | 'detailed'
 
 // ─── Built-In Agents ─────────────────────────────────────────────────────────
 
-export const BUILT_IN_AGENTS = ['orchestrator', 'main'] as const;
+export const BUILT_IN_AGENTS = ['system', 'main'] as const;
 export type BuiltInAgentSlug = typeof BUILT_IN_AGENTS[number];
 
 export type PermissionLevel = 'deny' | 'request' | 'autonomous';

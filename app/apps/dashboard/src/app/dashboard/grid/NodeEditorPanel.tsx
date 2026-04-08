@@ -5,18 +5,18 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import dynamic from 'next/dynamic'
-import { brain, type BrainNode } from '@/lib/api'
+import { grid, type GridNode } from '@/lib/api'
 
 const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false })
 
 interface NodeEditorPanelProps {
   nodeId: string | null
   onClose: () => void
-  onSaved?: (updated: BrainNode) => void
+  onSaved?: (updated: GridNode) => void
 }
 
 export function NodeEditorPanel({ nodeId, onClose, onSaved }: NodeEditorPanelProps) {
-  const [node, setNode] = useState<BrainNode | null>(null)
+  const [node, setNode] = useState<GridNode | null>(null)
   const [content, setContent] = useState('')
   const [label, setLabel] = useState('')
   const [confidence, setConfidence] = useState(1.0)
@@ -30,7 +30,7 @@ export function NodeEditorPanel({ nodeId, onClose, onSaved }: NodeEditorPanelPro
     if (!nodeId) { setNode(null); return }
     setLoading(true)
     setError('')
-    brain.getNode(nodeId)
+    grid.getNode(nodeId)
       .then(n => {
         setNode(n)
         setContent(n.content ?? '')
@@ -51,7 +51,7 @@ export function NodeEditorPanel({ nodeId, onClose, onSaved }: NodeEditorPanelPro
     setSaving(true)
     setError('')
     try {
-      const updated = await brain.updateNode(nodeId, { label, content, confidence, source: 'user' })
+      const updated = await grid.updateNode(nodeId, { label, content, confidence, source: 'user' })
       setNode(updated)
       setOriginal({ content: updated.content ?? '', label: updated.label, confidence: updated.confidence })
       setSaveMsg('Saved')

@@ -7,19 +7,19 @@ import { useRef, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import * as THREE from 'three'
 import type { ForceGraphMethods } from 'react-force-graph-3d'
-import type { BrainGraphNode, BrainEdge } from '@/lib/api'
+import type { GridGraphNode, GridEdge } from '@/lib/api'
 
 // Dynamic import — Three.js is browser-only, large bundle
 const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-      Initialising Brain…
+      Initialising Grid…
     </div>
   ),
 })
 
-// ─── Node type → brain region + color ────────────────────────────────────────
+// ─── Node type → grid region + color ─────────────────────────────────────────
 
 const NODE_CONFIG: Record<string, { color: number; region: { x: number; y: number; z: number } }> = {
   // ── Existing types ────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ function configFor(type: string) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function makeNodeObject(rawNode: any) {
-  const node = rawNode as BrainGraphNode & { x?: number; y?: number; z?: number }
+  const node = rawNode as GridGraphNode & { x?: number; y?: number; z?: number }
   const cfg = configFor(node.type)
   const gridTier = node.grid_tier ?? 0
 
@@ -132,20 +132,20 @@ function makeNodeObject(rawNode: any) {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface GraphData {
-  nodes: (BrainGraphNode & { x?: number; y?: number; z?: number })[]
-  links: (Omit<BrainEdge, 'source'> & { source: string; target: string })[]
+  nodes: (GridGraphNode & { x?: number; y?: number; z?: number })[]
+  links: (Omit<GridEdge, 'source'> & { source: string; target: string })[]
 }
 
-interface BrainGraph3DProps {
-  nodes: BrainGraphNode[]
-  edges: BrainEdge[]
-  onNodeClick: (node: BrainGraphNode) => void
+interface GridGraph3DProps {
+  nodes: GridGraphNode[]
+  edges: GridEdge[]
+  onNodeClick: (node: GridGraphNode) => void
   className?: string
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function BrainGraph3D({ nodes, edges, onNodeClick, className }: BrainGraph3DProps) {
+export function GridGraph3D({ nodes, edges, onNodeClick, className }: GridGraph3DProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fgRef = useRef<ForceGraphMethods<any, any> | undefined>(undefined)
 
@@ -170,13 +170,13 @@ export function BrainGraph3D({ nodes, edges, onNodeClick, className }: BrainGrap
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleNodeClick = useCallback((rawNode: any) => {
-    onNodeClick(rawNode as BrainGraphNode)
+    onNodeClick(rawNode as GridGraphNode)
   }, [onNodeClick])
 
   if (nodes.length === 0) {
     return (
       <div className={`flex flex-col items-center justify-center gap-3 text-center ${className ?? ''}`}>
-        <p className="text-gray-500 text-sm">The Brain is empty.</p>
+        <p className="text-gray-500 text-sm">The Grid is empty.</p>
         <p className="text-gray-600 text-xs max-w-xs">
           Agents will populate it automatically as they work. You can also create nodes manually.
         </p>
@@ -192,7 +192,7 @@ export function BrainGraph3D({ nodes, edges, onNodeClick, className }: BrainGrap
         nodeThreeObject={makeNodeObject}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         nodeLabel={(rawNode: any) => {
-          const n = rawNode as BrainGraphNode
+          const n = rawNode as GridGraphNode
           const gridInfo = n.grid_path
             ? `<br/><span style="color:#6366f1;font-size:10px">${n.grid_path}</span>`
             : ''
@@ -204,18 +204,18 @@ export function BrainGraph3D({ nodes, edges, onNodeClick, className }: BrainGrap
           </div>`
         }}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        linkColor={(rawLink: any) => EDGE_COLORS[(rawLink as BrainEdge).type] ?? '#374151'}
+        linkColor={(rawLink: any) => EDGE_COLORS[(rawLink as GridEdge).type] ?? '#374151'}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        linkWidth={(rawLink: any) => Math.max(0.5, ((rawLink as BrainEdge).weight ?? 1) * 1.5)}
+        linkWidth={(rawLink: any) => Math.max(0.5, ((rawLink as GridEdge).weight ?? 1) * 1.5)}
         linkDirectionalParticles={3}
         linkDirectionalParticleWidth={1.5}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         linkDirectionalParticleSpeed={(rawLink: any) =>
-          Math.min(0.02, ((rawLink as BrainEdge).weight ?? 1) * 0.004)
+          Math.min(0.02, ((rawLink as GridEdge).weight ?? 1) * 0.004)
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         linkDirectionalParticleColor={(rawLink: any) =>
-          EDGE_COLORS[(rawLink as BrainEdge).type] ?? '#6b7280'
+          EDGE_COLORS[(rawLink as GridEdge).type] ?? '#6b7280'
         }
         onNodeClick={handleNodeClick}
         onEngineStop={handleEngineStop}
