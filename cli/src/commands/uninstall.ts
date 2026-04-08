@@ -47,6 +47,7 @@ export default class Uninstall extends Command {
     this.log('  • The database and all sessions, agents, and vault documents')
     this.log('  • Docker volumes: agency_postgres_data, agency_redis_data')
     this.log('  • The ~/.agency/ directory (config, credentials, workspaces)')
+    this.log('  • The cloned repo directory (repoDir from config)')
     this.log('  ' + chalk.gray('Ollama models (agency_ollama_data) are kept.'))
     this.log('')
 
@@ -107,9 +108,20 @@ export default class Uninstall extends Command {
     this.log(chalk.gray('Removing ~/.agency/...'))
     await rm(agencyDir, { recursive: true, force: true })
 
+    // Remove cloned repo directory
+    if (repoDir) {
+      this.log(chalk.gray(`Removing repo directory (${repoDir})...`))
+      await rm(repoDir, { recursive: true, force: true })
+    }
+
+    // Uninstall global CLI
+    this.log(chalk.gray('Removing global agencycli...'))
+    const uninstallResult = spawnSync('npm', ['uninstall', '-g', 'agencycli'], { stdio: 'pipe' })
+    if (uninstallResult.status !== 0) {
+      this.warn('Could not auto-remove agencycli — run manually: npm uninstall -g agencycli')
+    }
+
     this.log('')
     this.log(chalk.green('✓') + ' Agency uninstalled.')
-    this.log('')
-    this.log('To remove the CLI: ' + chalk.cyan('npm uninstall -g agencycli'))
   }
 }
