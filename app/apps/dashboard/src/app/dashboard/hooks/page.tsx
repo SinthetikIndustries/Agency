@@ -115,7 +115,7 @@ const HOOK_EVENTS: EventDef[] = [
   { event: 'mcp.tool.called',             description: 'MCP tool called',                                  blocker: false, category: 'mcp'        },
   { event: 'mcp.reconnecting',            description: 'MCP server reconnecting',                          blocker: false, category: 'mcp'        },
   // Connectors
-  { event: 'connector.message.received',  description: 'Message received from connector (Discord/Slack)',  blocker: true,  category: 'connectors' },
+  { event: 'connector.message.received',  description: 'Message received from connector (Discord)',        blocker: true,  category: 'connectors' },
   { event: 'connector.message.sent',      description: 'Message sent via connector',                       blocker: false, category: 'connectors' },
   { event: 'connector.connected',         description: 'Connector connected',                              blocker: false, category: 'connectors' },
   { event: 'connector.disconnected',      description: 'Connector disconnected',                           blocker: false, category: 'connectors' },
