@@ -21,13 +21,13 @@ export const GRID_STRUCTURE: GridNodeDef[] = [
   { grid_path: 'GRID/INTERFACES', type: 'grid-interfaces', label: 'INTERFACES', content: 'Entry and exit surfaces. CLI, chat, dashboard, automation, external integrations.', grid_tier: 1, parent_path: 'GRID', edge_type: 'contains' },
   { grid_path: 'GRID/VIEWS', type: 'grid-views', label: 'VIEWS', content: 'Computed perspectives. Shaped representations of Grid state for different consumers.', grid_tier: 1, parent_path: 'GRID', edge_type: 'contains' },
   { grid_path: 'GRID/STATE-MODELS', type: 'grid-state-models', label: 'STATE-MODELS', content: 'Laws of motion. Formal object schemas, lifecycle state machines, traffic rules, promotion logic.', grid_tier: 1, parent_path: 'GRID', edge_type: 'contains' },
-  { grid_path: 'GRID/ARCHIVE', type: 'grid-archive', label: 'ARCHIVE', content: 'Cold storage. Retained but inactive historical material.', grid_tier: 1, parent_path: 'GRID', edge_type: 'contains' },
+  { grid_path: 'GRID/ARCHIVE', type: 'grid-archive', label: 'ARCHIVE', content: 'Cold storage. Retained but inactive historical material. Memory, history, runtime artifacts, snapshots.', grid_tier: 1, parent_path: 'GRID', edge_type: 'contains' },
 
   // ── Tier 2: SYSTEM sub-sections ──────────────────────────────────────────────
   { grid_path: 'GRID/SYSTEM/SYST', type: 'system_program', label: 'SYST', content: 'System program. Top program of the Agency installation.', grid_tier: 2, parent_path: 'GRID/SYSTEM', edge_type: 'contains' },
   { grid_path: 'GRID/SYSTEM/CTRL', type: 'ctrl', label: 'CTRL', content: 'Central control authority. Routes work, arbitrates conflicts, enforces policy, manages approvals.', grid_tier: 2, parent_path: 'GRID/SYSTEM', edge_type: 'contains' },
   { grid_path: 'GRID/SYSTEM/control-plane', type: 'control-plane', label: 'control-plane', content: 'Rules of the Grid. Authority hierarchy, permissions, routing rules, governance policy.', grid_tier: 2, parent_path: 'GRID/SYSTEM', edge_type: 'contains' },
-  { grid_path: 'GRID/SYSTEM/subprograms', type: 'runtime', label: 'subprograms', content: 'System worker program registry. All background workers that maintain Grid integrity.', grid_tier: 2, parent_path: 'GRID/SYSTEM', edge_type: 'contains' },
+  { grid_path: 'GRID/SYSTEM/subprograms', type: 'runtime', label: 'subprograms', content: 'System subprogram registry. All background workers that maintain Grid integrity.', grid_tier: 2, parent_path: 'GRID/SYSTEM', edge_type: 'contains' },
   { grid_path: 'GRID/SYSTEM/runtime', type: 'runtime', label: 'runtime', content: 'Live system execution. Active processes, queues, sessions, triggers, approvals, and locks.', grid_tier: 2, parent_path: 'GRID/SYSTEM', edge_type: 'contains' },
 
   // ── Tier 2: PROGRAMS sub-sections ────────────────────────────────────────────
