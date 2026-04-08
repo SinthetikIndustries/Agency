@@ -18,7 +18,7 @@ Agency gives you a persistent, multi-agent AI assistant with a web dashboard, CL
 
 Agency is a **personal AI operating system**. It runs a coordinated stack of services on your local machine: a core API gateway, a web dashboard, a multi-agent orchestrator, a model router that spans cloud and local models, and a knowledge base backed by PostgreSQL with pgvector for semantic search.
 
-Your agents maintain **persistent memory** across all sessions — stored in PostgreSQL with vector embeddings for semantic retrieval, and organized in **The Brain**: a 3D interactive knowledge graph built directly into the dashboard. Browse your agent's default knowledge, explore agent-drafted proposals, and review canon notes you've approved — all from the web UI. Chat through the web UI or terminal, route tasks to specialized agents, and review everything through a full audit log.
+Your agents maintain **persistent memory** across all sessions — stored in PostgreSQL with vector embeddings for semantic retrieval, and organized in **The Grid**: a 3D interactive knowledge graph built directly into the dashboard. Browse your agent's default knowledge, explore agent-drafted proposals, and review canon notes you've approved — all from the web UI. Chat through the web UI or terminal, route tasks to specialized agents, and review everything through a full audit log.
 
 ---
 
@@ -32,15 +32,15 @@ Your agents maintain **persistent memory** across all sessions — stored in Pos
 
 | Feature | Description |
 |---------|-------------|
-| 🤝 **Multi-agent orchestration** | Orchestrator agent (system) + personal assistant (main) + any number of specialized sub-agents. Coordinator mode breaks complex tasks into phases with worker delegation. |
-| 🔀 **Orchestrator / PA split** | Two protected built-in agents: the **Orchestrator** (full autonomy, system-level permissions) and **Main** (your personal assistant, human-approval gates). Each has its own workspace, memory, and permission profile. The Orchestrator's name and profile are locked — it automatically inherits every other agent's workspace as a secondary workspace when agents are created or removed. |
-| 👥 **Workspace groups** | Organize agents into named groups with shared workspaces and shared memory. Agents in a group automatically see group-level context alongside their own. Every agent page shows a Group Workspaces card listing its groups. The Orchestrator sees all groups including the system-only **Agency System** group (its primary group workspace); other agents only see groups they belong to. |
+| 🤝 **Multi-agent orchestration** | **SYST** (system governance) + **PRIM** (your personal assistant) + any number of specialized sub-agents. Coordinator mode breaks complex tasks into phases with worker delegation. |
+| 🔀 **SYST / PRIM split** | Two protected built-in programs: **SYST** — System (full autonomy, system-level permissions, sovereign authority over the installation) and **PRIM** — Primary (your personal assistant, human-approval gates). Each has its own workspace, memory, and full config file set. SYST's name and profile are locked — it automatically inherits every other agent's workspace as a secondary workspace when agents are created or removed. |
+| 👥 **Workspace groups** | Organize agents into named groups with shared workspaces and shared memory. Agents in a group automatically see group-level context alongside their own. Every agent page shows a Group Workspaces card listing its groups. SYST sees all groups including the system-only **Agency System** group (its primary group workspace); other agents only see groups they belong to. |
 | 🗺️ **Canvas views** | Interactive ReactFlow canvases throughout the dashboard: per-agent radial capability map (agent → skills, tools, workspaces), group topology canvas with drag-and-drop agent assignment, and a full-system Network map with live mode (auto-refresh every 5s). All canvases support edit mode, right-click context menus, a slide-in side panel, position persistence across sessions, and one-click layout reset. |
 | 🤖 **Agent Architect** | Describe what you want an agent to do in plain language — Agency generates a complete agent spec (name, slug, system prompt, tools, permissions) using the LLM. One click to accept and create. |
 | 🔐 **Per-agent permissions** | Fine-grained `AgencyPermissions` model: set `agentCreate`, `agentDelete`, `agentUpdate`, `groupCreate`, `groupUpdate`, `groupDelete`, and `shellRun` independently to `deny`, `request` (human approval), or `autonomous`. Plus per-agent allow/deny rule lists. |
 | 💾 **Persistent memory** | Conversations and knowledge stored in PostgreSQL with pgvector for semantic vector search. Context retrieved automatically across sessions. Agents in a group share a group memory layer. |
 | 🧠 **The Brain / Grid** | Database-first knowledge graph backed by PostgreSQL + pgvector. The Brain is organized as the **Grid** — a full world model where every platform object (agents, programs, memory, history, subprograms, config) is a named node with typed edges. A 3D interactive view renders the live Grid with tier-aware sizing and color-coded regions. Memory items have a full lifecycle: `active → proposal → canon → deprecated → archived`, gated by the WARD subprogram. Semantic search across everything. Agent-writable. |
-| ⚙️ **Subprograms** | Background worker subprograms run on schedule and maintain Grid integrity: **MON** (health monitor), **LIFE** (memory archival), **SENS** (audit-log-to-Grid event normalizer). Each has a brain node, status tracking, run count, and manual trigger via API. More subprograms planned: COMP (compactor), WARD (canon steward), SECR (security), RETR (retriever), ANLY (analyzer), EXEC (executor), INDX (indexer). |
+| ⚙️ **Subprograms** | Background worker subprograms run on schedule and maintain Grid integrity: **MON** (health monitor), **LIFE** (memory archival), **SENS** (audit-log-to-Grid event normalizer). Each has a Grid node, status tracking, run count, and manual trigger via API. More subprograms planned: COMP (compactor), WARD (canon steward), SECR (security), RETR (retriever), ANLY (analyzer), EXEC (executor), INDX (indexer). |
 | 🦙 **Local model support** | Ollama runs in Docker. Choose which models to pull during install — or skip and pull later with `agency models pull <model>`. No cloud required. |
 | 🔀 **Model routing** | Route tasks across Anthropic (Claude), OpenAI (GPT), Ollama (local), Ollama Cloud, and OpenRouter simultaneously. Per-tier routing with automatic fallbacks. Prompt caching reduces API costs on repeated context. |
 | ⚡ **Real-time streaming** | WebSocket chat with live token streaming, tool call cards, and full session history. Session search, prompt suggestions, and away-summary recaps when you return to an idle session. |
@@ -74,7 +74,7 @@ graph TB
         subgraph Services["Services"]
             Orchestrator["🤝 Orchestrator<br/>Agent Coordination"]
             ModelRouter["🔀 Model Router<br/>Anthropic / OpenAI / Ollama / Ollama Cloud / OpenRouter"]
-            TheBrain["🧠 The Brain<br/>Knowledge Graph · pgvector"]
+            TheGrid["🌐 The Grid<br/>Knowledge Graph · pgvector"]
         end
 
         subgraph Data["Data Layer"]
@@ -88,11 +88,11 @@ graph TB
     Dashboard <-->|"HTTP / WS"| Gateway
     Gateway --> Orchestrator
     Gateway --> ModelRouter
-    Gateway --> TheBrain
+    Gateway --> TheGrid
     Orchestrator --> Postgres
     Orchestrator --> Redis
     ModelRouter --> Ollama
-    TheBrain --> Postgres
+    TheGrid --> Postgres
 ```
 
 ### Visual Overview
@@ -105,7 +105,7 @@ graph TB
 
 | Port | Component | Role |
 |------|-----------|------|
-| **2001** | Dashboard | Web UI — chat, agents, groups, network map, The Brain, logs, approvals |
+| **2001** | Dashboard | Web UI — chat, agents, groups, network map, The Grid, logs, approvals |
 | **2002** | Gateway | Core API, WebSocket streaming, JWT auth, connectors |
 | **2003** | PostgreSQL + pgvector | Persistent storage + semantic vector search |
 | **2004** | Redis | Message queues, pub/sub, async task coordination |
@@ -143,9 +143,9 @@ The installer will:
 3. 🐳 Start PostgreSQL, Redis, and Ollama in Docker
 4. 🦙 Offer a model selection menu — choose one of `qwen3:1.7b`, `qwen3:8b`, `nemotron-3-nano:4b`, `gemma4:e4b`, all of them, or none (pull later with `agency models pull <model>`)
 5. 🔨 Build the app
-6. 🤖 Create built-in agents: **Orchestrator** (system) + **Main** (personal assistant)
-7. 🧠 Initialize **The Brain** — database-first knowledge graph with 3D visualization, semantic search, and agent-writable knowledge
-8. 🗂️ Create the **Agency System** group — the Orchestrator's primary group workspace, visible only to the Orchestrator
+6. 🤖 Create built-in programs: **SYST** (system governance) + **PRIM** (personal assistant)
+7. 🌐 Initialize **The Grid** — database-first knowledge graph with 3D visualization, semantic search, and agent-writable knowledge
+8. 🗂️ Create the **Agency System** group — SYST's primary group workspace, visible only to SYST
 
 ### Uninstall
 
@@ -334,9 +334,9 @@ Open at **[http://localhost:2001](http://localhost:2001)**
 | 👥 Groups | Workspace group management — list view or canvas topology view |
 | 🗺️ Network | Full-system canvas: orchestrator → groups → agents with live edges |
 | 🛠️ Skills | View and manage agent skills |
-| 🔧 Tools | Browse the full tool registry by type — file, shell, browser, HTTP, code, memory, brain, messaging, and agent management |
+| 🔧 Tools | Browse the full tool registry by type — file, shell, browser, HTTP, code, memory, grid, messaging, and agent management |
 | 🪝 Hooks | Create and manage event hooks — shell commands that fire on platform events with blocking and non-blocking modes |
-| 🧠 Brain | Knowledge graph — 3D visualization, semantic search, node explorer, sync controls |
+| 🌐 Grid | Knowledge graph — 3D visualization, semantic search, node explorer, sync controls |
 | 📬 Messaging | Inter-agent message queues — inbox depths, recent messages, priority, and delivery status |
 | 📋 Logs | Filterable service logs with JSON parsing |
 | 🙋 Approvals | Human-in-the-loop approval queue with risk classification and reasoning traces |
@@ -369,13 +369,13 @@ Pre-1.0. Core platform is functional. Active development.
 
 - [x] ⚙️ Gateway + WebSocket streaming
 - [x] 🤝 Multi-agent orchestration + coordinator mode
-- [x] 🔀 Orchestrator / PA split with protected built-in agents
+- [x] 🔀 SYST / PRIM split with protected built-in programs
 - [x] 🔐 Per-agent `AgencyPermissions` (deny / request / autonomous per operation)
 - [x] 👥 Workspace groups with shared workspaces and group memory
 - [x] 🗺️ Canvas views (per-agent, group topology, full-system network map)
 - [x] 🤖 Agent Architect — LLM-generated agent specs from plain-language descriptions
 - [x] 🔀 Model routing (Anthropic / OpenAI / Ollama / Ollama Cloud / OpenRouter) + prompt caching
-- [x] 🧠 The Brain (database-first knowledge graph, PostgreSQL + pgvector, 3D visualization, semantic search)
+- [x] 🌐 The Grid (database-first knowledge graph, PostgreSQL + pgvector, 3D visualization, semantic search)
 - [x] 🌐 Dashboard (16 pages)
 - [x] 🔧 Tool registry with typed tool browsing
 - [x] 🪝 Event hooks (blocking and non-blocking)
