@@ -28,12 +28,42 @@ import type { ToolContext } from '@agency/shared-types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// Minimal profile row factory — provides enough fields for rowToProfile()
+function makeProfileRow(slug: string, name: string, id?: string) {
+  const now = new Date().toISOString()
+  return {
+    id: id ?? `builtin-${slug}`,
+    name,
+    slug,
+    description: `${name} profile`,
+    system_prompt: `You are a ${name}.`,
+    model_tier: 'strong',
+    model_override: null,
+    allowed_tools: '[]',
+    behavior_settings: '{}',
+    tags: '[]',
+    built_in: true,
+    created_at: now,
+    updated_at: now,
+  }
+}
+
+const PROFILE_ROWS: Record<string, ReturnType<typeof makeProfileRow>> = {
+  'personal-assistant': makeProfileRow('personal-assistant', 'Personal Assistant'),
+  'developer': makeProfileRow('developer', 'Developer'),
+}
+
 function makeMockDb(): DatabaseClient {
   return {
     query: vi.fn().mockResolvedValue([]),
-    queryOne: vi.fn().mockImplementation(async (sql: string) => {
+    queryOne: vi.fn().mockImplementation(async (sql: string, params?: unknown[]) => {
       // INSERT...RETURNING queries need a fake id so callers don't throw
       if (sql.trim().toUpperCase().startsWith('INSERT')) return { id: randomUUID() }
+      // Profile lookup: return a stub profile row matching the requested slug
+      if (sql.includes('agent_profiles') && params?.length) {
+        const slug = params[0] as string
+        return PROFILE_ROWS[slug] ?? null
+      }
       return null
     }),
     execute: vi.fn().mockResolvedValue(undefined),
@@ -88,6 +118,43 @@ function makeContext(overrides: Partial<ToolContext> = {}): ToolContext {
   }
 }
 
+// ─── Fixtures ─────────────────────────────────────────────────────────────────
+
+function makeAgentRow(slug: string, id: string, name: string, workspace: string) {
+  const now = new Date().toISOString()
+  return {
+    id,
+    name,
+    slug,
+    lifecycle_type: slug === 'main' ? 'always_on' : 'dormant',
+    wake_mode: 'auto',
+    current_profile_id: 'builtin-personal-assistant',
+    shell_permission_level: 'none',
+    agent_management_permission: 'approval_required',
+    workspace_path: workspace,
+    status: 'active',
+    created_by: 'system',
+    created_at: now,
+    updated_at: now,
+    profile_id: 'builtin-personal-assistant',
+    profile_name: 'Personal Assistant',
+    profile_slug: 'personal-assistant',
+    profile_description: 'Default profile',
+    system_prompt: 'You are helpful.',
+    model_tier: 'strong',
+    model_override: null,
+    allowed_tools: '[]',
+    behavior_settings: '{}',
+    tags: '[]',
+    built_in: true,
+  }
+}
+
+const SEED_AGENTS = [
+  makeAgentRow('main', 'main', 'Main Agent', '/tmp/.agency/workspaces/main'),
+  makeAgentRow('system', 'system', 'System Agent', '/tmp/.agency/workspaces/system'),
+]
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('Orchestrator.createAgent()', () => {
@@ -99,36 +166,8 @@ describe('Orchestrator.createAgent()', () => {
     const toolRegistry = makeMockToolRegistry()
     orchestrator = new Orchestrator(db as any, makeMockModelRouter(), toolRegistry)
 
-    // Seed a "main" agent in the internal map via loadAgentRegistry path
-    // by pre-populating the DB mock to return main agent + personal-assistant profile
-    ;(db.query as any).mockResolvedValue([
-      {
-        id: 'main',
-        name: 'Main Agent',
-        slug: 'main',
-        lifecycle_type: 'always_on',
-        wake_mode: 'auto',
-        current_profile_id: 'builtin-personal-assistant',
-        shell_permission_level: 'none',
-        agent_management_permission: 'approval_required',
-        workspace_path: '/tmp/.agency/workspaces/main',
-        status: 'active',
-        created_by: 'system',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        profile_id: 'builtin-personal-assistant',
-        profile_name: 'Personal Assistant',
-        profile_slug: 'personal-assistant',
-        profile_description: 'Default profile',
-        system_prompt: 'You are helpful.',
-        model_tier: 'strong',
-        model_override: null,
-        allowed_tools: '[]',
-        behavior_settings: '{}',
-        tags: '[]',
-        built_in: true,
-      },
-    ])
+    // Seed main + system agents so createAgent can add workspace paths to both
+    ;(db.query as any).mockResolvedValue(SEED_AGENTS)
     await orchestrator.initialize()
   })
 
@@ -195,34 +234,8 @@ describe('Orchestrator.deleteAgent()', () => {
     const toolRegistry = makeMockToolRegistry()
     orchestrator = new Orchestrator(db as any, makeMockModelRouter(), toolRegistry)
 
-    ;(db.query as any).mockResolvedValue([
-      {
-        id: 'main',
-        name: 'Main Agent',
-        slug: 'main',
-        lifecycle_type: 'always_on',
-        wake_mode: 'auto',
-        current_profile_id: 'builtin-personal-assistant',
-        shell_permission_level: 'none',
-        agent_management_permission: 'approval_required',
-        workspace_path: '/tmp/.agency/workspaces/main',
-        status: 'active',
-        created_by: 'system',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        profile_id: 'builtin-personal-assistant',
-        profile_name: 'Personal Assistant',
-        profile_slug: 'personal-assistant',
-        profile_description: 'Default',
-        system_prompt: 'You are helpful.',
-        model_tier: 'strong',
-        model_override: null,
-        allowed_tools: '[]',
-        behavior_settings: '{}',
-        tags: '[]',
-        built_in: true,
-      },
-    ])
+    // Seed main + system agents
+    ;(db.query as any).mockResolvedValue(SEED_AGENTS)
     await orchestrator.initialize()
 
     // Create an agent to delete

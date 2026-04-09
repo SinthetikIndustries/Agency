@@ -910,56 +910,40 @@ async function handleShellRun(
       return { error: 'Shell access is disabled for this agent (permission level: none).' }
 
     case 'per_command':
-      // Commands within the agent workspace run freely; others need approval
-      if (!withinWorkspace) {
+      // Every command requires explicit per-command approval
+      return {
+        approval_required: true,
+        command,
+        reason: 'per_command: every command requires explicit approval',
+        message: 'This command requires your approval before it can run.',
+      }
+
+    case 'session_destructive': {
+      if (!context.sessionGrantActive) {
+        return { error: 'Shell access requires an active session grant (permission level: session_destructive).' }
+      }
+      // Destructive patterns always require approval regardless of workspace location
+      const isChmodChownOutside = /\b(chmod|chown)\b/.test(command) && (() => {
+        const m = command.match(/\b(?:chmod|chown)\b\s+\S+\s+(\S+)/)
+        const target = m?.[1]
+        if (!target) return true
+        return !allWorkspacePaths.some(ws => target.startsWith(ws))
+      })()
+      const isDestructive = isChmodChownOutside || DESTRUCTIVE_COMMAND_PATTERNS.some(p => p.test(command))
+      if (isDestructive) {
         return {
           approval_required: true,
           command,
-          reason: 'per_command: command references paths outside the agent workspace',
-          message: 'This command operates outside the agent workspace and requires your approval.',
-        }
-      }
-      break
-
-    case 'session_destructive': {
-      // Within workspace: all commands run freely
-      if (!withinWorkspace) {
-        const isChmodChownOutside = /\b(chmod|chown)\b/.test(command) && (() => {
-          const m = command.match(/\b(?:chmod|chown)\b\s+\S+\s+(\S+)/)
-          const target = m?.[1]
-          if (!target) return true
-          return !allWorkspacePaths.some(ws => target.startsWith(ws))
-        })()
-        const isDestructive = isChmodChownOutside || DESTRUCTIVE_COMMAND_PATTERNS.some(p => p.test(command))
-        if (isDestructive) {
-          return {
-            approval_required: true,
-            command,
-            reason: 'session_destructive: destructive command outside workspace requires approval',
-            message: 'This is a destructive command outside the agent workspace and requires your approval.',
-          }
-        }
-        if (!context.sessionGrantActive) {
-          return {
-            approval_required: true,
-            command,
-            reason: 'session_destructive: external commands require a session grant',
-            message: 'This command operates outside the agent workspace. Approve to grant shell access for this session.',
-          }
+          reason: 'session_destructive: destructive command requires approval',
+          message: 'This is a destructive command and requires your approval.',
         }
       }
       break
     }
 
     case 'session_only':
-      // Within workspace: run freely. Outside workspace: require session grant (approval)
-      if (!withinWorkspace && !context.sessionGrantActive) {
-        return {
-          approval_required: true,
-          command,
-          reason: 'session_only: external commands require a session grant',
-          message: 'This command operates outside the agent workspace. Approve to grant shell access for this session.',
-        }
+      if (!context.sessionGrantActive) {
+        return { error: 'Shell access requires an active session grant (permission level: session_only).' }
       }
       break
 
