@@ -1581,7 +1581,7 @@ function rowToAgentWithProfile(row: AgentIdentityRow, agencyDir: string): AgentW
     additionalWorkspacePaths: (row.additional_workspace_paths ?? []).map(resolveWs),
   }
 
-  // If profile was joined, use it; otherwise fall back to built-in
+  // If profile was joined, use it; otherwise use an empty stub (agent profile is missing)
   const profile: AgentProfile = row.profile_id
     ? {
         id: row.profile_id,
@@ -1598,20 +1598,23 @@ function rowToAgentWithProfile(row: AgentIdentityRow, agencyDir: string): AgentW
         createdAt: new Date(),
         updatedAt: new Date(),
       }
-    : {
-        id: row.current_profile_id ?? 'unknown',
-        name: 'Unknown',
-        slug: 'unknown',
-        description: '',
-        systemPrompt: '',
-        modelTier: 'strong' as AgentProfile['modelTier'],
-        allowedTools: [],
-        behaviorSettings: { tone: 'casual', verbosity: 'normal', proactive: false } as AgentProfile['behaviorSettings'],
-        tags: [],
-        builtIn: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
+    : (() => {
+        console.warn(`[Orchestrator] Agent "${row.slug}" has no valid profile (current_profile_id: ${row.current_profile_id ?? 'null'}). Defaulting to empty profile stub.`)
+        return {
+          id: row.current_profile_id ?? 'unknown',
+          name: 'Unknown',
+          slug: 'unknown',
+          description: '',
+          systemPrompt: '',
+          modelTier: 'strong' as AgentProfile['modelTier'],
+          allowedTools: [],
+          behaviorSettings: { tone: 'casual', verbosity: 'normal', proactive: false } as AgentProfile['behaviorSettings'],
+          tags: [],
+          builtIn: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+      })()
 
   return { identity, profile }
 }
