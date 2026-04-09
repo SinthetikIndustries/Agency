@@ -753,6 +753,37 @@ export default class Install extends Command {
       }
       this.log(chalk.green('done'))
 
+      // Wait for Postgres to be ready (up to 30s)
+      process.stdout.write(chalk.gray('  Waiting for Postgres to be ready...'))
+      let pgReady = false
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const check = spawnSync('docker', [
+          'exec', 'agency-postgres',
+          'pg_isready', '-U', 'agency', '-d', 'agency',
+        ], { stdio: 'pipe' })
+        if (check.status === 0) { pgReady = true; break }
+        spawnSync('sleep', ['1'])
+      }
+      if (!pgReady) this.error('Postgres did not become ready in time.')
+      this.log(chalk.green(' ready'))
+
+      // Import default database
+      process.stdout.write(chalk.gray('  Importing default database... '))
+      const defaultSql = join(repoDir, 'installation', 'default.sql')
+      const { readFileSync } = await import('node:fs')
+      const importResult = spawnSync('docker', [
+        'exec', '-i', 'agency-postgres',
+        'psql', '-U', 'agency', '-d', 'agency',
+      ], {
+        input: readFileSync(defaultSql),
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+      if (importResult.status !== 0) {
+        const stderr = importResult.stderr?.toString() ?? ''
+        this.error(`Database import failed: ${stderr}`)
+      }
+      this.log(chalk.green('done'))
+
       // Wait for Ollama daemon to be ready (up to 30s)
       process.stdout.write(chalk.gray('  Waiting for Ollama to be ready...'))
       let ollamaReady = false
@@ -841,7 +872,7 @@ export default class Install extends Command {
       }
       await writeCredentials(credentials)
 
-      // Start gateway (runs DB migrations on startup, creates main agent)
+      // Start gateway (DB already seeded via default.sql)
       process.stdout.write(chalk.gray('  Starting gateway... '))
       const gatewayDir = join(repoDir, 'app', 'apps', 'gateway')
       await startGateway(gatewayDir)
