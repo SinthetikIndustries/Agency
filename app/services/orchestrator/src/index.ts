@@ -479,7 +479,41 @@ export class Orchestrator {
     )
 
     await this.provisionWorkspace(identity, profileSlug)
-    await this.createAgentBrainNode(identity, 'GRID/PROGRAMS/instances')
+
+    // Copy config files from profile template
+    await this.db.execute(
+      `INSERT INTO agent_config_files (agent_id, file_type, content, updated_by)
+       SELECT $1, pcf.file_type, pcf.content, 'system'
+       FROM profile_config_files pcf
+       JOIN agent_profiles ap ON ap.id = pcf.profile_id
+       WHERE ap.slug = $2
+       ON CONFLICT (agent_id, file_type) DO NOTHING`,
+      [identity.id, profileSlug]
+    )
+
+    // Create brain node for new agent
+    const brainNode = await this.db.queryOne<{ id: string }>(
+      `INSERT INTO brain_nodes (type, label, content, grid_path, grid_tier, grid_locked, confidence, source)
+       VALUES ('program', $1, $2, $3, 3, false, 1.0, 'system')
+       ON CONFLICT (grid_path) WHERE grid_path IS NOT NULL DO NOTHING
+       RETURNING id`,
+      [identity.name, `User-created program: ${identity.name}`, `GRID/PROGRAMS/instances/${identity.slug}`]
+    )
+    if (brainNode) {
+      await this.db.execute(
+        'UPDATE agent_identities SET brain_node_id = $1 WHERE id = $2',
+        [brainNode.id, identity.id]
+      )
+      // Link to instances parent node
+      await this.db.execute(
+        `INSERT INTO brain_edges (from_id, to_id, type, weight, source)
+         SELECT p.id, $1, 'contains', 1.0, 'system'
+         FROM brain_nodes p WHERE p.grid_path = 'GRID/PROGRAMS/instances'
+         ON CONFLICT (from_id, to_id, type) DO NOTHING`,
+        [brainNode.id]
+      )
+    }
+
     this.agents.set(slug, { identity, profile })
 
     // Auto-grant main and system agent access to new agent's workspace
