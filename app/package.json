@@ -8,7 +8,8 @@
     "dev": "pnpm --filter @agency/gateway dev",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "seed:generate": "tsx ../scripts/generate-default-sql.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
