@@ -33,18 +33,18 @@ Your agents maintain **persistent memory** across all sessions — stored in Pos
 | Feature | Description |
 |---------|-------------|
 | 🤝 **Multi-agent orchestration** | **SYST** (system governance) + **PRIM** (your personal assistant) + any number of specialized sub-agents. Coordinator mode breaks complex tasks into phases with worker delegation. |
-| 🔀 **SYST / PRIM split** | Two protected built-in programs: **SYST** — System (full autonomy, system-level permissions, sovereign authority over the installation) and **PRIM** — Primary (your personal assistant, human-approval gates). Each has its own workspace, memory, and full config file set. SYST's name and profile are locked — it automatically inherits every other agent's workspace as a secondary workspace when agents are created or removed. |
+| 🔀 **Built-in programs** | 13 programs seeded at install across three tiers. **Tier 1** — SYST (system governance, full autonomy) and CTRL (control authority). **Tier 2** — 10 background worker subprograms (MON, COMP, INDX, RETR, ANLY, SECR, WARD, EXEC, LIFE, SENS). **Tier 3** — PRIM, your personal assistant. All programs are first-class `agent_identities` entries with the same 17-file config set; none can be deleted or renamed. SYST automatically inherits every other agent's workspace when agents are created or removed. |
 | 👥 **Workspace groups** | Organize agents into named groups with shared workspaces and shared memory. Agents in a group automatically see group-level context alongside their own. Every agent page shows a Group Workspaces card listing its groups. SYST sees all groups including the system-only **Agency System** group (its primary group workspace); other agents only see groups they belong to. |
 | 🗺️ **Canvas views** | Interactive ReactFlow canvases throughout the dashboard: per-agent radial capability map (agent → skills, tools, workspaces), group topology canvas with drag-and-drop agent assignment, and a full-system Network map with live mode (auto-refresh every 5s). All canvases support edit mode, right-click context menus, a slide-in side panel, position persistence across sessions, and one-click layout reset. |
 | 🤖 **Agent Architect** | Describe what you want an agent to do in plain language — Agency generates a complete agent spec (name, slug, system prompt, tools, permissions) using the LLM. One click to accept and create. |
 | 🔐 **Per-agent permissions** | Fine-grained `AgencyPermissions` model: set `agentCreate`, `agentDelete`, `agentUpdate`, `groupCreate`, `groupUpdate`, `groupDelete`, and `shellRun` independently to `deny`, `request` (human approval), or `autonomous`. Plus per-agent allow/deny rule lists. |
 | 💾 **Persistent memory** | Conversations and knowledge stored in PostgreSQL with pgvector for semantic vector search. Context retrieved automatically across sessions. Agents in a group share a group memory layer. |
 | 🧠 **The Brain / Grid** | Database-first knowledge graph backed by PostgreSQL + pgvector. The Brain is organized as the **Grid** — a full world model where every platform object (agents, programs, memory, history, subprograms, config) is a named node with typed edges. A 3D interactive view renders the live Grid with tier-aware sizing and color-coded regions. Memory items have a full lifecycle: `active → proposal → canon → deprecated → archived`, gated by the WARD subprogram. Semantic search across everything. Agent-writable. |
-| ⚙️ **Subprograms** | Background worker subprograms run on schedule and maintain Grid integrity: **MON** (health monitor), **LIFE** (memory archival), **SENS** (audit-log-to-Grid event normalizer). Each has a Grid node, status tracking, run count, and manual trigger via API. More subprograms planned: COMP (compactor), WARD (canon steward), SECR (security), RETR (retriever), ANLY (analyzer), EXEC (executor), INDX (indexer). |
+| ⚙️ **Subprograms** | 10 background worker subprograms run on schedule and maintain Grid integrity. Active: **MON** (health monitor), **LIFE** (memory archival), **SENS** (event normalizer). Dormant (enabled on demand): **COMP** (memory compactor), **INDX** (indexer), **RETR** (retriever), **ANLY** (pattern analyzer), **SECR** (security scanner), **WARD** (canon steward), **EXEC** (delegated executor). Each has its own Grid node, config file set, schedule, run count, and error tracking on `agent_identities`. |
 | 🦙 **Local model support** | Ollama runs in Docker. Choose which models to pull during install — or skip and pull later with `agency models pull <model>`. No cloud required. |
 | 🔀 **Model routing** | Route tasks across Anthropic (Claude), OpenAI (GPT), Ollama (local), Ollama Cloud, and OpenRouter simultaneously. Per-tier routing with automatic fallbacks. Prompt caching reduces API costs on repeated context. |
 | ⚡ **Real-time streaming** | WebSocket chat with live token streaming, tool call cards, and full session history. Session search, prompt suggestions, and away-summary recaps when you return to an idle session. |
-| 🛠️ **Skills & profiles** | Modular agent capabilities and swappable behavior profiles. Attach different toolsets without reconfiguring everything. |
+| 🛠️ **Skills & profiles** | Modular agent capabilities and 18 built-in swappable behavior profiles (default, personal-assistant, developer, researcher, analyst, writer, copywriter, editor, planner, coach, summarizer, tester, devops, executive, operations, sales, creative, designer). New agents copy their full config file set from the chosen profile at creation time. |
 | 🔧 **Tool registry** | Browse and manage the full set of agent tools by type: file, shell, browser, HTTP, code, memory, brain, messaging, and agent management. |
 | 🪝 **Event hooks** | Register shell commands that fire on platform events — session created, agent woke, tool called, and more. Blocking hooks can intercept and gate events before they proceed. |
 | 📬 **Messaging** | Structured inbound message queues per agent with priority, expiry, and delivery tracking. Agents send and receive typed messages. Monitor inbox depths and message history from the dashboard. |
@@ -143,7 +143,7 @@ The installer will:
 3. 🐳 Start PostgreSQL, Redis, and Ollama in Docker
 4. 🦙 Offer a model selection menu — choose one of `qwen3:1.7b`, `qwen3:8b`, `nemotron-3-nano:4b`, `gemma4:e4b`, all of them, or none (pull later with `agency models pull <model>`)
 5. 🔨 Build the app
-6. 🤖 Create built-in programs: **SYST** (system governance) + **PRIM** (personal assistant)
+6. 🗄️ Seed the database from `installation/default.sql` — atomically creates the full schema, all 13 built-in programs (SYST, CTRL, 10 worker subprograms, PRIM), and all 18 built-in profile templates
 7. 🌐 Initialize **The Grid** — database-first knowledge graph with 3D visualization, semantic search, and agent-writable knowledge
 8. 🗂️ Create the **Agency System** group — SYST's primary group workspace, visible only to SYST
 
@@ -369,7 +369,7 @@ Pre-1.0. Core platform is functional. Active development.
 
 - [x] ⚙️ Gateway + WebSocket streaming
 - [x] 🤝 Multi-agent orchestration + coordinator mode
-- [x] 🔀 SYST / PRIM split with protected built-in programs
+- [x] 🔀 13 built-in programs seeded atomically via `default.sql` (SYST, CTRL, 10 workers, PRIM) — no migration runner
 - [x] 🔐 Per-agent `AgencyPermissions` (deny / request / autonomous per operation)
 - [x] 👥 Workspace groups with shared workspaces and group memory
 - [x] 🗺️ Canvas views (per-agent, group topology, full-system network map)
@@ -383,7 +383,7 @@ Pre-1.0. Core platform is functional. Active development.
 - [x] 🕐 Scheduled tasks with cron scheduling and run history
 - [x] 🔌 MCP server support (stdio + HTTP/SSE)
 - [x] 🔌 Discord connector
-- [x] 🛠️ Skills + profiles
+- [x] 🛠️ Skills + 18 built-in profiles
 - [x] 📋 Audit log + smart approvals with risk classification and reasoning trace
 - [x] 💬 Session search, prompt suggestions, away summaries
 - [x] 🔍 Adversarial verification gate
