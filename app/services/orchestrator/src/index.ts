@@ -505,13 +505,19 @@ export class Orchestrator {
         [brainNode.id, identity.id]
       )
       // Link to instances parent node
-      await this.db.execute(
-        `INSERT INTO brain_edges (from_id, to_id, type, weight, source)
-         SELECT p.id, $1, 'contains', 1.0, 'system'
-         FROM brain_nodes p WHERE p.grid_path = 'GRID/PROGRAMS/instances'
-         ON CONFLICT (from_id, to_id, type) DO NOTHING`,
-        [brainNode.id]
+      const instancesParent = await this.db.queryOne<{ id: string }>(
+        `SELECT id FROM brain_nodes WHERE grid_path = 'GRID/PROGRAMS/instances'`
       )
+      if (!instancesParent) {
+        console.warn('[Orchestrator] GRID/PROGRAMS/instances brain node not found — new agent will not be linked in the graph')
+      } else {
+        await this.db.execute(
+          `INSERT INTO brain_edges (from_id, to_id, type, weight, source)
+           VALUES ($1, $2, 'contains', 1.0, 'system')
+           ON CONFLICT (from_id, to_id, type) DO NOTHING`,
+          [instancesParent.id, brainNode.id]
+        )
+      }
     }
 
     this.agents.set(slug, { identity, profile })
