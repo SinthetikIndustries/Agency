@@ -38,14 +38,14 @@ export class SubprogramRunner {
         [workerId]
       )
 
-      console.log(`[${workerId}] ${result.message} (${result.itemsProcessed} items)`)
+      console.log(`[${workerId}] ${result.message} (${result.itemsProcessed} items) [${result.status}]`)
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err)
       await this.db.execute(
         'UPDATE agent_identities SET last_error = $1, updated_at = NOW() WHERE id = $2',
         [error, workerId]
       )
-      console.error(`[${workerId}] Error:`, err)
+      console.error(`[${workerId}] Error:`, error)
     }
   }
 
