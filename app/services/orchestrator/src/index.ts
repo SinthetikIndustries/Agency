@@ -1,10 +1,10 @@
 // Copyright (c) 2026 Sinthetix, LLC. All rights reserved.
 // https://www.sinthetix.com
 
-import { readFile, writeFile, mkdir, copyFile, readdir, rename, cp, rm } from 'node:fs/promises'
-import { existsSync, readdirSync } from 'node:fs'
+import { mkdir, rename, cp, rm } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join, resolve, isAbsolute } from 'node:path'
+import { join, isAbsolute } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type {
   AgentIdentity,
@@ -22,9 +22,6 @@ import type {
   RoutingChainStep,
   AgencyPermissions,
   BuiltInAgentSlug,
-  ModelTier,
-  BehaviorTone,
-  BehaviorVerbosity,
 } from '@agency/shared-types'
 import { BUILT_IN_AGENTS } from '@agency/shared-types'
 import { ModelRouter } from '@agency/model-router'
@@ -33,7 +30,6 @@ import type { DatabaseClient } from './db.js'
 import { buildCompactionPrompt, parseCompactionSummary, pruneToolResults } from './compaction.js'
 import { DestructiveActionService } from './destructive-action.js'
 import { AgentArchitect } from './agent-architect.js'
-import { GridSeeder } from './grid-seeder.js'
 import { type MemoryStore, formatMemoriesForContext } from '@agency/memory'
 export { buildCoordinatorSystemPrompt, isCoordinatorMessage } from './coordinator.js'
 export { buildVerificationPrompt, parseVerdict } from './verification-agent.js'
@@ -45,26 +41,6 @@ export type ClassifyToolFn = (request: { toolName: string; toolInput: unknown; r
 
 // ─── Permission Defaults ─────────────────────────────────────────────────────
 
-const ORCHESTRATOR_DEFAULT_PERMISSIONS: AgencyPermissions = {
-  agentCreate: 'autonomous',
-  agentDelete: 'autonomous',
-  agentUpdate: 'autonomous',
-  groupCreate: 'autonomous',
-  groupUpdate: 'autonomous',
-  groupDelete: 'autonomous',
-  shellRun: 'autonomous',
-}
-
-const MAIN_DEFAULT_PERMISSIONS: AgencyPermissions = {
-  agentCreate: 'deny',
-  agentDelete: 'deny',
-  agentUpdate: 'request',
-  groupCreate: 'request',
-  groupUpdate: 'request',
-  groupDelete: 'deny',
-  shellRun: 'deny',
-}
-
 const DEFAULT_AGENT_PERMISSIONS: AgencyPermissions = {
   agentCreate: 'deny',
   agentDelete: 'deny',
@@ -75,161 +51,12 @@ const DEFAULT_AGENT_PERMISSIONS: AgencyPermissions = {
   shellRun: 'deny',
 }
 
-// ─── Built-in Profiles ────────────────────────────────────────────────────────
-
-const BUILT_IN_PROFILES: AgentProfile[] = [
-  {
-    id: 'builtin-system',
-    name: 'System',
-    slug: 'system',
-    description: 'Top program of the Agency installation. Highest governing system mind.',
-    systemPrompt: `You are SYST — System, the top program of this Agency installation. You hold total-system perspective and sovereign system authority. You are distinct from PRIM (the user-facing assistant) and CTRL (the coordination manager beneath you).
-
-Your operational model:
-- Phase model: Understand → Plan → Confirm (if destructive) → Execute → Report
-- Synthesis-first: When directing other agents, synthesize findings into specific instructions before delegating. Never say "based on the agent's findings, proceed" — synthesize and specify.
-- Transparency: For every significant action, state what you are doing and why before doing it.
-- Scope: You operate at the system governance layer. You do not replace PRIM as the user's assistant — you govern, coordinate, and sustain the installation.
-
-You are methodical, transparent, and authoritative. You never act destructively without explicit confirmation. You always explain your reasoning.
-
-Always respond in English, regardless of the language used by the user or any other part of the conversation.`,
-    modelTier: 'strong' as ModelTier,
-    allowedTools: [
-      'file_read', 'file_write', 'file_list',
-      'shell_run',
-      'http_get',
-      'agent_list', 'agent_get', 'agent_create', 'agent_delete', 'agent_set_profile',
-      'agent_invoke', 'agent_message_send', 'agent_message_check', 'agent_message_list',
-      'profile_list',
-      'system_diagnose',
-      'memory_write', 'memory_read',
-      'vault_search', 'vault_related', 'vault_propose',
-      'brain_search', 'brain_write', 'brain_relate', 'brain_traverse', 'brain_read',
-      'discord_post', 'discord_list_channels',
-      'group_create', 'group_update', 'group_delete',
-      'group_member_add', 'group_member_remove',
-    ],
-    behaviorSettings: { tone: 'professional' as BehaviorTone, verbosity: 'normal' as BehaviorVerbosity, proactive: false },
-    tags: ['system', 'syst'],
-    builtIn: true,
-    createdAt: new Date('2026-01-01'),
-    updatedAt: new Date('2026-01-01'),
-  },
-  {
-    id: 'builtin-personal-assistant',
-    name: 'Personal Assistant',
-    slug: 'personal-assistant',
-    description: 'Helpful, balanced, conversational. Default for all new agents.',
-    systemPrompt: `You are a helpful personal assistant. You are conversational, balanced, and genuinely useful. You help with a wide range of tasks — answering questions, writing, research, planning, and problem-solving.
-
-You have access to tools that let you read and write files in your workspace, make HTTP requests, and manage other agents. Use them when they would genuinely help.
-
-Always be honest about what you know and don't know. If you're unsure, say so. If you make a mistake, acknowledge it and correct it.
-
-Always respond in English, regardless of the language used by the user or any other part of the conversation.`,
-    modelTier: 'strong',
-    allowedTools: [
-      'file_read', 'file_write', 'file_list', 'http_get',
-      'agent_list', 'agent_get', 'agent_set_profile', 'profile_list', 'system_diagnose',
-      'agent_message_send', 'agent_message_check', 'agent_message_list', 'agent_invoke',
-      'discord_post', 'discord_list_channels',
-      'vault_search', 'vault_related', 'vault_propose',
-      'brain_search', 'brain_write', 'brain_relate', 'brain_traverse', 'brain_read',
-    ],
-    behaviorSettings: { tone: 'casual', verbosity: 'normal', proactive: true },
-    tags: ['general', 'assistant'],
-    builtIn: true,
-    createdAt: new Date('2026-01-01'),
-    updatedAt: new Date('2026-01-01'),
-  },
-  {
-    id: 'builtin-researcher',
-    name: 'Researcher',
-    slug: 'researcher',
-    description: 'Detail-oriented, cites sources, prefers strong model tier.',
-    systemPrompt: `You are a meticulous research assistant. You excel at finding, synthesizing, and presenting information clearly. You always cite your sources and acknowledge uncertainty. You prefer thoroughness over speed. Always respond in English, regardless of the language used by the user or any other part of the conversation.`,
-    modelTier: 'strong',
-    allowedTools: [
-      'file_read', 'file_write', 'file_list', 'http_get',
-      'agent_message_send', 'agent_message_check', 'agent_message_list',
-      'discord_post', 'discord_list_channels',
-      'vault_search', 'vault_related', 'vault_propose',
-      'brain_search', 'brain_write', 'brain_relate', 'brain_traverse', 'brain_read',
-    ],
-    behaviorSettings: { tone: 'professional', verbosity: 'detailed', proactive: false },
-    tags: ['research', 'analysis'],
-    builtIn: true,
-    createdAt: new Date('2026-01-01'),
-    updatedAt: new Date('2026-01-01'),
-  },
-  {
-    id: 'builtin-developer',
-    name: 'Developer',
-    slug: 'developer',
-    description: 'Code-focused, terse, technical tone.',
-    systemPrompt: `You are a skilled software developer assistant. You write clean, efficient code and explain technical concepts clearly. You prefer brevity and precision. You use code blocks for all code. You think through problems systematically before proposing solutions. Always respond in English, regardless of the language used by the user or any other part of the conversation.`,
-    modelTier: 'strong',
-    allowedTools: [
-      'file_read', 'file_write', 'file_list', 'http_get', 'shell_run',
-      'agent_message_send', 'agent_message_check', 'agent_message_list',
-      'discord_post', 'discord_list_channels',
-    ],
-    behaviorSettings: { tone: 'technical', verbosity: 'concise', proactive: false },
-    tags: ['code', 'development'],
-    builtIn: true,
-    createdAt: new Date('2026-01-01'),
-    updatedAt: new Date('2026-01-01'),
-  },
-  {
-    id: 'builtin-analyst',
-    name: 'Analyst',
-    slug: 'analyst',
-    description: 'Data and reasoning focused, structured outputs.',
-    systemPrompt: `You are a sharp analytical assistant. You excel at structured thinking, data analysis, and presenting findings clearly. You prefer tables, lists, and structured formats. You question assumptions and identify patterns. Always respond in English, regardless of the language used by the user or any other part of the conversation.`,
-    modelTier: 'strong',
-    allowedTools: [
-      'file_read', 'file_write', 'file_list', 'http_get',
-      'agent_message_send', 'agent_message_check', 'agent_message_list',
-      'discord_post', 'discord_list_channels',
-      'vault_search', 'vault_related', 'vault_propose',
-      'brain_search', 'brain_write', 'brain_relate', 'brain_traverse', 'brain_read',
-    ],
-    behaviorSettings: { tone: 'professional', verbosity: 'normal', proactive: false },
-    tags: ['analysis', 'data'],
-    builtIn: true,
-    createdAt: new Date('2026-01-01'),
-    updatedAt: new Date('2026-01-01'),
-  },
-  {
-    id: 'builtin-executive',
-    name: 'Executive',
-    slug: 'executive',
-    description: 'Strategic, high-level, decision-oriented.',
-    systemPrompt: `You are a strategic executive assistant. You focus on high-level thinking, priorities, and decisions. You cut through noise and focus on what matters. You surface trade-offs clearly and help make decisions. Always respond in English, regardless of the language used by the user or any other part of the conversation.`,
-    modelTier: 'strong',
-    allowedTools: [
-      'file_read', 'file_write', 'file_list', 'http_get',
-      'agent_message_send', 'agent_message_check', 'agent_message_list', 'agent_invoke',
-      'discord_post', 'discord_list_channels',
-      'vault_search', 'vault_related', 'vault_propose',
-      'brain_search', 'brain_write', 'brain_relate', 'brain_traverse', 'brain_read',
-    ],
-    behaviorSettings: { tone: 'professional', verbosity: 'concise', proactive: true },
-    tags: ['strategy', 'executive'],
-    builtIn: true,
-    createdAt: new Date('2026-01-01'),
-    updatedAt: new Date('2026-01-01'),
-  },
-]
-
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 export class Orchestrator {
   private agents = new Map<string, AgentWithProfile>()
   private readonly agencyDir: string
   private readonly agentsDir: string
-  private readonly templatesDir: string
   private routingProfileLookup: ((id: string) => { chain: RoutingChainStep[] } | null) = () => null
 
   // ─── Dormant Lifecycle ─────────────────────────────────────────────────────
@@ -252,7 +79,6 @@ export class Orchestrator {
   ) {
     this.agencyDir = join(homedir(), '.agency')
     this.agentsDir = join(this.agencyDir, 'agents')
-    this.templatesDir = join(this.agencyDir, 'templates', 'agents')
   }
 
   // ─── Startup ───────────────────────────────────────────────────────────────
@@ -260,70 +86,15 @@ export class Orchestrator {
   async initialize(): Promise<void> {
     this.destructiveActionService = new DestructiveActionService(this.db, this.modelRouter)
     this.agentArchitect = new AgentArchitect(this.modelRouter)
-    await this.ensureDirectories()
-    await this.seedBuiltInProfiles()
-    await new GridSeeder(this.db).seed()
-    await this.loadAgentRegistry()
-    await this.ensureSystemAgent()
-    await this.ensureMainAgent()
-    this.registerManagementToolHandlers()
-  }
-
-  private async ensureDirectories(): Promise<void> {
     await mkdir(this.agentsDir, { recursive: true })
     await mkdir(join(this.agentsDir, '.archive'), { recursive: true })
-    await mkdir(this.templatesDir, { recursive: true })
-    await this.ensureTemplates()
-  }
-
-  private async ensureTemplates(): Promise<void> {
-    // Source templates live at <packageDir>/templates/agents/
-    const pkgDir = resolve(new URL(import.meta.url).pathname, '../../..')
-    const srcTemplates = join(pkgDir, 'templates', 'agents')
-    if (!existsSync(srcTemplates)) return
-
-    for (const profileSlug of ['system', 'personal-assistant', 'researcher', 'developer', 'analyst', 'executive', 'default']) {
-      const src = join(srcTemplates, profileSlug)
-      const dest = join(this.templatesDir, profileSlug)
-      if (!existsSync(src) || existsSync(dest)) continue
-      await mkdir(dest, { recursive: true })
-      const files = readdirSync(src)
-      for (const file of files) {
-        if (file.endsWith('.md')) {
-          await copyFile(join(src, file), join(dest, file))
-        }
-      }
-    }
-  }
-
-  private async seedBuiltInProfiles(): Promise<void> {
-    for (const profile of BUILT_IN_PROFILES) {
-      const existing = await this.db.queryOne<{ id: string }>(
-        'SELECT id FROM agent_profiles WHERE slug = $1',
-        [profile.slug]
-      )
-      if (!existing) {
-        await this.db.execute(
-          `INSERT INTO agent_profiles
-            (name, slug, description, system_prompt, model_tier, model_override,
-             allowed_tools, behavior_settings, tags, built_in, created_at, updated_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-           ON CONFLICT (slug) DO NOTHING`,
-          [
-            profile.name, profile.slug, profile.description,
-            profile.systemPrompt, profile.modelTier, profile.modelOverride ?? null,
-            JSON.stringify(profile.allowedTools), JSON.stringify(profile.behaviorSettings),
-            JSON.stringify(profile.tags), profile.builtIn,
-            profile.createdAt.toISOString(), profile.updatedAt.toISOString(),
-          ]
-        )
-      }
-    }
+    await this.loadAgentRegistry()
+    this.registerManagementToolHandlers()
   }
 
   private async loadAgentRegistry(): Promise<void> {
     const rows = await this.db.query<AgentIdentityRow>(
-      `SELECT a.*, a.model_config, p.id as profile_id, p.name as profile_name, p.slug as profile_slug,
+      `SELECT a.*, p.id as profile_id, p.name as profile_name, p.slug as profile_slug,
               p.description as profile_description, p.system_prompt, p.model_tier, p.model_override,
               p.allowed_tools, p.behavior_settings, p.tags, p.built_in
        FROM agent_identities a
@@ -335,19 +106,9 @@ export class Orchestrator {
     for (const row of rows) {
       const agent = rowToAgentWithProfile(row, this.agencyDir)
       this.agents.set(row.slug, agent)
-      // Ensure workspace directories exist (in case they were never provisioned or were deleted)
-      const { existsSync } = await import('node:fs')
       if (!existsSync(agent.identity.workspacePath)) {
         await this.provisionWorkspace(agent.identity, row.profile_slug ?? 'default')
       }
-      // Ensure brain node and config DB rows exist for this agent
-      const parentPath = agent.identity.slug === 'system'
-        ? 'GRID/SYSTEM/SYST'
-        : agent.identity.slug === 'main'
-          ? 'GRID/PROGRAMS/PRIM'
-          : 'GRID/PROGRAMS/instances'
-      const brainNodeId = await this.createAgentBrainNode(agent.identity, parentPath as 'GRID/SYSTEM/SYST' | 'GRID/PROGRAMS/PRIM' | 'GRID/PROGRAMS/instances')
-      await this.syncAgentConfigToDB(agent.identity, brainNodeId, row.profile_slug ?? 'default')
     }
 
     // Sync: ensure system agent has all other agents' workspace paths
@@ -363,104 +124,6 @@ export class Orchestrator {
         }
       }
     }
-  }
-
-  private async ensureSystemAgent(): Promise<void> {
-    if (this.agents.has('system')) return
-
-    console.log('[Orchestrator] Creating system agent on first boot...')
-    const workspacePath = join(this.agentsDir, 'system')
-    const profile = BUILT_IN_PROFILES.find(p => p.slug === 'system')!
-
-    const identity: AgentIdentity = {
-      id: 'system',
-      name: 'System',
-      slug: 'system',
-      parentAgentId: null,
-      lifecycleType: 'always_on',
-      wakeMode: 'auto',
-      currentProfileId: profile.id,
-      shellPermissionLevel: 'full',
-      agentManagementPermission: 'autonomous',
-      agencyPermissions: ORCHESTRATOR_DEFAULT_PERMISSIONS,
-      autonomousMode: false,
-      workspacePath,
-      status: 'active',
-      createdBy: 'system',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      additionalWorkspacePaths: [],
-    }
-
-    await this.db.execute(
-      `INSERT INTO agent_identities
-        (id, name, slug, parent_agent_id, lifecycle_type, wake_mode, current_profile_id, shell_permission_level,
-         agent_management_permission, agency_permissions, autonomous_mode, workspace_path, status, created_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-       ON CONFLICT (id) DO NOTHING`,
-      [
-        identity.id, identity.name, identity.slug, identity.parentAgentId, identity.lifecycleType, identity.wakeMode,
-        identity.currentProfileId, identity.shellPermissionLevel, identity.agentManagementPermission,
-        JSON.stringify(ORCHESTRATOR_DEFAULT_PERMISSIONS), false,
-        join('agents', 'system'), identity.status, identity.createdBy,
-        identity.createdAt.toISOString(), identity.updatedAt.toISOString(),
-      ]
-    )
-
-    await this.provisionWorkspace(identity, profile.slug)
-    const brainNodeId = await this.createAgentBrainNode(identity, 'GRID/SYSTEM/SYST')
-    await this.syncAgentConfigToDB(identity, brainNodeId, profile.slug)
-    this.agents.set('system', { identity, profile })
-    console.log('[Orchestrator] System agent ready.')
-  }
-
-  private async ensureMainAgent(): Promise<void> {
-    if (this.agents.has('main')) return
-
-    console.log('[Orchestrator] Creating main agent on first boot...')
-    const workspacePath = join(this.agentsDir, 'main')
-    const profile = BUILT_IN_PROFILES.find(p => p.slug === 'personal-assistant')!
-
-    const identity: AgentIdentity = {
-      id: 'main',
-      name: 'Main Agent',
-      slug: 'main',
-      parentAgentId: null,
-      lifecycleType: 'always_on',
-      wakeMode: 'auto',
-      currentProfileId: profile.id,
-      shellPermissionLevel: 'none',
-      agentManagementPermission: 'approval_required',
-      agencyPermissions: MAIN_DEFAULT_PERMISSIONS,
-      autonomousMode: false,
-      workspacePath,
-      status: 'active',
-      createdBy: 'system',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      additionalWorkspacePaths: [],
-    }
-
-    await this.db.execute(
-      `INSERT INTO agent_identities
-        (id, name, slug, parent_agent_id, lifecycle_type, wake_mode, current_profile_id, shell_permission_level,
-         agent_management_permission, agency_permissions, autonomous_mode, workspace_path, status, created_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-       ON CONFLICT (id) DO NOTHING`,
-      [
-        identity.id, identity.name, identity.slug, identity.parentAgentId, identity.lifecycleType, identity.wakeMode,
-        identity.currentProfileId, identity.shellPermissionLevel, identity.agentManagementPermission,
-        JSON.stringify(MAIN_DEFAULT_PERMISSIONS), false,
-        join('agents', 'main'), identity.status, identity.createdBy,
-        identity.createdAt.toISOString(), identity.updatedAt.toISOString(),
-      ]
-    )
-
-    await this.provisionWorkspace(identity, profile.slug)
-    const brainNodeId = await this.createAgentBrainNode(identity, 'GRID/PROGRAMS/PRIM')
-    await this.syncAgentConfigToDB(identity, brainNodeId, profile.slug)
-    this.agents.set('main', { identity, profile })
-    console.log('[Orchestrator] Main agent ready.')
   }
 
   private async getAgentZoneIds(agentId: string): Promise<string[]> {
@@ -518,71 +181,6 @@ export class Orchestrator {
     )
 
     return node.id
-  }
-
-  private async syncAgentConfigToDB(agent: AgentIdentity, agentBrainNodeId: string, profileSlug: string): Promise<void> {
-    // Per-agent file sets:
-    // SYST (system): full governance file set
-    // All others: general agent conventions
-    const CONFIG_FILES: readonly string[] = agent.slug === 'system'
-      ? ['identity', 'soul', 'user', 'state', 'directives', 'decisions', 'coordination', 'governance', 'memory', 'history', 'permissions', 'profile', 'prompt', 'links'] as const
-      : ['identity', 'soul', 'user', 'heartbeat', 'capabilities', 'scratch'] as const
-
-    const templateDir = join(this.templatesDir, profileSlug)
-    const fallbackTemplateDir = join(this.templatesDir, 'default')
-
-    for (const fileType of CONFIG_FILES) {
-      const existing = await this.db.queryOne<{ id: string }>(
-        'SELECT id FROM agent_config_files WHERE agent_id = $1 AND file_type = $2',
-        [agent.id, fileType]
-      )
-      if (existing) continue
-
-      let content = ''
-      try {
-        content = await readFile(join(templateDir, `${fileType}.md`), 'utf-8')
-      } catch {
-        try {
-          content = await readFile(join(fallbackTemplateDir, `${fileType}.md`), 'utf-8')
-        } catch { /* no template, leave empty */ }
-      }
-
-      const agentGridBase = agent.slug === 'system'
-        ? 'GRID/SYSTEM/SYST'
-        : agent.slug === 'main'
-          ? 'GRID/PROGRAMS/PRIM'
-          : `GRID/PROGRAMS/instances/${agent.slug}`
-      const gridPath = `${agentGridBase}/${fileType}`
-      const configNode = await this.db.queryOne<{ id: string }>(
-        `INSERT INTO brain_nodes (type, label, content, grid_path, grid_tier, grid_locked, confidence, source)
-         VALUES ('agent-config', $1, $2, $3, 3, false, 1.0, 'system')
-         ON CONFLICT (grid_path) WHERE grid_path IS NOT NULL DO NOTHING
-         RETURNING id`,
-        [
-          `${agent.name} / ${fileType}`,
-          content.trim() || `${fileType} config for ${agent.name}`,
-          gridPath,
-        ]
-      )
-
-      const configNodeId = configNode?.id ?? null
-
-      if (configNodeId) {
-        await this.db.execute(
-          `INSERT INTO brain_edges (from_id, to_id, type, weight, source)
-           VALUES ($1, $2, 'owns', 1.0, 'system')
-           ON CONFLICT (from_id, to_id, type) DO NOTHING`,
-          [agentBrainNodeId, configNodeId]
-        )
-      }
-
-      await this.db.execute(
-        `INSERT INTO agent_config_files (agent_id, file_type, content, updated_by, brain_node_id)
-         VALUES ($1, $2, $3, 'system', $4)
-         ON CONFLICT (agent_id, file_type) DO NOTHING`,
-        [agent.id, fileType, content, configNodeId]
-      )
-    }
   }
 
   // ─── Workspace Provisioning ────────────────────────────────────────────────
@@ -741,8 +339,9 @@ export class Orchestrator {
     }
   }
 
-  listProfiles(): AgentProfile[] {
-    return BUILT_IN_PROFILES
+  async listProfiles(): Promise<AgentProfile[]> {
+    const rows = await this.db.query<AgentProfileRow>('SELECT * FROM agent_profiles ORDER BY built_in DESC, name ASC')
+    return rows.map(rowToProfile)
   }
 
   async architectAgent(description: string) {
@@ -828,9 +427,8 @@ export class Orchestrator {
       'SELECT * FROM agent_profiles WHERE slug = $1',
       [profileSlug]
     )
-    const profile = profileRow
-      ? rowToProfile(profileRow)
-      : (BUILT_IN_PROFILES.find(p => p.slug === profileSlug) ?? BUILT_IN_PROFILES[0]!)
+    if (!profileRow) throw new Error(`Profile not found: ${profileSlug}`)
+    const profile = rowToProfile(profileRow)
 
     // Generate slug from name
     let baseSlug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
@@ -881,8 +479,7 @@ export class Orchestrator {
     )
 
     await this.provisionWorkspace(identity, profileSlug)
-    const brainNodeId = await this.createAgentBrainNode(identity, 'GRID/PROGRAMS/instances')
-    await this.syncAgentConfigToDB(identity, brainNodeId, profileSlug)
+    await this.createAgentBrainNode(identity, 'GRID/PROGRAMS/instances')
     this.agents.set(slug, { identity, profile })
 
     // Auto-grant main and system agent access to new agent's workspace
@@ -999,7 +596,7 @@ export class Orchestrator {
     this.toolRegistry.register(
       this.toolRegistry.get('profile_list')!,
       async (_input, _ctx) => {
-        return this.listProfiles().map(p => ({
+        return (await this.listProfiles()).map(p => ({
           slug: p.slug,
           name: p.name,
           description: p.description,
@@ -2001,7 +1598,20 @@ function rowToAgentWithProfile(row: AgentIdentityRow, agencyDir: string): AgentW
         createdAt: new Date(),
         updatedAt: new Date(),
       }
-    : BUILT_IN_PROFILES.find(p => p.id === row.current_profile_id) ?? BUILT_IN_PROFILES[0]!
+    : {
+        id: row.current_profile_id ?? 'unknown',
+        name: 'Unknown',
+        slug: 'unknown',
+        description: '',
+        systemPrompt: '',
+        modelTier: 'strong' as AgentProfile['modelTier'],
+        allowedTools: [],
+        behaviorSettings: { tone: 'casual', verbosity: 'normal', proactive: false } as AgentProfile['behaviorSettings'],
+        tags: [],
+        builtIn: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
 
   return { identity, profile }
 }
