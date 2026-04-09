@@ -253,7 +253,7 @@ export async function createGateway(): Promise<void> {
   const db = new PostgresClient(postgresUrl)
   await db.queryOne('SELECT 1', [])  // connectivity check
 
-  // ── 3b. Load routing profiles ───────────────────────────────────────────────
+  // ── 3. Load routing profiles ────────────────────────────────────────────────
   const routingProfilesMap = await loadRoutingProfiles(db)
 
   // ── 4. Initialize sub-daemons ───────────────────────────────────────────────
@@ -607,7 +607,7 @@ export async function createGateway(): Promise<void> {
     }
   }
 
-  // ── 4d. SchedulerService ────────────────────────────────────────────────────
+  // ── 4e. SchedulerService ────────────────────────────────────────────────────
   let schedulerService: SchedulerService | undefined
   try {
     console.log('[Gateway] Initializing Scheduler...')
