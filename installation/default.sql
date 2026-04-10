@@ -197,15 +197,6 @@ CREATE TABLE IF NOT EXISTS vault_links (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS vault_sync_events (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_type TEXT NOT NULL,
-  file_path  TEXT NOT NULL,
-  status     TEXT NOT NULL DEFAULT 'ok',
-  error      TEXT,
-  synced_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 CREATE TABLE IF NOT EXISTS audit_log (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -13,7 +13,6 @@
     { "path": "../../services/messaging" },
     { "path": "../../services/model-router" },
     { "path": "../../services/orchestrator" },
-    { "path": "../../services/vault-sync" },
     { "path": "../../workers/shared-worker" }
   ]
 }

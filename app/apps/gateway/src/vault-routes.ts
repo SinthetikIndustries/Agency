@@ -3,7 +3,6 @@
 
 import type { FastifyInstance } from 'fastify'
 import type { DatabaseClient } from '@agency/orchestrator/db'
-import type { VaultSync } from '@agency/vault-sync'
 
 function escapeLike(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
@@ -11,52 +10,25 @@ function escapeLike(s: string): string {
 
 interface VaultRouteOptions {
   db: DatabaseClient
-  vaultSync: VaultSync | null
 }
 
 export async function registerVaultRoutes(
   app: FastifyInstance,
   opts: VaultRouteOptions
 ): Promise<void> {
-  const { db, vaultSync } = opts
+  const { db } = opts
 
   // GET /vault/status
   app.get('/vault/status', async (_req, reply) => {
     const docCount = await db.queryOne<{ count: number }>(
       `SELECT COUNT(*)::int AS count FROM vault_documents`
     )
-    const errorCount = await db.queryOne<{ count: number }>(
-      `SELECT COUNT(*)::int AS count FROM vault_sync_events WHERE status = 'error'`
-    )
-    const lastSync = await db.queryOne<{ synced_at: string }>(
-      `SELECT synced_at FROM vault_sync_events ORDER BY synced_at DESC LIMIT 1`
-    )
     return reply.send({
-      enabled: vaultSync !== null,
+      enabled: false,
       documentCount: docCount?.count ?? 0,
-      errorCount: errorCount?.count ?? 0,
-      lastSyncAt: lastSync?.synced_at ?? null,
+      errorCount: 0,
+      lastSyncAt: null,
     })
-  })
-
-  // POST /vault/sync — trigger manual full sync
-  app.post('/vault/sync', async (_req, reply) => {
-    if (!vaultSync) {
-      return reply.status(503).send({ error: 'Vault sync not enabled' })
-    }
-    vaultSync.fullSync().catch((err: unknown) =>
-      console.error('[vault-routes] Manual sync error:', err)
-    )
-    return reply.status(202).send({ message: 'Sync started' })
-  })
-
-  // GET /vault/validate — validate frontmatter without syncing
-  app.get('/vault/validate', async (_req, reply) => {
-    if (!vaultSync) {
-      return reply.status(503).send({ error: 'Vault sync not enabled' })
-    }
-    const result = await vaultSync.validate()
-    return reply.send(result)
   })
 
   // GET /vault/search?q=query&limit=10

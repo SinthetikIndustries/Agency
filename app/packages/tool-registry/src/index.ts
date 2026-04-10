@@ -1029,7 +1029,6 @@ export interface DiagnosticsReport {
   services: {
     orchestrator: { status: string; agentCount?: number; activeSessions?: number }
     modelRouter: { status: string; providers?: string[]; providerHealth?: Record<string, string> }
-    vaultSync: { status: string; docCount?: number; errorCount?: number; lastSyncAt?: string | null }
     database: { status: string; error?: string }
     redis: { status: string; error?: string }
   }

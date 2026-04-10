@@ -62,10 +62,6 @@ const AgencyConfigSchema = z.object({
   daemons: z.object({
     orchestrator: z.object({ enabled: z.boolean().default(true) }).default({}),
     modelRouter: z.object({ enabled: z.boolean().default(true) }).default({}),
-    vaultSync: z.object({
-      enabled: z.boolean().default(true),
-      vaultPath: z.string().optional(),
-    }).default({}),
   }).default({}),
   orchestrator: z.object({
     defaultAgent: z.string().default('main'),

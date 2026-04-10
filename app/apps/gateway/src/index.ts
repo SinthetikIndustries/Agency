@@ -18,8 +18,6 @@ import { ModelRouter } from '@agency/model-router'
 import { Orchestrator } from '@agency/orchestrator'
 import { PostgresClient } from '@agency/orchestrator/db'
 import { QueueClient } from '@agency/shared-worker'
-import { startVaultSync } from '@agency/vault-sync'
-import type { VaultSync } from '@agency/vault-sync'
 import { MessagingService } from '@agency/messaging'
 import { MemoryStore } from '@agency/memory'
 import type { AgencyConfig, AgencyCredentials, HealthStatus, Session, AgentModelConfig, BuiltInAgentSlug } from '@agency/shared-types'
@@ -155,7 +153,6 @@ interface AppServices {
   orchestrator: Orchestrator
   messagingService: MessagingService | null
   memoryStore: MemoryStore | null
-  vaultSync: VaultSync | null
   skillsManager: SkillsManager
   auditLogger: AuditLogger
   connectorRegistry: ConnectorRegistry
@@ -265,28 +262,9 @@ export async function createGateway(): Promise<void> {
     await queueClient.init()
   }
 
-  // ── 4b. VaultSync (optional) ────────────────────────────────────────────────
-  // vault-sync disabled — brain system replaces file-based vault
-  let vaultSync = null as VaultSync | null
-  const rawVaultPath =
-    process.env['AGENCY_VAULT_PATH'] ??
-    config.daemons.vaultSync.vaultPath ??
-    join(homedir(), '.agency', 'vault')
+  // ── 4b. VaultPath ───────────────────────────────────────────────────────────
+  const rawVaultPath = process.env['AGENCY_VAULT_PATH'] ?? join(homedir(), '.agency', 'vault')
   const vaultPath = rawVaultPath.replace(/^~/, homedir())
-  // if (config.daemons.vaultSync.enabled) {
-  //   try {
-  //     await mkdir(vaultPath, { recursive: true })
-  //     console.log('[Gateway] Initializing VaultSync daemon...')
-  //     vaultSync = await startVaultSync({
-  //       connectionString: postgresUrl,
-  //       vaultPath,
-  //       watchDebounceMs: 500,
-  //     })
-  //     console.log('[Gateway] VaultSync daemon started, watching:', vaultPath)
-  //   } catch (err) {
-  //     console.error('[Gateway] VaultSync initialization failed (continuing without vault sync):', err)
-  //   }
-  // }
 
   // ── 4c. MessagingService (init before createToolRegistry) ──────────────────
   let messagingService: MessagingService | null = null
@@ -392,7 +370,6 @@ export async function createGateway(): Promise<void> {
           services: {
             orchestrator: { status: 'initializing' },
             modelRouter: { status: 'initializing' },
-            vaultSync: { status: 'initializing' },
             database: { status: 'initializing' },
             redis: { status: 'initializing' },
           },
@@ -504,19 +481,6 @@ export async function createGateway(): Promise<void> {
         .map(([p]) => p)
     } catch { /* non-fatal */ }
 
-    // Vault sync
-    let vaultDocCount = 0
-    let vaultErrorCount = 0
-    let vaultLastSyncAt: string | null = null
-    if (vaultSync) {
-      try {
-        const rows = await db.query<{ count: string }>(
-          'SELECT COUNT(*)::text AS count FROM vault_documents'
-        )
-        vaultDocCount = parseInt(rows[0]?.count ?? '0', 10)
-      } catch { /* non-fatal */ }
-    }
-
     // Database ping
     let dbStatus = 'ok'
     let dbError: string | undefined
@@ -583,12 +547,6 @@ export async function createGateway(): Promise<void> {
           providers: activeProviders,
           providerHealth,
         },
-        vaultSync: {
-          status: vaultSync ? 'ok' : 'disabled',
-          docCount: vaultDocCount,
-          errorCount: vaultErrorCount,
-          lastSyncAt: vaultLastSyncAt,
-        },
         database: { status: dbStatus, ...(dbError ? { error: dbError } : {}) },
         redis: { status: redisStatus, ...(redisError ? { error: redisError } : {}) },
       },
@@ -632,7 +590,6 @@ export async function createGateway(): Promise<void> {
     orchestrator,
     messagingService,
     memoryStore,
-    vaultSync,
     skillsManager,
     auditLogger,
     connectorRegistry,
@@ -726,7 +683,7 @@ export async function createGateway(): Promise<void> {
   // ── 7. Routes ───────────────────────────────────────────────────────────────
 
   // Vault routes plugin (registered after auth middleware)
-  await app.register(registerVaultRoutes, { db, vaultSync })
+  await app.register(registerVaultRoutes, { db })
 
   // Brain routes plugin
   await app.register(registerBrainRoutes, { db, ollamaUrl: config.modelRouter.providers.ollama.endpoint ?? `http://localhost:2005` })
@@ -771,7 +728,6 @@ export async function createGateway(): Promise<void> {
         postgres: postgresStatus,
         redis: redisStatus,
         messaging: messagingService ? 'ok' : 'disabled',
-        vaultSync: vaultSync ? 'ok' : 'disabled',
       },
       version: '0.2.0',
       uptime: Math.floor((Date.now() - services.startTime.getTime()) / 1000),
@@ -792,7 +748,7 @@ export async function createGateway(): Promise<void> {
       return {
         timestamp: new Date().toISOString(),
         system: { nodeVersion: process.versions.node, platform: process.platform, processUptime: 0, memoryMb: { heapUsed: 0, heapTotal: 0, rss: 0 } },
-        services: { orchestrator: { status: 'initializing' }, modelRouter: { status: 'initializing' }, vaultSync: { status: 'initializing' }, database: { status: 'initializing' }, redis: { status: 'initializing' } },
+        services: { orchestrator: { status: 'initializing' }, modelRouter: { status: 'initializing' }, database: { status: 'initializing' }, redis: { status: 'initializing' } },
         agents: [],
         pendingApprovals: 0,
         config: { profile: config.profile, defaultModel: config.modelRouter.defaultModel, enabledProviders: [] },
@@ -2197,7 +2153,6 @@ export async function createGateway(): Promise<void> {
     if (schedulerService) await schedulerService.stop().catch((err: unknown) => console.error('[Gateway] Error stopping scheduler:', err))
     if (queueClient) await queueClient.close().catch((err: unknown) => console.error('[Gateway] Error closing queue client:', err))
     await mcpManager.close().catch((err: unknown) => console.error('[Gateway] Error closing MCP manager:', err))
-    if (vaultSync) await vaultSync.stop().catch((err: unknown) => console.error('[Gateway] Error stopping vault sync:', err))
     if (messagingService) await messagingService.close().catch((err: unknown) => console.error('[Gateway] Error closing messaging service:', err))
     if (memoryStore) await memoryStore.close().catch((err: unknown) => console.error('[Gateway] Error closing memory store:', err))
     await removePid()

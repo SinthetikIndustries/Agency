@@ -5,8 +5,8 @@
 
 import { useEffect, useState } from 'react'
 import {
-  health, vault, skills, agents, discordConnector, queue,
-  type HealthStatus, type VaultStatus, type Agent, type QueueStat,
+  health, skills, agents, discordConnector, queue,
+  type HealthStatus, type Agent, type QueueStat,
 } from '@/lib/api'
 import Link from 'next/link'
 
@@ -124,7 +124,6 @@ function StatusDot({ ok }: { ok: boolean }) {
 
 export default function OverviewPage() {
   const [healthData, setHealthData] = useState<HealthStatus | null>(null)
-  const [vaultData, setVaultData] = useState<VaultStatus | null>(null)
   const [skillCount, setSkillCount] = useState(0)
   const [agentList, setAgentList] = useState<Agent[] | null>(null)
   const [discordAgents, setDiscordAgents] = useState<Array<{ slug: string; enabled: boolean }> | null>(null)
@@ -134,14 +133,12 @@ export default function OverviewPage() {
   useEffect(() => {
     Promise.allSettled([
       health.get(),
-      vault.status(),
       skills.list(),
       agents.list(),
       discordConnector.agents(),
       queue.stats(),
-    ]).then(([h, v, sk, ag, discordAgentsRes, qRes]) => {
+    ]).then(([h, sk, ag, discordAgentsRes, qRes]) => {
       if (h.status === 'fulfilled') setHealthData(h.value)
-      if (v.status === 'fulfilled') setVaultData(v.value)
       if (sk.status === 'fulfilled') setSkillCount(sk.value.total)
       if (ag.status === 'fulfilled') setAgentList(ag.value.agents)
       if (discordAgentsRes.status === 'fulfilled') setDiscordAgents(discordAgentsRes.value.agents)
@@ -161,7 +158,7 @@ export default function OverviewPage() {
     { href: '/dashboard/agents',    label: 'Manage agents'     },
     { href: '/dashboard/approvals', label: 'Approvals'         },
     { href: '/dashboard/logs',      label: 'System logs'       },
-    { href: '/dashboard/vault',     label: 'Vault'             },
+    { href: '/dashboard/grid',      label: 'Grid'              },
     { href: '/dashboard/skills',    label: 'Skills'            },
   ]
 
@@ -186,7 +183,7 @@ export default function OverviewPage() {
           )}
         </div>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)' }}>
-          Gateway health, agents, vault, and integrations
+          Gateway health, agents, and integrations
         </p>
       </div>
 
@@ -204,11 +201,7 @@ export default function OverviewPage() {
           value={agentList ? `${activeAgents.length} / ${agentList.length}` : '—'}
           sub="active / total"
         />
-        <StatCard
-          label="Vault docs"
-          value={vaultData?.documentCount ?? '—'}
-          sub={vaultData?.errorCount ? `${vaultData.errorCount} errors` : vaultData?.lastSyncAt ? `synced ${timeAgo(vaultData.lastSyncAt)}` : undefined}
-        />
+        <StatCard label="Skills" value={skillCount === 0 ? '—' : skillCount} />
       </div>
 
       {/* Quick access — full width row of 6 links */}
@@ -302,32 +295,8 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {/* Vault + Discord */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-
-        {/* Vault */}
-        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <p className="section-label" style={{ margin: 0 }}>Vault <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>Obsidian</span></p>
-            {vaultData && <StatusDot ok={vaultData.enabled} />}
-          </div>
-          {loading ? (
-            <div style={{ height: '60px', background: 'var(--bg-elevated)', borderRadius: '4px', animation: 'pulse-slow 2s ease-in-out infinite' }} />
-          ) : vaultData ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', fontSize: '13px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Status</span>
-              <span style={{ color: vaultData.enabled ? '#4ade80' : 'var(--text-muted)' }}>{vaultData.enabled ? 'enabled' : 'disabled'}</span>
-              <span style={{ color: 'var(--text-muted)' }}>Documents</span>
-              <span style={{ color: 'var(--text-primary)' }}>{vaultData.documentCount}</span>
-              <span style={{ color: 'var(--text-muted)' }}>Errors</span>
-              <span style={{ color: vaultData.errorCount > 0 ? '#f87171' : 'var(--text-primary)' }}>{vaultData.errorCount}</span>
-              <span style={{ color: 'var(--text-muted)' }}>Last sync</span>
-              <span style={{ color: 'var(--text-primary)' }}>{vaultData.lastSyncAt ? timeAgo(vaultData.lastSyncAt) : 'never'}</span>
-            </div>
-          ) : (
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Unavailable</p>
-          )}
-        </div>
+      {/* Discord */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginBottom: '12px' }}>
 
         {/* Discord */}
         <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '16px' }}>

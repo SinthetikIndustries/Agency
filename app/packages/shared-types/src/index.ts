@@ -447,7 +447,6 @@ export interface AgencyConfig {
   daemons: {
     orchestrator: { enabled: boolean }
     modelRouter: { enabled: boolean }
-    vaultSync: { enabled: boolean; vaultPath?: string }
   }
   orchestrator: {
     defaultAgent: string

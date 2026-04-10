@@ -140,21 +140,6 @@ export default class Doctor extends Command {
       checks.push(warn('Redis not configured', 'Required for messaging and queues — set redis.url in config.json'))
     }
 
-    // ── 7. Vault configuration ────────────────────────────────────────────────
-    const daemons = config.daemons as Record<string, unknown> | undefined
-    const vaultSyncConfig = (daemons?.vaultSync ?? {}) as Record<string, unknown>
-    const vaultEnabled = vaultSyncConfig.enabled !== false
-    if (vaultEnabled) {
-      const vaultPath = (vaultSyncConfig.vaultPath as string | undefined) ?? join(agencyDir, 'vault')
-      const resolvedVault = vaultPath.replace(/^~/, process.env['HOME'] ?? agencyDir)
-      checks.push(existsSync(resolvedVault)
-        ? pass(`Vault path exists (${resolvedVault})`)
-        : warn('Vault path exists', `${resolvedVault} does not exist — run \`agency repair\` to create it`)
-      )
-    } else {
-      checks.push(pass('Vault sync disabled (skipped)'))
-    }
-
     // ── 8. Gateway binary ─────────────────────────────────────────────────────
     const gatewayDir = config.gatewayDir as string | undefined
     if (gatewayDir) {

@@ -116,44 +116,6 @@ export default class Repair extends Command {
       ok(`LLM provider(s): ${active.join(', ')}`)
     }
 
-    // ── 5. Vault path ─────────────────────────────────────────────────────────
-    const daemons = config.daemons as Record<string, unknown> | undefined
-    const vaultSyncConfig = (daemons?.vaultSync ?? {}) as Record<string, unknown>
-    const vaultEnabled = vaultSyncConfig.enabled !== false
-    if (vaultEnabled) {
-      const rawVaultPath = (vaultSyncConfig.vaultPath as string | undefined) ?? join(agencyDir, 'vault')
-      const vaultPath = rawVaultPath.replace(/^~/, homedir())
-      if (!(await fileExists(vaultPath))) {
-        issues.push(`Vault path missing: ${vaultPath}`)
-        if (!checkOnly) {
-          await mkdir(vaultPath, { recursive: true })
-          // Create the standard sub-directories
-          for (const sub of ['canon', 'proposals', 'notes', 'templates']) {
-            await mkdir(join(vaultPath, sub), { recursive: true })
-          }
-          fixed.push(`Created vault directory at ${vaultPath}`)
-          ok(`Created vault directory at ${vaultPath}`)
-        } else {
-          bad(`Vault path missing: ${vaultPath} — run \`agency repair\` to create it`)
-        }
-      } else {
-        ok(`Vault path exists (${vaultPath})`)
-        // Ensure sub-dirs exist
-        for (const sub of ['canon', 'proposals', 'notes', 'templates']) {
-          const subPath = join(vaultPath, sub)
-          if (!(await fileExists(subPath))) {
-            if (!checkOnly) {
-              await mkdir(subPath, { recursive: true })
-              fixed.push(`Created vault/${sub}/`)
-            } else {
-              advisory(`Vault sub-directory missing: ${subPath}`)
-            }
-          }
-        }
-      }
-    } else {
-      ok('Vault sync disabled (skipped)')
-    }
 
     // ── 6. Redis ──────────────────────────────────────────────────────────────
     const redisConfig = (config.redis as Record<string, unknown> | undefined)?.url as string | undefined

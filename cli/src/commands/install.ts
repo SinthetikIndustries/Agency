@@ -62,10 +62,6 @@ export function buildDefaultConfig(opts: DefaultConfigOptions): Record<string, u
     daemons: {
       orchestrator: { enabled: true },
       modelRouter: { enabled: true },
-      vaultSync: {
-        enabled: true,
-        vaultPath: join(homedir(), '.agency', 'vault'),
-      },
     },
     orchestrator: {
       defaultAgent: 'main',

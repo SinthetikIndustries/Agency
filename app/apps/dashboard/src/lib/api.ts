@@ -469,16 +469,7 @@ export const models = {
 
 // ─── Vault ────────────────────────────────────────────────────────────────────
 
-export interface VaultStatus {
-  enabled: boolean
-  documentCount: number
-  errorCount: number
-  lastSyncAt: string | null
-}
-
 export const vault = {
-  status: () => request<VaultStatus>('/vault/status'),
-  sync: () => request<{ message: string }>('/vault/sync', { method: 'POST' }),
   graphStatus: () =>
     request<{ nodes: number; edges: number; unresolvedLinks: number }>('/vault/graph-status'),
 }

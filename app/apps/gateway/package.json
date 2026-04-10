@@ -23,7 +23,6 @@
     "@agency/shared-types": "workspace:*",
     "@agency/shared-worker": "workspace:*",
     "@agency/tool-registry": "workspace:*",
-    "@agency/vault-sync": "workspace:*",
     "@fastify/cors": "^10.0.0",
     "@fastify/rate-limit": "^10.0.0",
     "@fastify/websocket": "^11.0.0",
