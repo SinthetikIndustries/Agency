@@ -16,6 +16,19 @@ import type {
   ToolDefinition,
 } from '@agency/shared-types'
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Resolve the effective system prompt string from a CompletionRequest.
+ *  Anthropic handles systemBlocks natively; all other providers (Ollama, OpenAI)
+ *  receive a plain string, so we concatenate the blocks here. */
+function resolveSystemString(request: CompletionRequest): string | undefined {
+  if (request.system) return request.system
+  if (request.systemBlocks && request.systemBlocks.length > 0) {
+    return request.systemBlocks.map(b => b.text).join('\n\n')
+  }
+  return undefined
+}
+
 // ─── Anthropic Adapter ────────────────────────────────────────────────────────
 
 export class AnthropicAdapter implements ModelAdapter {
@@ -141,8 +154,9 @@ export class OpenAIAdapter implements ModelAdapter {
 
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
     const messages: OpenAI.ChatCompletionMessageParam[] = []
-    if (request.system) {
-      messages.push({ role: 'system', content: request.system })
+    const systemText = resolveSystemString(request)
+    if (systemText) {
+      messages.push({ role: 'system', content: systemText })
     }
     for (const msg of request.messages) {
       messages.push(toOpenAIMessage(msg))
@@ -195,8 +209,9 @@ export class OpenAIAdapter implements ModelAdapter {
 
   async *stream(request: CompletionRequest): AsyncGenerator<CompletionChunk> {
     const messages: OpenAI.ChatCompletionMessageParam[] = []
-    if (request.system) {
-      messages.push({ role: 'system', content: request.system })
+    const systemText = resolveSystemString(request)
+    if (systemText) {
+      messages.push({ role: 'system', content: systemText })
     }
     for (const msg of request.messages) {
       messages.push(toOpenAIMessage(msg))
@@ -447,7 +462,7 @@ export class OllamaAdapter implements ModelAdapter {
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
     const body: Record<string, unknown> = {
       model: request.model,
-      messages: toOllamaMessages(request.messages, request.system),
+      messages: toOllamaMessages(request.messages, resolveSystemString(request)),
       stream: false,
       think: false,
     }
@@ -503,7 +518,7 @@ export class OllamaAdapter implements ModelAdapter {
   async *stream(request: CompletionRequest): AsyncGenerator<CompletionChunk> {
     const body: Record<string, unknown> = {
       model: request.model,
-      messages: toOllamaMessages(request.messages, request.system),
+      messages: toOllamaMessages(request.messages, resolveSystemString(request)),
       stream: true,
       stream_options: { include_usage: true },
       think: false,
@@ -633,7 +648,7 @@ export class OllamaCloudAdapter implements ModelAdapter {
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
     const body = {
       model: request.model,
-      messages: toOllamaMessages(request.messages, request.system),
+      messages: toOllamaMessages(request.messages, resolveSystemString(request)),
       stream: false,
       ...(request.tools?.length ? { tools: toOllamaTools(request.tools) } : {}),
     }
@@ -679,7 +694,7 @@ export class OllamaCloudAdapter implements ModelAdapter {
   async *stream(request: CompletionRequest): AsyncGenerator<CompletionChunk> {
     const body = {
       model: request.model,
-      messages: toOllamaMessages(request.messages, request.system),
+      messages: toOllamaMessages(request.messages, resolveSystemString(request)),
       stream: true,
       ...(request.tools?.length ? { tools: toOllamaTools(request.tools) } : {}),
     }
@@ -823,7 +838,8 @@ export class OpenRouterAdapter implements ModelAdapter {
 
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
     const messages: OpenAI.ChatCompletionMessageParam[] = []
-    if (request.system) messages.push({ role: 'system', content: request.system })
+    const systemText = resolveSystemString(request)
+    if (systemText) messages.push({ role: 'system', content: systemText })
     for (const msg of request.messages) messages.push(toOpenAIMessage(msg))
 
     const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {
@@ -873,7 +889,8 @@ export class OpenRouterAdapter implements ModelAdapter {
 
   async *stream(request: CompletionRequest): AsyncGenerator<CompletionChunk> {
     const messages: OpenAI.ChatCompletionMessageParam[] = []
-    if (request.system) messages.push({ role: 'system', content: request.system })
+    const systemText = resolveSystemString(request)
+    if (systemText) messages.push({ role: 'system', content: systemText })
     for (const msg of request.messages) messages.push(toOpenAIMessage(msg))
 
     const params: OpenAI.ChatCompletionCreateParamsStreaming = {
