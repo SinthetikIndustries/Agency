@@ -75,35 +75,42 @@ graph TB
             Gateway["⚙️ Gateway<br/>Fastify · :2002"]
         end
 
-        subgraph Services["Services"]
-            Orchestrator["🤝 Orchestrator<br/>Agent Coordination"]
-            ModelRouter["🔀 Model Router<br/>Anthropic / OpenAI / Ollama / Ollama Cloud / OpenRouter"]
-            TheGrid["🌐 The Grid<br/>Knowledge Graph · pgvector"]
+        subgraph Core["Core Services"]
+            Orchestrator["🤝 Orchestrator<br/>Multi-Agent Coordination"]
+            ModelRouter["🔀 Model Router<br/>5 providers · per-tier routing"]
+            Workers["⚙️ Subprograms<br/>MON · LIFE · SENS · COMP · INDX<br/>RETR · ANLY · SECR · WARD · EXEC"]
         end
 
         subgraph Data["Data Layer"]
-            Postgres["🐘 PostgreSQL<br/>+ pgvector · :2003"]
-            Redis["🔴 Redis<br/>Queues · :2004"]
-            Ollama["🦙 Ollama<br/>Local LLMs · :2005"]
+            Postgres["🐘 PostgreSQL + pgvector · :2003<br/>agents · grid · memory · sessions · audit"]
+            Redis["🔴 Redis · :2004<br/>queues · pub/sub"]
+            Ollama["🦙 Ollama · :2005<br/>local LLMs"]
         end
+    end
+
+    subgraph Cloud["☁️ AI Providers"]
+        Anthropic["🟠 Anthropic<br/>Claude"]
+        OpenAI["🟢 OpenAI<br/>GPT-4.1"]
+        OllamaCloud["☁️ Ollama Cloud"]
+        OpenRouter["🔀 OpenRouter<br/>200+ models"]
     end
 
     CLI -->|"HTTP / WS"| Gateway
     Dashboard <-->|"HTTP / WS"| Gateway
     Gateway --> Orchestrator
     Gateway --> ModelRouter
-    Gateway --> TheGrid
+    Gateway -->|"brain · vault · grid"| Postgres
+    Orchestrator --> Workers
     Orchestrator --> Postgres
     Orchestrator --> Redis
+    Workers --> Redis
+    Workers --> Postgres
     ModelRouter --> Ollama
-    TheGrid --> Postgres
+    ModelRouter --> Anthropic
+    ModelRouter --> OpenAI
+    ModelRouter --> OllamaCloud
+    ModelRouter --> OpenRouter
 ```
-
-### Visual Overview
-
-<p align="center">
-  <img src="assets/architecture.png" alt="Agency Architecture" width="600" />
-</p>
 
 ### 📡 Services
 
@@ -194,7 +201,6 @@ Pulls latest changes, rebuilds, and restarts automatically.
 |------|---------|
 | `~/.agency/config.json` | App settings (no secrets) |
 | `~/.agency/credentials.json` | 🔐 API keys — never share |
-| `~/.agency/vault/` | 📁 Brain data directory — canon, proposals, notes, templates (mirrored to PostgreSQL) |
 | `~/.agency/workspaces/` | Agent workspaces |
 | `~/.agency/shared/` | Shared group workspaces and memory |
 
@@ -271,10 +277,8 @@ agency skills remove <skill>
 agency skills update <skill>
 
 # Vault
-agency vault status        🧠 Vault sync status
-agency vault sync          Trigger manual vault sync
-agency vault validate      Validate vault integrity
-agency vault graph-status  Show knowledge graph link status
+agency vault status        🧠 Vault document count
+agency vault graph-status  Knowledge graph link status
 agency vault init          Initialize vault directory
 agency vault search <query>  Full-text search across vault documents
 agency vault related <slug>  Show documents linked to/from a vault document
