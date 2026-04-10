@@ -138,10 +138,11 @@ CREATE TABLE IF NOT EXISTS skills (
 );
 
 CREATE TABLE IF NOT EXISTS agent_skills (
-  agent_id TEXT NOT NULL,
-  skill_id UUID NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
-  enabled  BOOLEAN NOT NULL DEFAULT true,
-  PRIMARY KEY (agent_id, skill_id)
+  agent_id   TEXT NOT NULL,
+  skill_name TEXT NOT NULL,
+  enabled    BOOLEAN NOT NULL DEFAULT true,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (agent_id, skill_name)
 );
 
 CREATE TABLE IF NOT EXISTS memory_entries (

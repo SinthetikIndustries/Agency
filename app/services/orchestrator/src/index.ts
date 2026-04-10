@@ -1079,7 +1079,10 @@ export class Orchestrator {
     }
 
     // Dynamic block: config + memory + workspace paths + injection — rebuilt each turn
-    const dynamicParts: string[] = [...configParts, ...memoryParts]
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
+    const dynamicParts: string[] = [`## Current Date & Time\n\n${dateStr}, ${timeStr}`, ...configParts, ...memoryParts]
 
     // Inform the agent of additional workspace paths it has access to
     const extraPaths = agent.identity.additionalWorkspacePaths ?? []
