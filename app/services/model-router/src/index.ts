@@ -464,7 +464,7 @@ export class OllamaAdapter implements ModelAdapter {
       model: request.model,
       messages: toOllamaMessages(request.messages, resolveSystemString(request)),
       stream: false,
-      think: false,
+      options: { num_ctx: 32768 },
     }
     if (request.maxTokens !== undefined) body['max_tokens'] = request.maxTokens
     if (request.temperature !== undefined) body['temperature'] = request.temperature
@@ -474,6 +474,7 @@ export class OllamaAdapter implements ModelAdapter {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120000),
     })
 
     if (!res.ok) {
@@ -521,7 +522,7 @@ export class OllamaAdapter implements ModelAdapter {
       messages: toOllamaMessages(request.messages, resolveSystemString(request)),
       stream: true,
       stream_options: { include_usage: true },
-      think: false,
+      options: { num_ctx: 32768 },
     }
     if (request.maxTokens !== undefined) body['max_tokens'] = request.maxTokens
     if (request.temperature !== undefined) body['temperature'] = request.temperature
@@ -529,6 +530,7 @@ export class OllamaAdapter implements ModelAdapter {
 
     const res = await fetch(`${this.endpoint}/v1/chat/completions`, {
       method: 'POST',
+      signal: AbortSignal.timeout(120000),
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
