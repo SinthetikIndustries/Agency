@@ -1516,6 +1516,7 @@ const CONTEXT_WINDOW_RULES: Array<{ prefix: string; tokens: number }> = [
   { prefix: 'llama2',         tokens: 4096 },
   { prefix: 'mistral',        tokens: 32000 },
   { prefix: 'gemma4',         tokens: 4096 },
+  { prefix: 'gemma3',         tokens: 128000 },
   { prefix: 'gemma',          tokens: 8192 },
 ]
 
