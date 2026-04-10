@@ -29,15 +29,15 @@ export function createVaultHandlers(store: VaultStore) {
 
       const results = await store.db.query<{
         id: string
-        path: string
+        relative_path: string
         title: string
         type: string
         snippet: string
       }>(
-        `SELECT id, path,
+        `SELECT id, relative_path,
                 LEFT(raw_markdown, 300) AS snippet,
                 COALESCE(type, 'document') AS type,
-                split_part(path, '/', -1) AS title
+                split_part(relative_path, '/', -1) AS title
          FROM vault_documents
          WHERE status != 'archived'
            AND (to_tsvector('english', COALESCE(raw_markdown,'')) @@ plainto_tsquery('english', $1)
@@ -49,7 +49,7 @@ export function createVaultHandlers(store: VaultStore) {
       return {
         results: results.map(r => ({
           id: r.id,
-          path: r.path,
+          path: r.relative_path,
           title: r.title.replace(/\.md$/, ''),
           type: r.type,
           snippet: r.snippet,
@@ -69,16 +69,16 @@ export function createVaultHandlers(store: VaultStore) {
       // Navigate: document → entity → vault_links → entity → document
       const outbound = await store.db.query<{
         id: string
-        path: string
+        relative_path: string
         title: string
       }>(
-        `SELECT vd.id, vd.path, split_part(vd.path, '/', -1) AS title
+        `SELECT vd.id, vd.relative_path, split_part(vd.relative_path, '/', -1) AS title
          FROM vault_links vl
          JOIN vault_entities from_e ON from_e.entity_id = vl.from_id
          JOIN vault_entities to_e   ON to_e.entity_id   = vl.to_id
          JOIN vault_documents vd    ON vd.id = to_e.document_id
          WHERE from_e.document_id = (
-           SELECT id FROM vault_documents WHERE path ILIKE '%' || $1 || '%' LIMIT 1
+           SELECT id FROM vault_documents WHERE relative_path ILIKE '%' || $1 || '%' LIMIT 1
          )
            AND vl.to_id IS NOT NULL
          LIMIT $2`,
@@ -87,16 +87,16 @@ export function createVaultHandlers(store: VaultStore) {
 
       const inbound = await store.db.query<{
         id: string
-        path: string
+        relative_path: string
         title: string
       }>(
-        `SELECT vd.id, vd.path, split_part(vd.path, '/', -1) AS title
+        `SELECT vd.id, vd.relative_path, split_part(vd.relative_path, '/', -1) AS title
          FROM vault_links vl
          JOIN vault_entities to_e   ON to_e.entity_id   = vl.to_id
          JOIN vault_entities from_e ON from_e.entity_id = vl.from_id
          JOIN vault_documents vd    ON vd.id = from_e.document_id
          WHERE to_e.document_id = (
-           SELECT id FROM vault_documents WHERE path ILIKE '%' || $1 || '%' LIMIT 1
+           SELECT id FROM vault_documents WHERE relative_path ILIKE '%' || $1 || '%' LIMIT 1
          )
          LIMIT $2`,
         [slug, limit]

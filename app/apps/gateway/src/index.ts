@@ -2081,6 +2081,96 @@ export async function createGateway(): Promise<void> {
     }
   })
 
+  // ── Subprograms ───────────────────────────────────────────────────────────
+  app.get('/subprograms', async () => {
+    const rows = await db.query<{
+      id: string; name: string; slug: string; description: string
+      status: string; schedule_enabled: boolean; last_run_at: string | null
+      next_run_at: string | null; last_error: string | null; run_count: number
+      created_at: string; updated_at: string; brain_node_id: string | null
+    }>(
+      `SELECT id, name, slug, description, status, schedule_enabled,
+              last_run_at, next_run_at, last_error, run_count,
+              created_at, updated_at, brain_node_id
+       FROM agent_identities
+       WHERE slug NOT IN ('main', 'system')
+       ORDER BY name`
+    )
+    const subprograms = rows.map(r => ({
+      id: r.id,
+      label: r.name,
+      description: r.description,
+      responsibility: r.description,
+      status: r.status === 'active' ? 'idle' : r.status,
+      enabled: r.schedule_enabled,
+      last_run_at: r.last_run_at,
+      next_run_at: r.next_run_at,
+      last_error: r.last_error,
+      run_count: r.run_count,
+    }))
+    return { subprograms, count: subprograms.length }
+  })
+
+  app.get('/subprograms/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const row = await db.queryOne<{
+      id: string; name: string; slug: string; description: string
+      status: string; schedule_enabled: boolean; last_run_at: string | null
+      next_run_at: string | null; last_error: string | null; run_count: number
+      created_at: string; updated_at: string; brain_node_id: string | null
+      model_config: Record<string, unknown> | null
+    }>(
+      `SELECT id, name, slug, description, status, schedule_enabled,
+              last_run_at, next_run_at, last_error, run_count,
+              created_at, updated_at, brain_node_id, model_config
+       FROM agent_identities WHERE id = $1 OR slug = $1`,
+      [id]
+    )
+    if (!row) return reply.status(404).send({ error: 'Subprogram not found' })
+    return {
+      id: row.id,
+      label: row.name,
+      description: row.description,
+      responsibility: row.description,
+      status: row.status === 'active' ? 'idle' : row.status,
+      enabled: row.schedule_enabled,
+      last_run_at: row.last_run_at,
+      next_run_at: row.next_run_at,
+      last_error: row.last_error,
+      run_count: row.run_count,
+      config: row.model_config ?? {},
+      brain_node_id: row.brain_node_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    }
+  })
+
+  app.put('/subprograms/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const body = request.body as { enabled?: boolean; config?: Record<string, unknown> } | undefined
+    const sets: string[] = []
+    const vals: unknown[] = []
+    let i = 1
+    if (body?.enabled !== undefined) { sets.push(`schedule_enabled=$${i++}`); vals.push(body.enabled) }
+    if (body?.config !== undefined) { sets.push(`model_config=$${i++}`); vals.push(JSON.stringify(body.config)) }
+    if (sets.length === 0) return reply.status(400).send({ error: 'Nothing to update' })
+    vals.push(id)
+    await db.execute(
+      `UPDATE agent_identities SET ${sets.join(', ')}, updated_at=now() WHERE id=$${i} OR slug=$${i}`,
+      vals
+    )
+    return { ok: true, id }
+  })
+
+  app.post('/subprograms/:id/run', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const agent = orchestrator.getAgent(id) ?? orchestrator.getAgent(
+      (await db.queryOne<{ slug: string }>('SELECT slug FROM agent_identities WHERE id=$1', [id]))?.slug ?? ''
+    )
+    if (!agent) return reply.status(404).send({ error: 'Subprogram not found' })
+    return { queued: true, id }
+  })
+
   // ── MCP ───────────────────────────────────────────────────────────────────
   registerMcpRoutes(app, db, mcpManager, services.auditLogger, services.hooksManager)
 

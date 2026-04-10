@@ -91,10 +91,10 @@ export class IngestionWorker extends BaseWorker {
       const docResult = await pool.query<{
         id: string
         title: string
-        content: string
+        raw_markdown: string
         frontmatter: Record<string, unknown>
       }>(
-        `SELECT id, title, content, frontmatter FROM vault_documents WHERE id = $1`,
+        `SELECT id, title, raw_markdown, frontmatter FROM vault_documents WHERE id = $1`,
         [documentId]
       )
 
