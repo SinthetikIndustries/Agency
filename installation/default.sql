@@ -4950,3 +4950,50 @@ UPDATE agent_config_files SET content = $body$# Capabilities
 - Make permanent changes to Grid policy or structure
 - Bypass approval workflows
 $body$ WHERE agent_id = 'main' AND file_type = 'capabilities' AND content = '';
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- CONFIG FILE BRAIN NODES
+-- For every agent_config_files row with content, create a brain_node under
+-- the program's grid_path, link it with a 'has-file' edge, and back-link
+-- agent_config_files.brain_node_id. All three steps are idempotent.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+INSERT INTO brain_nodes (type, label, content, grid_path, grid_tier, source)
+SELECT
+    'config-file',
+    acf.file_type,
+    acf.content,
+    prog_bn.grid_path || '/' || acf.file_type,
+    3,
+    'system'
+FROM agent_config_files acf
+JOIN agent_identities ai ON ai.id = acf.agent_id
+JOIN brain_nodes prog_bn ON prog_bn.id = ai.brain_node_id
+WHERE acf.content != ''
+ON CONFLICT (grid_path) WHERE grid_path IS NOT NULL DO NOTHING;
+
+INSERT INTO brain_edges (from_id, to_id, type, weight, source)
+SELECT
+    prog_bn.id,
+    cfg_bn.id,
+    'has-file',
+    0.5,
+    'system'
+FROM agent_config_files acf
+JOIN agent_identities ai ON ai.id = acf.agent_id
+JOIN brain_nodes prog_bn ON prog_bn.id = ai.brain_node_id
+JOIN brain_nodes cfg_bn ON cfg_bn.grid_path = prog_bn.grid_path || '/' || acf.file_type
+WHERE acf.content != ''
+ON CONFLICT (from_id, to_id, type) DO NOTHING;
+
+UPDATE agent_config_files acf
+SET brain_node_id = (
+    SELECT cfg_bn.id
+    FROM agent_identities ai
+    JOIN brain_nodes prog_bn ON prog_bn.id = ai.brain_node_id
+    JOIN brain_nodes cfg_bn ON cfg_bn.grid_path = prog_bn.grid_path || '/' || acf.file_type
+    WHERE ai.id = acf.agent_id
+)
+WHERE acf.content != ''
+  AND acf.brain_node_id IS NULL;
