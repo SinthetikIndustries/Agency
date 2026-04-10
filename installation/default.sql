@@ -122,18 +122,16 @@ CREATE TABLE IF NOT EXISTS model_usage (
 );
 
 CREATE TABLE IF NOT EXISTS skills (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name        TEXT UNIQUE NOT NULL,
-  slug        TEXT UNIQUE NOT NULL,
-  version     TEXT NOT NULL DEFAULT '0.0.1',
-  type        TEXT NOT NULL DEFAULT 'general',
-  description TEXT,
-  content     TEXT NOT NULL DEFAULT '',
-  source_path TEXT,
-  built_in    BOOLEAN NOT NULL DEFAULT false,
-  enabled     BOOLEAN NOT NULL DEFAULT true,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name                  TEXT UNIQUE NOT NULL,
+  version               TEXT NOT NULL DEFAULT '0.0.1',
+  status                TEXT NOT NULL DEFAULT 'installed',
+  type                  TEXT,
+  anthropic_builtin_type TEXT,
+  anthropic_beta_header  TEXT,
+  manifest              JSONB NOT NULL DEFAULT '{}',
+  installed_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS agent_skills (
@@ -239,10 +237,10 @@ CREATE TABLE IF NOT EXISTS tool_overrides (
 CREATE TABLE IF NOT EXISTS mcp_servers (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name       TEXT UNIQUE NOT NULL,
-  command    TEXT NOT NULL,
-  args       JSONB NOT NULL DEFAULT '[]',
-  env        JSONB NOT NULL DEFAULT '{}',
+  config     JSONB NOT NULL DEFAULT '{}',
   enabled    BOOLEAN NOT NULL DEFAULT true,
+  status     TEXT NOT NULL DEFAULT 'disconnected',
+  error      TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -271,11 +269,12 @@ CREATE TABLE IF NOT EXISTS workspace_group_members (
   PRIMARY KEY (group_id, agent_id)
 );
 
-CREATE TABLE IF NOT EXISTS scheduled_triggers (
+CREATE TABLE IF NOT EXISTS scheduled_tasks (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name        TEXT NOT NULL,
+  agent_slug  TEXT NOT NULL,
+  label       TEXT NOT NULL,
   schedule    TEXT NOT NULL,
-  agent_id    TEXT NOT NULL,
+  type        TEXT NOT NULL DEFAULT 'recurring',
   prompt      TEXT NOT NULL,
   enabled     BOOLEAN NOT NULL DEFAULT true,
   last_run_at TIMESTAMPTZ,
@@ -309,6 +308,14 @@ CREATE TABLE IF NOT EXISTS brain_edges (
   source     TEXT NOT NULL DEFAULT 'system',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (from_id, to_id, type)
+);
+
+CREATE TABLE IF NOT EXISTS routing_profiles (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  chain       JSONB NOT NULL DEFAULT '[]',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ─────────────────────────────────────────────────────────────────────────
