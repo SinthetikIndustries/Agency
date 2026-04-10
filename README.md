@@ -24,7 +24,11 @@ Your agents maintain **persistent memory** across all sessions — stored in Pos
 
 ## 📸 Screenshots
 
-> Screenshots coming soon. Install and see for yourself — `agency install` gets you running in minutes.
+### Login
+
+<p align="center">
+  <img src="assets/screenshot-login.png" alt="Agency Login" width="700" />
+</p>
 
 ---
 
