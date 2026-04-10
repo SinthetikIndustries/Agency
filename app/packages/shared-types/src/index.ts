@@ -53,6 +53,7 @@ export interface AgencyPermissions {
 export interface AgentIdentity {
   id: string               // stable UUID
   name: string             // human-readable display name
+  description: string      // short human-readable description of the agent's role
   slug: string             // URL/CLI-safe identifier
   parentAgentId: string | null  // null for main agent; UUID of parent for sub-agents
   lifecycleType: LifecycleType

@@ -299,6 +299,53 @@ export function WorkspaceNode({ data, selected }: NodeProps<Node<WorkspaceNodeDa
   )
 }
 
+// ─── ConfigFileNode ───────────────────────────────────────────────────────────
+
+export interface ConfigFileNodeData extends Record<string, unknown> {
+  fileType: string
+  updatedAt?: string
+  onOpen?: () => void
+}
+
+const FILE_TYPE_COLORS: Record<string, string> = {
+  identity:     'border-blue-600 bg-blue-950',
+  soul:         'border-violet-600 bg-violet-950',
+  user:         'border-sky-600 bg-sky-950',
+  state:        'border-cyan-600 bg-cyan-950',
+  memory:       'border-teal-600 bg-teal-950',
+  history:      'border-green-700 bg-green-950',
+  permissions:  'border-red-700 bg-red-950',
+  profile:      'border-orange-600 bg-orange-950',
+  prompt:       'border-yellow-600 bg-yellow-950',
+  links:        'border-pink-600 bg-pink-950',
+  directives:   'border-purple-600 bg-purple-950',
+  decisions:    'border-indigo-600 bg-indigo-950',
+  coordination: 'border-emerald-600 bg-emerald-950',
+  governance:   'border-rose-600 bg-rose-950',
+  heartbeat:    'border-amber-600 bg-amber-950',
+  capabilities: 'border-lime-600 bg-lime-950',
+  scratch:      'border-gray-600 bg-gray-900',
+}
+
+export function ConfigFileNode({ data, selected }: NodeProps<Node<ConfigFileNodeData>>) {
+  const d = data
+  const colors = FILE_TYPE_COLORS[d.fileType] ?? 'border-gray-600 bg-gray-900'
+  const border = selected ? colors.split(' ')[0].replace('600', '300').replace('700', '400') : colors.split(' ')[0]
+  const bg = colors.split(' ')[1]
+
+  return (
+    <div
+      className={`${bg} border ${border} rounded-lg px-2 py-1.5 cursor-pointer hover:brightness-125 transition-all`}
+      style={{ minWidth: 80, maxWidth: 110 }}
+      onClick={() => d.onOpen?.()}
+    >
+      <Handle type="target" position={Position.Top} className="!opacity-0" />
+      <p className="text-white text-[10px] font-mono font-semibold truncate">{d.fileType}</p>
+      <Handle type="source" position={Position.Bottom} className="!opacity-0" />
+    </div>
+  )
+}
+
 // ─── NODE_TYPES map ───────────────────────────────────────────────────────────
 
 export const NODE_TYPES = {
@@ -308,4 +355,5 @@ export const NODE_TYPES = {
   skillNode:         SkillNode,
   toolNode:          ToolNode,
   workspaceNode:     WorkspaceNode,
+  configFileNode:    ConfigFileNode,
 } as const

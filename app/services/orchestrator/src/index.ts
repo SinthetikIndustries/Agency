@@ -255,6 +255,7 @@ export class Orchestrator {
 
   async updateAgentIdentity(slug: string, patch: {
     name?: string
+    description?: string
     lifecycleType?: import('@agency/shared-types').LifecycleType
     wakeMode?: import('@agency/shared-types').WakeMode
     shellPermissionLevel?: import('@agency/shared-types').ShellPermissionLevel
@@ -262,7 +263,7 @@ export class Orchestrator {
   }): Promise<void> {
     const agent = this.agents.get(slug)
     if (!agent) throw new Error(`Agent not found: ${slug}`)
-    if (BUILT_IN_AGENTS.includes(slug as BuiltInAgentSlug) && patch.lifecycleType !== undefined) {
+    if (BUILT_IN_AGENTS.includes(slug as BuiltInAgentSlug) && patch.lifecycleType !== undefined && patch.lifecycleType !== agent.identity.lifecycleType) {
       throw new Error('Cannot change lifecycle type of a built-in agent')
     }
 
@@ -270,6 +271,7 @@ export class Orchestrator {
     const values: unknown[] = []
     let i = 1
     if (patch.name !== undefined)                   { setClauses.push(`name=$${i++}`);                       values.push(patch.name) }
+    if (patch.description !== undefined)            { setClauses.push(`description=$${i++}`);                values.push(patch.description) }
     if (patch.lifecycleType !== undefined)           { setClauses.push(`lifecycle_type=$${i++}`);             values.push(patch.lifecycleType) }
     if (patch.wakeMode !== undefined)                { setClauses.push(`wake_mode=$${i++}`);                  values.push(patch.wakeMode) }
     if (patch.shellPermissionLevel !== undefined)    { setClauses.push(`shell_permission_level=$${i++}`);     values.push(patch.shellPermissionLevel) }
@@ -285,6 +287,7 @@ export class Orchestrator {
     )
 
     if (patch.name !== undefined)                    agent.identity.name = patch.name
+    if (patch.description !== undefined)             agent.identity.description = patch.description
     if (patch.lifecycleType !== undefined)           agent.identity.lifecycleType = patch.lifecycleType
     if (patch.wakeMode !== undefined)                agent.identity.wakeMode = patch.wakeMode
     if (patch.shellPermissionLevel !== undefined)    agent.identity.shellPermissionLevel = patch.shellPermissionLevel
@@ -448,6 +451,7 @@ export class Orchestrator {
       id,
       name,
       slug,
+      description: '',
       parentAgentId: null,
       lifecycleType,
       wakeMode: 'auto',
@@ -1523,6 +1527,7 @@ function resolveContextWindow(model: string): number {
 interface AgentIdentityRow {
   id: string
   name: string
+  description: string
   slug: string
   parent_agent_id: string | null
   lifecycle_type: string
@@ -1599,6 +1604,7 @@ function rowToAgentWithProfile(row: AgentIdentityRow, agencyDir: string): AgentW
   const identity: AgentIdentity = {
     id: row.id,
     name: row.name,
+    description: row.description ?? '',
     slug: row.slug,
     parentAgentId: row.parent_agent_id ?? null,
     lifecycleType: row.lifecycle_type as AgentIdentity['lifecycleType'],

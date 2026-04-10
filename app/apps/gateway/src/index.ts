@@ -1439,6 +1439,7 @@ export async function createGateway(): Promise<void> {
     const { slug } = request.params as { slug: string }
     const body = request.body as {
       name?: string
+      description?: string
       lifecycleType?: string
       wakeMode?: string
       shellPermissionLevel?: string

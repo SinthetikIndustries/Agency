@@ -219,6 +219,7 @@ export interface AgentModelConfig {
 export interface AgentIdentity {
   id: string
   name: string
+  description: string
   slug: string
   parentAgentId: string | null
   lifecycleType: string
@@ -281,6 +282,7 @@ export const agents = {
   disable: (slug: string) => request<{ ok: boolean }>(`/agents/${slug}/disable`, { method: 'POST' }),
   update: (slug: string, patch: {
     name?: string
+    description?: string
     lifecycleType?: string
     wakeMode?: string
     shellPermissionLevel?: string

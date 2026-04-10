@@ -31,6 +31,7 @@ function makeAgent(systemPrompt = 'You are helpful.'): AgentWithProfile {
       id: 'main',
       name: 'Main',
       slug: 'main',
+      description: '',
       workspacePath: '/tmp/.agency/agents/main',
       additionalWorkspacePaths: [],
       lifecycleType: 'always_on',

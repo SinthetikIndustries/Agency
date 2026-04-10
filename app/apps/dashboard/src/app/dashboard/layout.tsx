@@ -64,6 +64,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div style={{
           position: 'absolute', inset: 0,
           display: 'flex', flexDirection: 'column',
+          background: 'var(--bg-base)',
           opacity: sidebarMode === 'conversations' ? 1 : 0,
           pointerEvents: sidebarMode === 'conversations' ? 'auto' : 'none',
           transition: 'opacity 0.15s ease',

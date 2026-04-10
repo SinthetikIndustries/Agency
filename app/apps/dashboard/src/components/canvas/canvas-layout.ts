@@ -5,6 +5,13 @@ import dagre from '@dagrejs/dagre'
 import type { Node, Edge } from '@xyflow/react'
 import type { WorkspaceGroup, Agent, AgentSkill } from '@/lib/api'
 
+export interface ConfigFile {
+  fileType: string
+  content: string
+  updatedAt: string
+  updatedBy: string
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface GroupWithMembers extends WorkspaceGroup {
@@ -300,7 +307,8 @@ export function computeAgentLayout(
   agent: Agent,
   agentSkills: AgentSkill[],
   workspacePaths: string[],
-  surfaceId: string
+  surfaceId: string,
+  configFiles: ConfigFile[] = []
 ): { nodes: Node[]; edges: Edge[] } {
   const saved = loadSavedPositions(surfaceId)
   const CX = 500
@@ -382,6 +390,30 @@ export function computeAgentLayout(
       style: { stroke: '#d97706', strokeDasharray: '4 2', strokeWidth: 1.5 },
     })
   })
+
+  // Config file nodes — arc across the bottom
+  if (configFiles.length > 0) {
+    const fileRadius = 270
+    const totalFiles = configFiles.length
+    configFiles.forEach((file, i) => {
+      const spreadAngle = Math.min(Math.PI * 1.1, Math.PI * 0.12 * (totalFiles - 1))
+      const angle = Math.PI / 2 + spreadAngle / 2 - (i / Math.max(totalFiles - 1, 1)) * spreadAngle
+      const x = CX + fileRadius * Math.cos(angle) - 45
+      const y = CY + fileRadius * Math.sin(angle) - 16
+      nodes.push({
+        id: `config-${file.fileType}`,
+        type: 'configFileNode',
+        position: { x, y },
+        data: { fileType: file.fileType, updatedAt: file.updatedAt },
+      })
+      edges.push({
+        id: `e-cfg-${file.fileType}`,
+        source: 'agent-center',
+        target: `config-${file.fileType}`,
+        style: { stroke: '#374151', strokeWidth: 1, strokeDasharray: '3 3' },
+      })
+    })
+  }
 
   return { nodes: applyOverrides(nodes, saved), edges }
 }

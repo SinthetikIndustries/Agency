@@ -68,25 +68,25 @@ export function TokenBar({ messages, inputValue, systemPrompt, tokenUsage }: Tok
 
   return (
     <div
-      className="px-4 pb-2 pt-1"
+      style={{ padding: '4px 16px 8px', position: 'relative' }}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
       {/* Summary line */}
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-sm text-gray-400">
-          Tokens: <span className="text-gray-200">{authTotal.toLocaleString()}</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          Tokens: <span style={{ color: 'var(--text-primary)' }}>{authTotal.toLocaleString()}</span>
           {' · '}
-          <span className="text-gray-200">{pct.toFixed(1)}%</span>
+          <span style={{ color: 'var(--text-primary)' }}>{pct.toFixed(1)}%</span>
           {' · Context: '}
-          <span className="text-gray-200">{formatK(contextWindow)}</span>
-          {tokenUsage?.model && <span className="text-gray-400"> · {tokenUsage.model}</span>}
+          <span style={{ color: 'var(--text-primary)' }}>{formatK(contextWindow)}</span>
+          {tokenUsage?.model && <span style={{ color: 'var(--text-muted)' }}> · {tokenUsage.model}</span>}
         </span>
       </div>
 
       {/* Bar */}
-      <div className="relative">
-        <div className="h-1.5 rounded-full overflow-hidden flex" style={{ background: 'var(--bg-surface, #1f2937)' }}>
+      <div style={{ position: 'relative' }}>
+        <div style={{ height: 6, borderRadius: 9999, overflow: 'hidden', display: 'flex', background: 'var(--bg-surface)' }}>
           {SEGMENTS.map(seg => (
             segmentWidths[seg.key] > 0 ? (
               <div
@@ -99,28 +99,30 @@ export function TokenBar({ messages, inputValue, systemPrompt, tokenUsage }: Tok
 
         {/* Tooltip */}
         {showTooltip && (
-          <div
-            className="absolute bottom-full left-0 mb-2 bg-gray-900 border border-gray-700 rounded-lg p-3 w-64 shadow-xl z-50"
-            style={{ pointerEvents: 'none' }}
-          >
-            <p className="text-xs font-semibold text-white mb-2">Token Usage Breakdown</p>
-            <div className="space-y-1.5">
+          <div style={{
+            position: 'absolute', bottom: 'calc(100% + 8px)', left: 0,
+            width: 256, padding: 12, pointerEvents: 'none',
+            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+            borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.2)', zIndex: 50,
+          }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>Token Usage Breakdown</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {SEGMENTS.filter(seg => seg.key !== 'available').map(seg => (
-                <div key={seg.key} className="grid text-xs" style={{ gridTemplateColumns: '12px 1fr auto', gap: '6px', alignItems: 'center' }}>
-                  <span className="w-3 h-3 rounded-full" style={{ background: seg.color }} />
-                  <span className="text-gray-400">{seg.label}</span>
-                  <span className="text-gray-300 text-right tabular-nums">{estimated[seg.key].toLocaleString()}</span>
+                <div key={seg.key} style={{ display: 'grid', gridTemplateColumns: '12px 1fr auto', gap: 6, alignItems: 'center', fontSize: 11 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: seg.color }} />
+                  <span style={{ color: 'var(--text-secondary)' }}>{seg.label}</span>
+                  <span style={{ color: 'var(--text-primary)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{estimated[seg.key].toLocaleString()}</span>
                 </div>
               ))}
-              <div className="grid text-xs border-t border-gray-700 pt-1.5 mt-1.5" style={{ gridTemplateColumns: '12px 1fr auto', gap: '6px', alignItems: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '12px 1fr auto', gap: 6, alignItems: 'center', fontSize: 11, borderTop: '1px solid var(--border)', paddingTop: 6, marginTop: 2 }}>
                 <span />
-                <span className="text-gray-500">Available</span>
-                <span className="text-gray-500 text-right tabular-nums">{available.toLocaleString()}</span>
+                <span style={{ color: 'var(--text-muted)' }}>Available</span>
+                <span style={{ color: 'var(--text-muted)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{available.toLocaleString()}</span>
               </div>
-              <div className="grid text-xs font-semibold border-t border-gray-700 pt-1.5" style={{ gridTemplateColumns: '12px 1fr auto', gap: '6px', alignItems: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '12px 1fr auto', gap: 6, alignItems: 'center', fontSize: 11, fontWeight: 600, borderTop: '1px solid var(--border)', paddingTop: 6 }}>
                 <span />
-                <span className="text-white">Total</span>
-                <span className="text-white text-right tabular-nums">{authTotal.toLocaleString()}</span>
+                <span style={{ color: 'var(--text-primary)' }}>Total</span>
+                <span style={{ color: 'var(--text-primary)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{authTotal.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -128,11 +130,11 @@ export function TokenBar({ messages, inputValue, systemPrompt, tokenUsage }: Tok
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 mt-1.5">
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 6 }}>
         {SEGMENTS.map(seg => (
-          <div key={seg.key} className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: seg.color }} />
-            <span className="text-sm text-gray-300">{seg.label}</span>
+          <div key={seg.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: seg.color }} />
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{seg.label}</span>
           </div>
         ))}
       </div>

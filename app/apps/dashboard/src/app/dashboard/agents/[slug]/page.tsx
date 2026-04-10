@@ -343,11 +343,13 @@ function WorkspaceSection({ agent, slug, onReload, workspaceCtx }: {
 function OverviewTab({ agent, slug, onReload }: { agent: Agent; slug: string; onReload: () => void }) {
   const isMain = slug === 'main'
   const isOrchestrator = slug === 'orchestrator'
-  const isBuiltIn = slug === 'orchestrator' || slug === 'main'
+  const BUILT_IN_SLUGS = ['system', 'ctrl', 'mon', 'comp', 'indx', 'retr', 'anly', 'secr', 'ward', 'exec', 'life', 'sens', 'main'] as const
+  const isBuiltIn = BUILT_IN_SLUGS.includes(slug as typeof BUILT_IN_SLUGS[number]) || isOrchestrator
   const { profiles } = useProfiles()
   const router = useRouter()
 
   const [name, setName] = useState(agent.identity.name)
+  const [description, setDescription] = useState(agent.identity.description ?? '')
   const [lifecycleType, setLifecycleType] = useState(agent.identity.lifecycleType)
   const [wakeMode, setWakeMode] = useState(agent.identity.wakeMode)
   const [shellPermission, setShellPermission] = useState(agent.identity.shellPermissionLevel)
@@ -364,7 +366,7 @@ function OverviewTab({ agent, slug, onReload }: { agent: Agent; slug: string; on
   async function save() {
     setSaving(true); setErr(''); setMsg('')
     try {
-      await agents.update(slug, { name, lifecycleType, wakeMode, shellPermissionLevel: shellPermission, agentManagementPermission: agentMgmt })
+      await agents.update(slug, { name, description, lifecycleType, wakeMode, shellPermissionLevel: shellPermission, agentManagementPermission: agentMgmt })
       setMsg('Saved')
       setTimeout(() => setMsg(''), 2000)
       onReload()
@@ -410,6 +412,15 @@ function OverviewTab({ agent, slug, onReload }: { agent: Agent; slug: string; on
               className="bg-gray-800 border border-gray-700 text-sm text-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-blue-600 min-w-[220px]"
             />
           )}
+        </Row>
+        <Row label="Description">
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Short description of this agent's role…"
+            rows={2}
+            className="bg-gray-800 border border-gray-700 text-sm text-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-blue-600 min-w-[220px] resize-none"
+          />
         </Row>
         <Row label="Slug">
           <span className="font-mono text-sm text-gray-500">{agent.identity.slug}</span>
