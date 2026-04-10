@@ -1262,8 +1262,19 @@ export async function createGateway(): Promise<void> {
         let fullResponse = ''
         const wsRunOpts = wsSystemInjection ? { systemInjection: wsSystemInjection } : undefined
         const tagParser = new TagParserSession()
+        let activeGen: AsyncGenerator | null = null
+        let doneSent = false
+        const cancelListener = (raw: unknown) => {
+          try {
+            const msg = JSON.parse(raw!.toString()) as { type?: string }
+            if (msg.type === 'cancel') activeGen?.return(undefined)
+          } catch { /* ignore */ }
+        }
+        socket.on('message', cancelListener)
         try {
-          for await (const chunk of orchestrator.run(session, data.content, messages as never, data.model, wsRunOpts)) {
+          const gen = orchestrator.run(session, data.content, messages as never, data.model, wsRunOpts)
+          activeGen = gen as unknown as AsyncGenerator
+          for await (const chunk of gen) {
             if (chunk.type === 'text' && chunk.text) {
               const { text, events } = tagParser.push(chunk.text)
               if (text) {
@@ -1276,6 +1287,7 @@ export async function createGateway(): Promise<void> {
             } else {
               socket.send(JSON.stringify(chunk))
             }
+            if (chunk.type === 'done') doneSent = true
             if (chunk.type === 'tool_call') metrics.toolCallsTotal.inc({ tool: chunk.toolName })
             else if (chunk.type === 'tool_result' && !chunk.success) metrics.toolCallErrorsTotal.inc({ tool: chunk.toolName })
           }
@@ -1289,8 +1301,11 @@ export async function createGateway(): Promise<void> {
           }
         } catch (err) {
           socket.send(JSON.stringify({ type: 'error', error: String(err) }))
+        } finally {
+          activeGen = null
+          socket.off('message', cancelListener)
+          if (!doneSent) socket.send(JSON.stringify({ type: 'done' }))
         }
-
         if (fullResponse) {
           await saveMessage(db, id, 'assistant', fullResponse)
         }

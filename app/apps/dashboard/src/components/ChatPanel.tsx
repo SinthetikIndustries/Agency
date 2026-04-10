@@ -829,17 +829,29 @@ export function ChatPanel() {
                 onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)' }}
                 onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
               />
-              <button
-                onClick={sendMessage}
-                disabled={sending || !input.trim()}
-                style={{
-                  background: 'var(--accent)', color: 'var(--bg-base)', border: 'none', borderRadius: '10px',
-                  fontSize: '14px', fontWeight: 500, padding: '0 20px', cursor: 'pointer',
-                  opacity: (sending || !input.trim()) ? 0.4 : 1, transition: 'opacity 0.15s',
-                }}
-              >
-                {sending ? '…' : 'Send'}
-              </button>
+              {sending ? (
+                <button
+                  onClick={() => wsRef.current?.send(JSON.stringify({ type: 'cancel' }))}
+                  style={{
+                    background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)',
+                    borderRadius: '10px', fontSize: '14px', fontWeight: 500, padding: '0 20px', cursor: 'pointer',
+                  }}
+                >
+                  Stop
+                </button>
+              ) : (
+                <button
+                  onClick={sendMessage}
+                  disabled={!input.trim()}
+                  style={{
+                    background: 'var(--accent)', color: 'var(--bg-base)', border: 'none', borderRadius: '10px',
+                    fontSize: '14px', fontWeight: 500, padding: '0 20px', cursor: 'pointer',
+                    opacity: !input.trim() ? 0.4 : 1, transition: 'opacity 0.15s',
+                  }}
+                >
+                  Send
+                </button>
+              )}
             </div>
           </div>
         )}
