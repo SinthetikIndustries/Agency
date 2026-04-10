@@ -861,6 +861,98 @@ async function handleHttpGet(
   }
 }
 
+const WEB_SEARCH_MANIFEST: ToolManifest = {
+  name: 'web_search',
+  type: 'http',
+  description: 'Search the web using DuckDuckGo. Returns titles, URLs, and snippets for matching pages. No API key required.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Search query' },
+      count: { type: 'number', description: 'Max results to return (default 10, max 20)' },
+    },
+    required: ['query'],
+  },
+  permissions: ['network:outbound'],
+  sandboxed: false,
+  timeout: 30_000,
+}
+
+async function handleWebSearch(
+  input: Record<string, unknown>,
+  _context: ToolContext
+): Promise<unknown> {
+  const query = input['query'] as string
+  const count = Math.min(Number(input['count'] ?? 10), 20)
+  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
+  const response = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AgencyBot/1.0)' },
+  })
+  if (!response.ok) return { error: `Search failed: HTTP ${response.status}` }
+  const html = await response.text()
+  // Parse result titles, URLs, and snippets from DDG HTML
+  const results: Array<{ title: string; url: string; snippet: string }> = []
+  const resultRe = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/g
+  const snippetRe = /<a[^>]+class="result__snippet"[^>]*>([^<]*(?:<[^>]+>[^<]*)*)<\/a>/g
+  const snippets: string[] = []
+  let sm: RegExpExecArray | null
+  while ((sm = snippetRe.exec(html)) !== null) {
+    snippets.push(sm[1]!.replace(/<[^>]+>/g, '').trim())
+  }
+  let m: RegExpExecArray | null
+  let i = 0
+  while ((m = resultRe.exec(html)) !== null && results.length < count) {
+    const rawUrl = m[1]!
+    const title = m[2]!.trim()
+    // DDG wraps URLs — extract actual URL from uddg param or use as-is
+    const uddgMatch = rawUrl.match(/uddg=([^&]+)/)
+    const finalUrl = uddgMatch ? decodeURIComponent(uddgMatch[1]!) : rawUrl
+    if (finalUrl.startsWith('http')) {
+      results.push({ title, url: finalUrl, snippet: snippets[i] ?? '' })
+    }
+    i++
+  }
+  return { query, results, count: results.length }
+}
+
+const FETCH_WEB_CONTENT_MANIFEST: ToolManifest = {
+  name: 'fetch_web_content',
+  type: 'http',
+  description: 'Fetch the text content of a public web page. Returns the page text with HTML stripped.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      url: { type: 'string', description: 'Public HTTP/HTTPS URL to fetch' },
+    },
+    required: ['url'],
+  },
+  permissions: ['network:outbound'],
+  sandboxed: false,
+  timeout: 30_000,
+}
+
+async function handleFetchWebContent(
+  input: Record<string, unknown>,
+  _context: ToolContext
+): Promise<unknown> {
+  const url = input['url'] as string
+  const response = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AgencyBot/1.0)' },
+  })
+  const contentType = response.headers.get('content-type') ?? ''
+  if (!response.ok) return { error: `Fetch failed: HTTP ${response.status}`, url }
+  let text = await response.text()
+  if (contentType.includes('text/html')) {
+    // Strip scripts, styles, then all tags
+    text = text.replace(/<script[\s\S]*?<\/script>/gi, '')
+    text = text.replace(/<style[\s\S]*?<\/style>/gi, '')
+    text = text.replace(/<[^>]+>/g, ' ')
+    text = text.replace(/\s{3,}/g, '\n\n').trim()
+  }
+  const MAX = 8000
+  return { url, content: text.length > MAX ? text.slice(0, MAX) + '\n…[truncated]' : text }
+}
+
 const DESTRUCTIVE_COMMAND_PATTERNS = [
   /\brm\b.*(-[rRf]|-rf|-fr)/,          // rm -rf etc
   /\brmdir\b/,
@@ -1062,6 +1154,8 @@ export function createToolRegistry(queueClient?: QueueClient, options?: { memory
   registry.register(FILE_WRITE_MANIFEST, handleFileWrite)
   registry.register(FILE_LIST_MANIFEST, handleFileList)
   registry.register(HTTP_GET_MANIFEST, handleHttpGet)
+  registry.register(WEB_SEARCH_MANIFEST, handleWebSearch)
+  registry.register(FETCH_WEB_CONTENT_MANIFEST, handleFetchWebContent)
   registry.register(SHELL_RUN_MANIFEST, handleShellRun)
   registry.register(CODE_RUN_PYTHON_MANIFEST, handleCodeRunPython)
   registry.register(CODE_RUN_JS_MANIFEST, handleCodeRunJs)
