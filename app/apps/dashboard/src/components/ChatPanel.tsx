@@ -4,7 +4,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { sessions, agents, approvals as approvalsApi, getWsToken, me, type Agent, type SessionSummary } from '@/lib/api'
+import { sessions, agents, agentConfig, approvals as approvalsApi, getWsToken, me, type Agent, type SessionSummary } from '@/lib/api'
 
 import { PORTS } from '@/lib/ports'
 import { TokenBar } from '@/components/TokenBar'
@@ -370,7 +370,11 @@ export function ChatPanel() {
       const res = await sessions.create(selectedAgent, 'dashboard')
       const sid = res.session.id
       setSessionId(sid)
-      agents.get(selectedAgent).then(r => setAgentSystemPrompt(r.agent.profile?.systemPrompt ?? '')).catch(() => {})
+      agentConfig.list(selectedAgent).then(r => {
+        const ALWAYS = ['identity', 'soul', 'user', 'capabilities']
+        const text = ALWAYS.map(t => r.files.find(f => f.file_type === t)?.content ?? '').filter(Boolean).join('\n\n---\n\n')
+        setAgentSystemPrompt(text || (r.files.find(f => f.file_type === 'identity')?.content ?? ''))
+      }).catch(() => agents.get(selectedAgent).then(r => setAgentSystemPrompt(r.agent.profile?.systemPrompt ?? '')).catch(() => {}))
       openWebSocket(sid)
       loadHistory()
     } catch (err) {
@@ -388,7 +392,11 @@ export function ChatPanel() {
     // Load agent info from session history if available
     const sessionEntry = sessionHistory.find(s => s.id === sid)
     const agentSlug = sessionEntry?.agentSlug ?? selectedAgent
-    agents.get(agentSlug).then(r => setAgentSystemPrompt(r.agent.profile?.systemPrompt ?? '')).catch(() => {})
+    agentConfig.list(agentSlug).then(r => {
+      const ALWAYS = ['identity', 'soul', 'user', 'capabilities']
+      const text = ALWAYS.map(t => r.files.find(f => f.file_type === t)?.content ?? '').filter(Boolean).join('\n\n---\n\n')
+      setAgentSystemPrompt(text || (r.files.find(f => f.file_type === 'identity')?.content ?? ''))
+    }).catch(() => agents.get(agentSlug).then(r => setAgentSystemPrompt(r.agent.profile?.systemPrompt ?? '')).catch(() => {}))
     await loadSessionMessages(sid)
     openWebSocket(sid)
   }
