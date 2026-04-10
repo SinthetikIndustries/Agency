@@ -83,6 +83,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   status           TEXT NOT NULL DEFAULT 'active',
   name             TEXT,
   coordinator_mode BOOLEAN NOT NULL DEFAULT false,
+  pinned           BOOLEAN NOT NULL DEFAULT false,
+  pinned_at        TIMESTAMPTZ,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -201,6 +203,7 @@ CREATE TABLE IF NOT EXISTS vault_sync_events (
   file_path  TEXT NOT NULL,
   status     TEXT NOT NULL DEFAULT 'ok',
   error      TEXT,
+  synced_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
