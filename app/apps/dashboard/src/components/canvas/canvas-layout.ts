@@ -136,7 +136,7 @@ export function computeGroupsLayout(
         source: groupId,
         target: `agent-${agent.identity.id}`,
         type: 'membership',
-        style: { stroke: '#3b82f6', strokeWidth: 1.5 },
+        style: { stroke: '#3b82f6', strokeWidth: 2 },
       })
     })
 
@@ -266,7 +266,7 @@ export function computeNetworkLayout(
         id: `membership-${groupId}-${agent.identity.id}`,
         source: groupId,
         target: `agent-${agent.identity.id}`,
-        style: { stroke: '#3b82f6', strokeWidth: 1.5 },
+        style: { stroke: '#3b82f6', strokeWidth: 2 },
       })
     })
   })
@@ -337,7 +337,7 @@ export function computeAgentLayout(
       id: `e-skill-${skill.id}`,
       source: 'agent-center',
       target: `skill-${skill.id}`,
-      style: { stroke: '#0d9488', strokeWidth: 1.5 },
+      style: { stroke: '#0d9488', strokeWidth: 2 },
     })
   })
 
@@ -358,7 +358,7 @@ export function computeAgentLayout(
       id: `e-tool-${tool}`,
       source: 'agent-center',
       target: `tool-${tool}`,
-      style: { stroke: '#475569', strokeWidth: 1 },
+      style: { stroke: '#64748b', strokeWidth: 1.5 },
     })
   })
 
@@ -379,7 +379,7 @@ export function computeAgentLayout(
       id: `e-ws-${i}`,
       source: 'agent-center',
       target: `workspace-${i}`,
-      style: { stroke: '#92400e', strokeDasharray: '4 2', strokeWidth: 1 },
+      style: { stroke: '#d97706', strokeDasharray: '4 2', strokeWidth: 1.5 },
     })
   })
 

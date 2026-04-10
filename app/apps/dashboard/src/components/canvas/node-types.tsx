@@ -39,19 +39,19 @@ export interface GroupNodeData extends Record<string, unknown> {
 }
 
 const HIERARCHY_COLOR: Record<string, string> = {
-  flat:         'text-blue-300 bg-blue-900/60 border-blue-700/40',
-  hierarchical: 'text-purple-300 bg-purple-900/60 border-purple-700/40',
-  council:      'text-amber-300 bg-amber-900/60 border-amber-700/40',
+  flat:         'text-blue-200 bg-blue-800 border-blue-600',
+  hierarchical: 'text-purple-200 bg-purple-800 border-purple-600',
+  council:      'text-amber-200 bg-amber-800 border-amber-600',
 }
 
 export function GroupNode({ data, selected }: NodeProps<Node<GroupNodeData>>) {
   const d = data
-  const borderSelected = selected ? 'border-blue-400' : 'border-blue-700/60'
+  const borderSelected = selected ? 'border-blue-300' : 'border-blue-600'
 
   return (
     <div
-      className={`bg-blue-950/30 border-2 ${borderSelected} rounded-xl w-full h-full`}
-      style={{ minWidth: 240, minHeight: 180 }}
+      className={`bg-blue-950 border-2 ${borderSelected} rounded-xl w-full h-full`}
+      style={{ minWidth: 260, minHeight: 180 }}
     >
       <NodeResizer
         minWidth={240}
@@ -74,19 +74,19 @@ export function GroupNode({ data, selected }: NodeProps<Node<GroupNodeData>>) {
         </div>
       </NodeToolbar>
       <Handle type="target" position={Position.Top} className="!bg-blue-600 !border-blue-400" />
-      <div className="p-3 border-b border-blue-800/40 flex items-center gap-2">
-        <div className="w-7 h-7 rounded-md bg-blue-800/70 flex items-center justify-center text-blue-300 text-xs font-bold flex-shrink-0">
+      <div className="p-3 border-b border-blue-700 flex items-center gap-2">
+        <div className="w-7 h-7 rounded-md bg-blue-700 flex items-center justify-center text-blue-100 text-xs font-bold flex-shrink-0">
           G
         </div>
-        <span className="text-blue-100 text-sm font-semibold truncate flex-1">{d.label}</span>
+        <span className="text-white text-sm font-semibold truncate flex-1">{d.label}</span>
         <span className={`text-xs px-1.5 py-0.5 rounded border ${HIERARCHY_COLOR[d.hierarchyType] ?? HIERARCHY_COLOR.flat}`}>
           {d.hierarchyType}
         </span>
       </div>
       <div className="px-3 pt-2 pb-1">
-        <span className="text-xs text-blue-300/60">{d.memberCount} member{d.memberCount !== 1 ? 's' : ''}</span>
+        <span className="text-xs text-blue-300">{d.memberCount} member{d.memberCount !== 1 ? 's' : ''}</span>
         {d.goals?.slice(0, 2).map((g, i) => (
-          <p key={i} className="text-xs text-blue-200/40 mt-0.5 truncate">· {g}</p>
+          <p key={i} className="text-xs text-blue-200 mt-0.5 truncate">· {g}</p>
         ))}
       </div>
       <Handle type="source" position={Position.Bottom} className="!bg-blue-600 !border-blue-400" />
@@ -109,14 +109,14 @@ export interface AgentNodeData extends Record<string, unknown> {
 export function AgentNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
   const d = data
   const borderColor = d.isOrchestrator
-    ? selected ? 'border-purple-400' : 'border-purple-600/70'
+    ? selected ? 'border-purple-300' : 'border-purple-500'
     : d.status === 'active'
-      ? selected ? 'border-emerald-400' : 'border-emerald-600/70'
-      : selected ? 'border-gray-400' : 'border-gray-600/50'
-  const avatarColor = d.isOrchestrator ? 'bg-purple-700' : d.status === 'active' ? 'bg-emerald-800' : 'bg-gray-700'
+      ? selected ? 'border-emerald-300' : 'border-emerald-500'
+      : selected ? 'border-gray-400' : 'border-gray-500'
+  const avatarColor = d.isOrchestrator ? 'bg-purple-600' : d.status === 'active' ? 'bg-emerald-700' : 'bg-gray-600'
 
   return (
-    <div className={`bg-gray-800/90 border-2 ${borderColor} rounded-xl p-3 min-w-[160px] shadow-md`}>
+    <div className={`bg-gray-800 border-2 ${borderColor} rounded-xl p-3 min-w-[180px] shadow-lg`}>
       <NodeToolbar position={Position.Top} isVisible={selected}>
         <div className="flex gap-1 bg-gray-800 border border-gray-700 rounded-lg p-1 shadow-lg">
           <button
@@ -138,10 +138,10 @@ export function AgentNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
         <InitialAvatar name={d.label} color={avatarColor} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-white text-sm font-medium truncate">{d.label}</span>
+            <span className="text-white text-sm font-semibold truncate">{d.label}</span>
             <StatusDot status={d.status} />
           </div>
-          <span className="text-gray-500 text-xs font-mono">{d.slug}</span>
+          <span className="text-gray-400 text-xs font-mono">{d.slug}</span>
         </div>
       </div>
       {d.profile && (
@@ -163,21 +163,21 @@ export interface OrchestratorNodeData extends Record<string, unknown> {
 
 export function OrchestratorNode({ data, selected }: NodeProps<Node<OrchestratorNodeData>>) {
   const d = data
-  const borderColor = selected ? 'border-purple-400' : 'border-purple-500/80'
+  const borderColor = selected ? 'border-purple-300' : 'border-purple-500'
 
   return (
-    <div className={`bg-purple-950/60 border-2 ${borderColor} rounded-xl p-3 min-w-[180px] shadow-lg`}>
-      <Handle type="source" position={Position.Bottom} className="!bg-purple-500 !border-purple-400" />
+    <div className={`bg-purple-950 border-2 ${borderColor} rounded-xl p-3 min-w-[200px] shadow-lg`}>
+      <Handle type="source" position={Position.Bottom} className="!bg-purple-500 !border-purple-300" />
       <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-purple-700 flex items-center justify-center text-purple-200 text-sm font-bold flex-shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
           S
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-purple-100 text-sm font-semibold">{d.label}</span>
+            <span className="text-white text-sm font-semibold">{d.label}</span>
             <StatusDot status={d.status} />
           </div>
-          <span className="text-purple-400/60 text-xs">orchestrator</span>
+          <span className="text-purple-300 text-xs">orchestrator</span>
         </div>
       </div>
     </div>
@@ -194,10 +194,10 @@ export interface SkillNodeData extends Record<string, unknown> {
 
 export function SkillNode({ data, selected }: NodeProps<Node<SkillNodeData>>) {
   const d = data
-  const border = selected ? 'border-teal-400' : 'border-teal-700/60'
+  const border = selected ? 'border-teal-300' : 'border-teal-600'
 
   return (
-    <div className={`bg-teal-950/40 border-2 ${border} rounded-xl p-3 min-w-[140px] shadow-md`}>
+    <div className={`bg-teal-950 border-2 ${border} rounded-xl p-3 min-w-[150px] shadow-md`}>
       <NodeToolbar position={Position.Top} isVisible={selected}>
         <div className="flex gap-1 bg-gray-800 border border-gray-700 rounded-lg p-1 shadow-lg">
           <button
@@ -213,12 +213,12 @@ export function SkillNode({ data, selected }: NodeProps<Node<SkillNodeData>>) {
       </NodeToolbar>
       <Handle type="target" position={Position.Top} className="!bg-teal-600 !border-teal-400" />
       <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-md bg-teal-800/70 flex items-center justify-center text-teal-300 text-xs font-bold flex-shrink-0">
+        <div className="w-7 h-7 rounded-md bg-teal-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
           SK
         </div>
         <div className="flex-1 min-w-0">
-          <span className="text-teal-100 text-sm font-medium block truncate">{d.label}</span>
-          <span className="text-teal-400/60 text-xs">{d.version}</span>
+          <span className="text-white text-sm font-medium block truncate">{d.label}</span>
+          <span className="text-teal-300 text-xs">{d.version}</span>
         </div>
       </div>
       <Handle type="source" position={Position.Bottom} className="!bg-teal-600 !border-teal-400" />
@@ -237,18 +237,18 @@ export interface ToolNodeData extends Record<string, unknown> {
 
 export function ToolNode({ data, selected }: NodeProps<Node<ToolNodeData>>) {
   const d = data
-  const border = selected ? 'border-slate-400' : 'border-slate-600/60'
+  const border = selected ? 'border-slate-300' : 'border-slate-500'
 
   return (
-    <div className={`bg-slate-800/60 border-2 ${border} rounded-xl p-3 min-w-[130px] shadow-md`}>
+    <div className={`bg-slate-800 border-2 ${border} rounded-xl p-3 min-w-[140px] shadow-md`}>
       <Handle type="target" position={Position.Top} className="!bg-slate-500 !border-slate-400" />
       <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-md bg-slate-700 flex items-center justify-center text-slate-300 text-xs font-bold flex-shrink-0">
+        <div className="w-7 h-7 rounded-md bg-slate-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
           T
         </div>
         <div className="flex-1 min-w-0">
-          <span className="text-slate-100 text-xs font-mono block truncate">{d.label}</span>
-          <span className="text-slate-500 text-xs">{d.toolType}</span>
+          <span className="text-white text-xs font-mono block truncate">{d.label}</span>
+          <span className="text-slate-400 text-xs">{d.toolType}</span>
         </div>
       </div>
       {d.permissionLevel && (
@@ -271,10 +271,10 @@ export interface WorkspaceNodeData extends Record<string, unknown> {
 
 export function WorkspaceNode({ data, selected }: NodeProps<Node<WorkspaceNodeData>>) {
   const d = data
-  const border = selected ? 'border-amber-400' : 'border-amber-700/60'
+  const border = selected ? 'border-amber-300' : 'border-amber-600'
 
   return (
-    <div className={`bg-amber-950/30 border-2 ${border} rounded-xl p-3 min-w-[160px] shadow-md`}>
+    <div className={`bg-amber-950 border-2 ${border} rounded-xl p-3 min-w-[170px] shadow-md`}>
       <NodeToolbar position={Position.Top} isVisible={selected}>
         <div className="flex gap-1 bg-gray-800 border border-gray-700 rounded-lg p-1 shadow-lg">
           <button
@@ -287,12 +287,12 @@ export function WorkspaceNode({ data, selected }: NodeProps<Node<WorkspaceNodeDa
       </NodeToolbar>
       <Handle type="target" position={Position.Top} className="!bg-amber-600 !border-amber-400" />
       <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-md bg-amber-800/70 flex items-center justify-center text-amber-300 text-xs font-bold flex-shrink-0">
+        <div className="w-7 h-7 rounded-md bg-amber-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
           W
         </div>
         <div className="flex-1 min-w-0">
-          <span className="text-amber-100 text-sm font-medium block truncate">{d.label}</span>
-          <span className="text-amber-500/70 text-xs font-mono block truncate">{d.path}</span>
+          <span className="text-white text-sm font-medium block truncate">{d.label}</span>
+          <span className="text-amber-300 text-xs font-mono block truncate">{d.path}</span>
         </div>
       </div>
     </div>

@@ -134,7 +134,7 @@ function NetworkPageInner() {
           onToggleLive={() => setLiveMode(l => !l)}
         />
       </div>
-      <div style={{ height: '70vh' }} className="border border-gray-700 rounded-lg overflow-hidden">
+      <div style={{ height: '75vh' }} className="border border-gray-700 rounded-lg overflow-hidden">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -153,11 +153,15 @@ function NetworkPageInner() {
             }
           }}
           fitView
-          className="bg-gray-900"
+          defaultEdgeOptions={{
+            style: { stroke: '#6b7280', strokeWidth: 2 },
+            animated: false,
+          }}
+          className="bg-gray-950"
         >
-          <Background color="#374151" gap={16} />
+          <Background color="#1f2937" gap={24} />
           <Controls />
-          <MiniMap className="bg-gray-800" nodeColor="#374151" />
+          <MiniMap className="bg-gray-900" nodeColor="#374151" maskColor="rgba(0,0,0,0.4)" />
         </ReactFlow>
       </div>
 

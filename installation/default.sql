@@ -284,24 +284,39 @@ CREATE TABLE IF NOT EXISTS brain_nodes (
   content     TEXT NOT NULL DEFAULT '',
   tags        JSONB NOT NULL DEFAULT '[]',
   embedding   JSONB,
+  metadata    JSONB NOT NULL DEFAULT '{}',
   confidence  FLOAT NOT NULL DEFAULT 1.0,
   source      TEXT NOT NULL DEFAULT 'system',
   grid_path   TEXT,
   grid_tier   SMALLINT NOT NULL DEFAULT 0,
   grid_locked BOOLEAN NOT NULL DEFAULT false,
+  version     INT NOT NULL DEFAULT 1,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS brain_edges (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  from_id    UUID NOT NULL REFERENCES brain_nodes(id) ON DELETE CASCADE,
-  to_id      UUID NOT NULL REFERENCES brain_nodes(id) ON DELETE CASCADE,
-  type       TEXT NOT NULL,
-  weight     FLOAT NOT NULL DEFAULT 1.0,
-  source     TEXT NOT NULL DEFAULT 'system',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  from_id       UUID NOT NULL REFERENCES brain_nodes(id) ON DELETE CASCADE,
+  to_id         UUID NOT NULL REFERENCES brain_nodes(id) ON DELETE CASCADE,
+  type          TEXT NOT NULL,
+  weight        FLOAT NOT NULL DEFAULT 1.0,
+  bidirectional BOOLEAN NOT NULL DEFAULT false,
+  metadata      JSONB NOT NULL DEFAULT '{}',
+  source        TEXT NOT NULL DEFAULT 'system',
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (from_id, to_id, type)
+);
+
+CREATE TABLE IF NOT EXISTS brain_node_history (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  node_id     UUID NOT NULL REFERENCES brain_nodes(id) ON DELETE CASCADE,
+  content     TEXT,
+  metadata    JSONB NOT NULL DEFAULT '{}',
+  confidence  FLOAT NOT NULL DEFAULT 1.0,
+  changed_by  TEXT NOT NULL DEFAULT 'system',
+  changed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  version     INT NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS routing_profiles (
