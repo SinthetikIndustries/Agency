@@ -4207,3 +4207,46 @@ ON CONFLICT (agent_id, file_type) DO NOTHING;
 INSERT INTO agent_config_files (agent_id, file_type, content)
 VALUES ($seed$main$seed$, $seed$scratch$seed$, $seed$$seed$)
 ON CONFLICT (agent_id, file_type) DO NOTHING;
+
+-- ── Brain nodes: config-file nodes + memory links for all agents ──────────────
+DO $$
+DECLARE
+  r RECORD;
+  file_types TEXT[] := ARRAY[
+    'identity','soul','user','capabilities','directives','decisions',
+    'coordination','governance','memory','history','permissions',
+    'profile','prompt','links','heartbeat','scratch'
+  ];
+  ft TEXT;
+  node_path TEXT;
+  node_id UUID;
+  agent_tier INT;
+  acf_content TEXT;
+BEGIN
+  FOR r IN
+    SELECT ai.id as agent_id, ai.slug, ai.name, bn.id as brain_node_id, bn.grid_path, bn.grid_tier
+    FROM agent_identities ai
+    JOIN brain_nodes bn ON bn.id = ai.brain_node_id
+    WHERE ai.slug NOT IN ('system')
+  LOOP
+    agent_tier := r.grid_tier + 1;
+    FOREACH ft IN ARRAY file_types LOOP
+      node_path := r.grid_path || '/' || ft;
+      SELECT content INTO acf_content FROM agent_config_files WHERE agent_id = r.agent_id AND file_type = ft;
+      INSERT INTO brain_nodes (type, label, content, grid_path, grid_tier, grid_locked, source)
+      VALUES ('config-file', ft, COALESCE(NULLIF(TRIM(acf_content), ''), ft || ' config for ' || r.name), node_path, agent_tier, false, 'system')
+      ON CONFLICT (grid_path) WHERE grid_path IS NOT NULL DO UPDATE
+        SET content = COALESCE(NULLIF(TRIM(acf_content), ''), ft || ' config for ' || r.name)
+      RETURNING id INTO node_id;
+      IF node_id IS NULL THEN SELECT id INTO node_id FROM brain_nodes WHERE grid_path = node_path; END IF;
+      INSERT INTO brain_edges (from_id, to_id, type, weight, source)
+      VALUES (r.brain_node_id, node_id, 'has-file', 1.0, 'system')
+      ON CONFLICT (from_id, to_id, type) DO NOTHING;
+    END LOOP;
+    INSERT INTO brain_edges (from_id, to_id, type, weight, source)
+    SELECT r.brain_node_id, bn.id, 'accesses-memory', 1.0, 'system'
+    FROM brain_nodes bn
+    WHERE bn.grid_path IN ('GRID/MEMORY/working','GRID/MEMORY/episodic','GRID/MEMORY/semantic/canon','GRID/MEMORY/semantic/proposals')
+    ON CONFLICT (from_id, to_id, type) DO NOTHING;
+  END LOOP;
+END $$;
