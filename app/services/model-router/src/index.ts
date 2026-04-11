@@ -427,7 +427,30 @@ export class OllamaAdapter implements ModelAdapter {
       const res = await fetch(`${this.endpoint}/api/tags`, { signal: AbortSignal.timeout(5000) })
       if (!res.ok) return []
       const data = await res.json() as { models?: Array<{ name: string }> }
-      return data.models?.map(m => m.name) ?? []
+      const names = data.models?.map(m => m.name) ?? []
+      // Filter to only models that support tool calling
+      const toolCapable = await Promise.all(names.map(async name => {
+        try {
+          const probe = await fetch(`${this.endpoint}/api/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: name, stream: false,
+              messages: [{ role: 'user', content: 'hi' }],
+              tools: [{ type: 'function', function: { name: 'probe', description: 'probe', parameters: { type: 'object', properties: {}, required: [] } } }],
+            }),
+            signal: AbortSignal.timeout(10000),
+          })
+          const body = await probe.text()
+          return !body.includes('does not support tools')
+        } catch {
+          return true  // assume capable if probe fails (e.g. timeout)
+        }
+      }))
+      const filtered = names.filter((_, i) => toolCapable[i])
+      const skipped = names.filter((_, i) => !toolCapable[i])
+      if (skipped.length) console.warn(`[ModelRouter] Ollama models without tool support (excluded): ${skipped.join(', ')}`)
+      return filtered
     } catch {
       return []
     }
