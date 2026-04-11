@@ -4,12 +4,12 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { grid, type GridGraphNode, type GridEdge, type GridNode } from '@/lib/api'
+import { grid, type GridGraphNode, type GridEdge } from '@/lib/api'
 import { GridGraph3D } from './GridGraph3D'
 import { GridTreeView } from './GridTreeView'
 import { NodeEditorPanel } from './NodeEditorPanel'
 
-type Tab = 'graph' | 'tree' | 'nodes' | 'status'
+type Tab = 'graph' | 'tree' | 'status'
 
 export default function GridPage() {
   const [tab, setTab] = useState<Tab>('graph')
@@ -18,12 +18,6 @@ export default function GridPage() {
   const [nodes, setNodes] = useState<GridGraphNode[]>([])
   const [edges, setEdges] = useState<GridEdge[]>([])
   const [graphLoading, setGraphLoading] = useState(true)
-
-  // Node list
-  const [nodeList, setNodeList] = useState<GridNode[]>([])
-  const [searchQ, setSearchQ] = useState('')
-  const [searchResults, setSearchResults] = useState<Array<GridNode & { score: number }> | null>(null)
-  const [searching, setSearching] = useState(false)
 
   // Status
   const [status, setStatus] = useState<{ nodeCount: number; edgeCount: number; lastUpdated: string | null } | null>(null)
@@ -49,13 +43,6 @@ export default function GridPage() {
 
   useEffect(() => { void loadGraph() }, [loadGraph])
 
-  // ─── Load node list ────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (tab !== 'nodes') return
-    grid.nodes({ limit: 200 }).then(r => setNodeList(r.nodes)).catch(() => {})
-  }, [tab])
-
   // ─── Load status + candidates ──────────────────────────────────────────────
 
   useEffect(() => {
@@ -63,19 +50,6 @@ export default function GridPage() {
     grid.status().then(setStatus).catch(() => {})
     grid.candidates().then(r => setCandidates(r.candidates)).catch(() => {})
   }, [tab])
-
-  // ─── Search ────────────────────────────────────────────────────────────────
-
-  async function handleSearch() {
-    if (!searchQ.trim()) { setSearchResults(null); return }
-    setSearching(true)
-    try {
-      const r = await grid.search(searchQ.trim(), { limit: 30 })
-      setSearchResults(r.results)
-    } finally {
-      setSearching(false)
-    }
-  }
 
   // ─── New node ──────────────────────────────────────────────────────────────
 
@@ -108,7 +82,7 @@ export default function GridPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 px-8 flex-shrink-0 border-b border-gray-800">
-        {(['graph', 'tree', 'nodes', 'status'] as Tab[]).map(t => (
+        {(['graph', 'tree', 'status'] as Tab[]).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -148,62 +122,6 @@ export default function GridPage() {
             nodes={nodes}
             onNodeSelect={id => setSelectedNodeId(id)}
           />
-        )}
-
-        {/* ── Nodes ── */}
-        {tab === 'nodes' && (
-          <div className="flex flex-col h-full">
-            <div className="flex gap-2 px-6 py-3 border-b border-gray-800 flex-shrink-0">
-              <input
-                value={searchQ}
-                onChange={e => setSearchQ(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') void handleSearch() }}
-                placeholder="Semantic search…"
-                className="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm text-white placeholder-gray-600 outline-none focus:border-indigo-500"
-              />
-              <button
-                onClick={() => void handleSearch()}
-                disabled={searching}
-                className="text-sm bg-gray-800 hover:bg-gray-700 text-gray-200 px-3 py-1.5 rounded transition-colors disabled:opacity-50"
-              >
-                {searching ? '…' : 'Search'}
-              </button>
-              {searchResults && (
-                <button
-                  onClick={() => setSearchResults(null)}
-                  className="text-sm text-gray-600 hover:text-gray-400 px-2"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-3 space-y-1">
-              {(searchResults ?? nodeList).map(n => (
-                <button
-                  key={n.id}
-                  onClick={() => setSelectedNodeId(n.id)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded hover:bg-gray-800 transition-colors text-left group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-gray-800 group-hover:bg-gray-700 text-indigo-300 capitalize flex-shrink-0">
-                      {n.type}
-                    </span>
-                    <span className="text-sm text-gray-200 truncate">{n.label}</span>
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-                    {'score' in n && (
-                      <span className="text-xs text-gray-600">
-                        {((n as GridNode & { score: number }).score * 100).toFixed(0)}%
-                      </span>
-                    )}
-                    <span className="text-xs text-gray-600">
-                      {(n.confidence * 100).toFixed(0)}% conf
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
         )}
 
         {/* ── Status ── */}
