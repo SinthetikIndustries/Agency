@@ -6,9 +6,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { grid, type GridGraphNode, type GridEdge, type GridNode } from '@/lib/api'
 import { GridGraph3D } from './GridGraph3D'
+import { GridTreeView } from './GridTreeView'
 import { NodeEditorPanel } from './NodeEditorPanel'
 
-type Tab = 'graph' | 'nodes' | 'status'
+type Tab = 'graph' | 'tree' | 'nodes' | 'status'
 
 export default function GridPage() {
   const [tab, setTab] = useState<Tab>('graph')
@@ -107,7 +108,7 @@ export default function GridPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 px-8 flex-shrink-0 border-b border-gray-800">
-        {(['graph', 'nodes', 'status'] as Tab[]).map(t => (
+        {(['graph', 'tree', 'nodes', 'status'] as Tab[]).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -139,6 +140,14 @@ export default function GridPage() {
               className="w-full h-full"
             />
           )
+        )}
+
+        {/* ── Tree ── */}
+        {tab === 'tree' && (
+          <GridTreeView
+            nodes={nodes}
+            onNodeSelect={id => setSelectedNodeId(id)}
+          />
         )}
 
         {/* ── Nodes ── */}
