@@ -478,6 +478,28 @@ export class OllamaAdapter implements ModelAdapter {
 
     if (!res.ok) {
       const text = await res.text()
+      // Retry without tools if the model doesn't support them
+      if (text.includes('does not support tools') && body['tools']) {
+        delete body['tools']
+        const retry = await fetch(`${this.endpoint}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(120000),
+        })
+        if (!retry.ok) throw new Error(`Ollama request failed (${retry.status}): ${await retry.text()}`)
+        const data = await retry.json() as OllamaChatResponse
+        const choice = data.choices[0]!
+        const msg = choice.message
+        const content: ContentBlock[] = []
+        if (msg.content) content.push({ type: 'text', text: msg.content })
+        return {
+          id: data.id, model: data.model, content,
+          stopReason: 'end_turn',
+          inputTokens: data.usage.prompt_tokens,
+          outputTokens: data.usage.completion_tokens,
+        }
+      }
       throw new Error(`Ollama request failed (${res.status}): ${text}`)
     }
 
@@ -535,10 +557,28 @@ export class OllamaAdapter implements ModelAdapter {
 
     if (!res.ok || !res.body) {
       const text = await res.text().catch(() => '(no body)')
+      // Retry without tools if the model doesn't support them
+      if (text.includes('does not support tools') && body['tools']) {
+        delete body['tools']
+        const retry = await fetch(`${this.endpoint}/v1/chat/completions`, {
+          method: 'POST',
+          signal: AbortSignal.timeout(120000),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (!retry.ok || !retry.body) {
+          throw new Error(`Ollama stream failed (${retry.status}): ${await retry.text().catch(() => '(no body)')}`)
+        }
+        yield* this._readStream(retry.body.getReader())
+        return
+      }
       throw new Error(`Ollama stream failed (${res.status}): ${text}`)
     }
 
-    const reader = res.body.getReader()
+    yield* this._readStream(res.body.getReader())
+  }
+
+  private async *_readStream(reader: ReadableStreamDefaultReader<Uint8Array>): AsyncGenerator<CompletionChunk> {
     const decoder = new TextDecoder()
     let buffer = ''
     const openToolCalls = new Map<number, string>()  // index → toolCallId
