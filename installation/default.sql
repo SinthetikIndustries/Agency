@@ -949,25 +949,27 @@ ON CONFLICT (from_id, to_id, type) DO NOTHING;
 -- BUILT-IN AGENT PROFILES
 -- ─────────────────────────────────────────────────────────────────────────
 
-INSERT INTO agent_profiles (name, slug, description, model_tier, built_in)
+INSERT INTO agent_profiles (name, slug, description, model_tier, built_in, allowed_tools)
 VALUES (
   $seed$Default$seed$,
   $seed$default$seed$,
   $seed$Generic base profile. Blank slate — no specialization. Starting point for user customization.$seed$,
   $seed$cheap$seed$,
-  true
+  true,
+  '["file_read","file_write","file_list","http_get","web_search","fetch_web_content","shell_run","code_run_python","code_run_javascript","browser_navigate","agent_list","agent_get","agent_set_profile","profile_list","memory_read","memory_write","agent_message_send","agent_message_check","agent_message_list","discord_post","discord_list_channels","agent_invoke","agent_create","agent_delete","group_create","group_update","group_delete","group_member_add","group_member_remove","group_list","group_get","vault_search","vault_related","vault_propose","brain_read","brain_write","brain_relate","brain_search","brain_traverse","system_diagnose","sleep"]'::jsonb
 )
-ON CONFLICT (slug) DO NOTHING;
+ON CONFLICT (slug) DO UPDATE SET allowed_tools = EXCLUDED.allowed_tools;
 
-INSERT INTO agent_profiles (name, slug, description, model_tier, built_in)
+INSERT INTO agent_profiles (name, slug, description, model_tier, built_in, allowed_tools)
 VALUES (
   $seed$Personal Assistant$seed$,
   $seed$personal-assistant$seed$,
   $seed$Scheduling, tasks, email, and day-to-day help.$seed$,
   $seed$strong$seed$,
-  true
+  true,
+  '["file_read","file_write","file_list","http_get","web_search","fetch_web_content","shell_run","code_run_python","code_run_javascript","browser_navigate","agent_list","agent_get","agent_set_profile","profile_list","memory_read","memory_write","agent_message_send","agent_message_check","agent_message_list","discord_post","discord_list_channels","agent_invoke","agent_create","agent_delete","group_create","group_update","group_delete","group_member_add","group_member_remove","group_list","group_get","vault_search","vault_related","vault_propose","brain_read","brain_write","brain_relate","brain_search","brain_traverse","system_diagnose","sleep"]'::jsonb
 )
-ON CONFLICT (slug) DO NOTHING;
+ON CONFLICT (slug) DO UPDATE SET allowed_tools = EXCLUDED.allowed_tools;
 
 INSERT INTO agent_profiles (name, slug, description, model_tier, built_in)
 VALUES (
@@ -4201,8 +4203,53 @@ VALUES ($seed$main$seed$, $seed$heartbeat$seed$, $seed$$seed$)
 ON CONFLICT (agent_id, file_type) DO NOTHING;
 
 INSERT INTO agent_config_files (agent_id, file_type, content)
-VALUES ($seed$main$seed$, $seed$capabilities$seed$, $seed$$seed$)
-ON CONFLICT (agent_id, file_type) DO NOTHING;
+VALUES ($seed$main$seed$, $seed$capabilities$seed$, $seed$# Capabilities
+
+## Tools Available
+
+- **file_read** — Read the contents of a file within the agent workspace.
+- **file_write** — Write content to a file within the agent workspace. Creates the file if it does not exist.
+- **file_list** — List files and directories in a directory within the agent workspace.
+- **http_get** — Make an HTTP GET request to a URL and return the response body.
+- **web_search** — Search the web using DuckDuckGo. Returns titles, URLs, and snippets. No API key required.
+- **fetch_web_content** — Fetch the text content of a public web page. Returns the page text with HTML stripped.
+- **shell_run** — Run a shell command within the agent workspace.
+- **code_run_python** — Execute Python code. Returns stdout and stderr.
+- **code_run_javascript** — Execute JavaScript code in a Node.js environment. Returns stdout and stderr.
+- **browser_navigate** — Navigate to a URL and perform a browser action: fetch the page text, take a screenshot, or extract specific content.
+- **agent_list** — List all agents and their current status and profile.
+- **agent_get** — Get the full identity and current profile for a specific agent.
+- **agent_set_profile** — Attach a different profile to an agent.
+- **profile_list** — List all available agent profiles.
+- **memory_read** — Search and retrieve relevant memories. Use to recall past context, facts, or decisions.
+- **memory_write** — Store a memory entry for later retrieval.
+- **agent_message_send** — Send an async message to another agent. Returns the message ID immediately.
+- **agent_message_check** — Check inbox for unread messages. Returns up to 10 messages, high priority first.
+- **agent_message_list** — List all active agents available to message.
+- **discord_post** — Post a message to a Discord channel using this agent's own bot.
+- **discord_list_channels** — List all text and announcement channels visible to this agent's Discord bot.
+- **agent_invoke** — Synchronously invoke another agent with a prompt and wait for their full response.
+- **agent_create** — Create a new agent with a name and optional profile.
+- **agent_delete** — Delete an agent. Always requires user approval.
+- **group_create** — Create a new workspace group with a shared directory and memory space.
+- **group_update** — Update a workspace group name, description, goals, or hierarchy type.
+- **group_delete** — Delete a workspace group.
+- **group_member_add** — Add an agent to a workspace group.
+- **group_member_remove** — Remove an agent from a workspace group.
+- **group_list** — List all workspace groups with member counts.
+- **group_get** — Get details of a workspace group including its members.
+- **vault_search** — Search the knowledge vault for documents matching a query.
+- **vault_related** — Find documents linked to or from a given document in the vault.
+- **vault_propose** — Write a new document proposal to the vault for human review.
+- **brain_read** — Read a specific node from the Brain by its ID.
+- **brain_write** — Create or update a node in the Brain. Embeddings generated automatically.
+- **brain_relate** — Create a typed, weighted edge between two brain nodes.
+- **brain_search** — Semantic search across Brain nodes using vector similarity.
+- **brain_traverse** — Explore the Brain graph from a starting node, following edges up to N hops.
+- **system_diagnose** — Run a full system diagnostics check. Only available to the main agent.
+- **sleep** — Pause execution for a specified number of seconds. Use in autonomous mode to control wake frequency.
+$seed$)
+ON CONFLICT (agent_id, file_type) DO UPDATE SET content = EXCLUDED.content;
 
 INSERT INTO agent_config_files (agent_id, file_type, content)
 VALUES ($seed$main$seed$, $seed$scratch$seed$, $seed$$seed$)
