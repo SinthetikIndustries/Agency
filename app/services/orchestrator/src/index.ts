@@ -180,7 +180,71 @@ export class Orchestrator {
       [node.id, agent.id]
     )
 
+    // Provision config-file sub-nodes for this agent
+    await this.provisionConfigFileNodes(agent.slug, node.id, gridPath)
+
     return node.id
+  }
+
+  private async provisionConfigFileNodes(
+    slug: string,
+    agentNodeId: string,
+    agentGridPath: string
+  ): Promise<void> {
+    const CONFIG_FILE_TYPES = [
+      'identity', 'soul', 'user', 'capabilities', 'directives', 'decisions',
+      'coordination', 'governance', 'memory', 'history', 'permissions',
+      'profile', 'prompt', 'links', 'heartbeat', 'scratch',
+    ]
+    const MEMORY_TIERS = ['GRID/MEMORY/working', 'GRID/MEMORY/episodic', 'GRID/MEMORY/semantic/canon', 'GRID/MEMORY/semantic/proposals']
+
+    for (const fileType of CONFIG_FILE_TYPES) {
+      const nodePath = `${agentGridPath}/${fileType}`
+      const configRow = await this.db.queryOne<{ content: string | null }>(
+        'SELECT content FROM agent_config_files WHERE agent_id = $1 AND file_type = $2',
+        [slug, fileType]
+      )
+
+      const cfNode = await this.db.queryOne<{ id: string }>(
+        `INSERT INTO brain_nodes (type, label, content, grid_path, grid_tier, grid_locked, confidence, source)
+         VALUES ('config-file', $1, $2, $3, 3, false, 1.0, 'system')
+         ON CONFLICT (grid_path) WHERE grid_path IS NOT NULL DO UPDATE SET content = EXCLUDED.content, updated_at = NOW()
+         RETURNING id`,
+        [
+          `${slug}/${fileType}`,
+          configRow?.content ?? null,
+          nodePath,
+        ]
+      )
+      if (!cfNode) continue
+
+      await this.db.execute(
+        `INSERT INTO brain_edges (from_id, to_id, type, weight, source)
+         VALUES ($1, $2, 'has-file', 1.0, 'system')
+         ON CONFLICT (from_id, to_id, type) DO NOTHING`,
+        [agentNodeId, cfNode.id]
+      )
+
+      // Link brain_node_id back so content syncs on PUT /agents/:slug/config/:type
+      await this.db.execute(
+        `UPDATE agent_config_files SET brain_node_id = $1 WHERE agent_id = $2 AND file_type = $3`,
+        [cfNode.id, slug, fileType]
+      )
+    }
+
+    // Link to memory tiers
+    for (const tierPath of MEMORY_TIERS) {
+      const tierNode = await this.db.queryOne<{ id: string }>(
+        'SELECT id FROM brain_nodes WHERE grid_path = $1', [tierPath]
+      )
+      if (!tierNode) continue
+      await this.db.execute(
+        `INSERT INTO brain_edges (from_id, to_id, type, weight, source)
+         VALUES ($1, $2, 'accesses-memory', 0.8, 'system')
+         ON CONFLICT (from_id, to_id, type) DO NOTHING`,
+        [agentNodeId, tierNode.id]
+      )
+    }
   }
 
   // ─── Workspace Provisioning ────────────────────────────────────────────────

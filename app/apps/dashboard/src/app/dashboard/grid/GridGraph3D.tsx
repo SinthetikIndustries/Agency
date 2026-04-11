@@ -55,6 +55,9 @@ const NODE_CONFIG: Record<string, { color: number; region: { x: number; y: numbe
 
   // ── Grid tier-3: endpoints ────────────────────────────────────────────────
   'agent-config':  { color: 0x6d28d9, region: { x: -300, y: 240,  z: 60   } },
+
+  // ── Config file nodes (identity, soul, capabilities, etc.) ───────────────
+  'config-file':   { color: 0x9333ea, region: { x: -200, y: 180,  z: 120  } },
 }
 
 const EDGE_COLORS: Record<string, string> = {
@@ -77,6 +80,8 @@ const EDGE_COLORS: Record<string, string> = {
   reads:            '#0891b2',  // program → memory scope
   writes:           '#0d9488',  // program → memory scope
   triggers:         '#b45309',  // event → subprogram
+  'has-file':       '#7c3aed',  // agent → config-file node
+  'accesses-memory': '#0891b2', // agent → memory tier
 }
 
 function configFor(type: string) {

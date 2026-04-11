@@ -4242,6 +4242,7 @@ BEGIN
       INSERT INTO brain_edges (from_id, to_id, type, weight, source)
       VALUES (r.brain_node_id, node_id, 'has-file', 1.0, 'system')
       ON CONFLICT (from_id, to_id, type) DO NOTHING;
+      UPDATE agent_config_files SET brain_node_id = node_id WHERE agent_id = r.agent_id AND file_type = ft;
     END LOOP;
     INSERT INTO brain_edges (from_id, to_id, type, weight, source)
     SELECT r.brain_node_id, bn.id, 'accesses-memory', 1.0, 'system'
