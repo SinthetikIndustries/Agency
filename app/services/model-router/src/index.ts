@@ -487,12 +487,11 @@ export class OllamaAdapter implements ModelAdapter {
       model: request.model,
       messages: toOllamaMessages(request.messages, resolveSystemString(request)),
       stream: false,
+      think: false,
     }
-    if (request.maxTokens !== undefined) body['max_tokens'] = request.maxTokens
-    if (request.temperature !== undefined) body['temperature'] = request.temperature
     if (request.tools && request.tools.length > 0) body['tools'] = toOllamaTools(request.tools)
 
-    const res = await fetch(`${this.endpoint}/v1/chat/completions`, {
+    const res = await fetch(`${this.endpoint}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -500,63 +499,38 @@ export class OllamaAdapter implements ModelAdapter {
     })
 
     if (!res.ok) {
-      const text = await res.text()
-      // Retry without tools if the model doesn't support them
-      if (text.includes('does not support tools') && body['tools']) {
-        delete body['tools']
-        const retry = await fetch(`${this.endpoint}/v1/chat/completions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(120000),
-        })
-        if (!retry.ok) throw new Error(`Ollama request failed (${retry.status}): ${await retry.text()}`)
-        const data = await retry.json() as OllamaChatResponse
-        const choice = data.choices[0]!
-        const msg = choice.message
-        const content: ContentBlock[] = []
-        if (msg.content) content.push({ type: 'text', text: msg.content })
-        return {
-          id: data.id, model: data.model, content,
-          stopReason: 'end_turn',
-          inputTokens: data.usage.prompt_tokens,
-          outputTokens: data.usage.completion_tokens,
-        }
-      }
-      throw new Error(`Ollama request failed (${res.status}): ${text}`)
+      throw new Error(`Ollama request failed (${res.status}): ${await res.text()}`)
     }
 
-    const data = await res.json() as OllamaChatResponse
-    const choice = data.choices[0]!
-    const msg = choice.message
+    const data = await res.json() as {
+      message?: { content?: string; tool_calls?: { id?: string; function: { name: string; arguments: unknown } }[] }
+      prompt_eval_count?: number
+      eval_count?: number
+    }
 
     const content: ContentBlock[] = []
-    if (msg.content) {
-      content.push({ type: 'text', text: msg.content })
+    if (data.message?.content) {
+      content.push({ type: 'text', text: data.message.content })
     }
-    if (msg.tool_calls) {
-      for (const tc of msg.tool_calls) {
-        content.push({
-          type: 'tool_use',
-          id: tc.id,
-          name: tc.function.name,
-          input: JSON.parse(tc.function.arguments || '{}') as Record<string, unknown>,
-        })
-      }
+    const toolCalls = data.message?.tool_calls ?? []
+    for (const tc of toolCalls) {
+      content.push({
+        type: 'tool_use',
+        id: tc.id ?? crypto.randomUUID(),
+        name: tc.function.name,
+        input: typeof tc.function.arguments === 'string'
+          ? JSON.parse(tc.function.arguments) as Record<string, unknown>
+          : tc.function.arguments as Record<string, unknown>,
+      })
     }
-
-    const stopReason: CompletionResponse['stopReason'] =
-      choice.finish_reason === 'tool_calls' ? 'tool_use'
-      : choice.finish_reason === 'length' ? 'max_tokens'
-      : 'end_turn'
 
     return {
-      id: data.id,
-      model: data.model,
+      id: crypto.randomUUID(),
+      model: request.model,
       content,
-      stopReason,
-      inputTokens: data.usage.prompt_tokens,
-      outputTokens: data.usage.completion_tokens,
+      stopReason: toolCalls.length > 0 ? 'tool_use' : 'end_turn',
+      inputTokens: data.prompt_eval_count ?? 0,
+      outputTokens: data.eval_count ?? 0,
     }
   }
 
@@ -565,13 +539,11 @@ export class OllamaAdapter implements ModelAdapter {
       model: request.model,
       messages: toOllamaMessages(request.messages, resolveSystemString(request)),
       stream: true,
-      stream_options: { include_usage: true },
+      think: false,
     }
-    if (request.maxTokens !== undefined) body['max_tokens'] = request.maxTokens
-    if (request.temperature !== undefined) body['temperature'] = request.temperature
     if (request.tools && request.tools.length > 0) body['tools'] = toOllamaTools(request.tools)
 
-    const res = await fetch(`${this.endpoint}/v1/chat/completions`, {
+    const res = await fetch(`${this.endpoint}/api/chat`, {
       method: 'POST',
       signal: AbortSignal.timeout(120000),
       headers: { 'Content-Type': 'application/json' },
@@ -579,86 +551,53 @@ export class OllamaAdapter implements ModelAdapter {
     })
 
     if (!res.ok || !res.body) {
-      const text = await res.text().catch(() => '(no body)')
-      // Retry without tools if the model doesn't support them
-      if (text.includes('does not support tools') && body['tools']) {
-        delete body['tools']
-        const retry = await fetch(`${this.endpoint}/v1/chat/completions`, {
-          method: 'POST',
-          signal: AbortSignal.timeout(120000),
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        })
-        if (!retry.ok || !retry.body) {
-          throw new Error(`Ollama stream failed (${retry.status}): ${await retry.text().catch(() => '(no body)')}`)
-        }
-        yield* this._readStream(retry.body.getReader())
-        return
-      }
-      throw new Error(`Ollama stream failed (${res.status}): ${text}`)
+      throw new Error(`Ollama stream failed (${res.status}): ${await res.text().catch(() => '(no body)')}`)
     }
 
-    yield* this._readStream(res.body.getReader())
-  }
-
-  private async *_readStream(reader: ReadableStreamDefaultReader<Uint8Array>): AsyncGenerator<CompletionChunk> {
     const decoder = new TextDecoder()
-    let buffer = ''
-    const openToolCalls = new Map<number, string>()  // index → toolCallId
+    let buf = ''
     let inputTokens = 0
     let outputTokens = 0
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-
+    for await (const value of res.body) {
+      buf += decoder.decode(value, { stream: true })
+      const lines = buf.split('\n')
+      buf = lines.pop() ?? ''
       for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        const raw = line.slice(6).trim()
-        if (raw === '[DONE]') {
-          for (const _id of openToolCalls.values()) yield { type: 'tool_use_stop' }
+        const trimmed = line.trim()
+        if (!trimmed) continue
+        let chunk: {
+          message?: { content?: string; tool_calls?: { id?: string; function: { name: string; arguments: unknown } }[] }
+          done?: boolean
+          prompt_eval_count?: number
+          eval_count?: number
+        }
+        try { chunk = JSON.parse(trimmed) } catch { continue }
+
+        if (chunk.message?.content) {
+          yield { type: 'text_delta', text: chunk.message.content }
+        }
+
+        if (chunk.done) {
+          inputTokens = chunk.prompt_eval_count ?? 0
+          outputTokens = chunk.eval_count ?? 0
+          const toolCalls = chunk.message?.tool_calls ?? []
+          for (const tc of toolCalls) {
+            const id = tc.id ?? crypto.randomUUID()
+            const args = typeof tc.function.arguments === 'string'
+              ? tc.function.arguments
+              : JSON.stringify(tc.function.arguments)
+            yield { type: 'tool_use_start', toolCallId: id, toolName: tc.function.name }
+            yield { type: 'tool_use_delta', inputDelta: args }
+            yield { type: 'tool_use_stop' }
+          }
           yield { type: 'usage', inputTokens, outputTokens }
           yield { type: 'message_stop' }
           return
         }
-        let chunk: OllamaStreamChunk
-        try {
-          chunk = JSON.parse(raw) as OllamaStreamChunk
-        } catch {
-          continue
-        }
-
-        if (chunk.usage) {
-          inputTokens = chunk.usage.prompt_tokens
-          outputTokens = chunk.usage.completion_tokens
-        }
-
-        const delta = chunk.choices[0]?.delta
-        if (!delta) continue
-
-        if (delta.content) {
-          yield { type: 'text_delta', text: delta.content }
-        }
-
-        if (delta.tool_calls) {
-          for (const tc of delta.tool_calls) {
-            if (tc.id && !openToolCalls.has(tc.index)) {
-              openToolCalls.set(tc.index, tc.id)
-              yield { type: 'tool_use_start', toolCallId: tc.id, toolName: tc.function?.name ?? '' }
-            }
-            if (tc.function?.arguments) {
-              yield { type: 'tool_use_delta', inputDelta: tc.function.arguments }
-            }
-          }
-        }
       }
     }
 
-    for (const _id of openToolCalls.values()) yield { type: 'tool_use_stop' }
     yield { type: 'usage', inputTokens, outputTokens }
     yield { type: 'message_stop' }
   }
