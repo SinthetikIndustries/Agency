@@ -657,8 +657,8 @@ async function seedSystemGroup(): Promise<void> {
   })
   const workspacePath = data.group?.workspacePath ?? data.group?.workspace_path
   if (workspacePath) {
-    // Grant orchestrator file access to the system group workspace
-    await gatewayFetch('/agents/orchestrator/workspaces', {
+    // Grant system agent file access to the system group workspace
+    await gatewayFetch('/agents/system/workspaces', {
       method: 'POST',
       body: JSON.stringify({ path: workspacePath }),
     })
