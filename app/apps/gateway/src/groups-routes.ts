@@ -72,9 +72,9 @@ export async function registerGroupRoutes(
     await mkdir(memoryPath, { recursive: true })
 
     await db.execute(
-      `INSERT INTO workspace_groups (id, name, description, hierarchy_type, goals, workspace_path, memory_path, is_system, created_by, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),NOW())`,
-      [id, body.name, body.description ?? null, body.hierarchyType ?? 'flat', JSON.stringify(body.goals ?? []), workspacePath, memoryPath, body.isSystem ?? false, null]
+      `INSERT INTO workspace_groups (id, name, slug, description, hierarchy_type, goals, workspace_path, memory_path, is_system, created_by, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),NOW())`,
+      [id, body.name, slug, body.description ?? null, body.hierarchyType ?? 'flat', JSON.stringify(body.goals ?? []), workspacePath, memoryPath, body.isSystem ?? false, null]
     )
 
     const group = await db.queryOne<WorkspaceGroup>('SELECT * FROM workspace_groups WHERE id=$1', [id])
