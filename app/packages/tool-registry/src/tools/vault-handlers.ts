@@ -105,13 +105,13 @@ export function createVaultHandlers(store: VaultStore) {
       const links = [
         ...outbound.map(r => ({
           id: r.id,
-          path: r.path,
+          path: r.relative_path,
           title: r.title.replace(/\.md$/, ''),
           direction: 'outbound' as const,
         })),
         ...inbound.map(r => ({
           id: r.id,
-          path: r.path,
+          path: r.relative_path,
           title: r.title.replace(/\.md$/, ''),
           direction: 'inbound' as const,
         })),
